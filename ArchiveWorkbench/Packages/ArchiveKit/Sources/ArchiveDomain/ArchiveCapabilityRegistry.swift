@@ -1,0 +1,242 @@
+public struct ArchiveCapabilityRegistry: Sendable {
+    private let snapshots: [ArchiveFormat: ArchiveCapabilitySnapshot]
+
+    /// 运行时发现原则：provider 能力必须按真实运行时发现和验证；不能把设计矩阵直接当作已安装能力。
+    public static let productionBaseline = ArchiveCapabilityRegistry(snapshots: [
+        .zip: .init(
+            actions: [.list, .read, .preview, .create],
+            primaryProvider: .minizipNG,
+            unavailableReasons: [
+                .update: .notYetImplemented,
+                .encrypt: .notYetImplemented,
+                .split: .notYetImplemented,
+                .test: .notYetImplemented,
+                .repair: .notYetImplemented,
+            ]
+        ),
+        .sevenZip: .init(
+            actions: [.list, .read, .preview],
+            primaryProvider: .sevenZZ,
+            unavailableReasons: [
+                .create: .notYetImplemented,
+                .update: .notYetImplemented,
+                .encrypt: .notYetImplemented,
+                .split: .notYetImplemented,
+                .test: .notYetImplemented,
+                .repair: .unsupportedByProvider,
+            ]
+        ),
+        .tar: .init(
+            actions: [.list, .read, .preview, .create],
+            primaryProvider: .libarchive,
+            unavailableReasons: [
+                .update: .unsupportedByProvider,
+                .test: .notYetImplemented,
+            ]
+        ),
+        .gzip: .init(
+            actions: [.read, .create],
+            primaryProvider: .libarchive,
+            unavailableReasons: [
+                .update: .unsupportedByProvider,
+                .test: .notYetImplemented,
+            ]
+        ),
+        .bzip2: .init(
+            actions: [.read, .create],
+            primaryProvider: .libarchive,
+            unavailableReasons: [
+                .update: .unsupportedByProvider,
+                .test: .notYetImplemented,
+            ]
+        ),
+        .xz: .init(
+            actions: [.read, .create],
+            primaryProvider: .libarchive,
+            unavailableReasons: [
+                .update: .unsupportedByProvider,
+                .test: .notYetImplemented,
+            ]
+        ),
+        .zstandard: .init(
+            actions: [.read, .create],
+            primaryProvider: .libarchive,
+            unavailableReasons: [
+                .update: .unsupportedByProvider,
+                .test: .notYetImplemented,
+            ]
+        ),
+        .rar: .init(
+            actions: [.list, .read, .preview],
+            primaryProvider: .sevenZZ,
+            unavailableReasons: [
+                .create: .externalProviderNotValidated,
+                .update: .externalProviderNotValidated,
+                .test: .notYetImplemented,
+                .repair: .unsupportedByProvider,
+            ]
+        ),
+        .dmg: .init(
+            actions: [.list, .read, .preview],
+            primaryProvider: .sevenZZ,
+            unavailableReasons: [.create: .formatReadOnly, .update: .formatReadOnly]
+        ),
+        .iso: .init(
+            actions: [.list, .read, .preview],
+            primaryProvider: .sevenZZ,
+            unavailableReasons: [.create: .formatReadOnly, .update: .formatReadOnly]
+        ),
+    ])
+
+    public init(snapshots: [ArchiveFormat: ArchiveCapabilitySnapshot]) {
+        self.snapshots = snapshots
+    }
+
+    public func snapshot(format: ArchiveFormat) -> ArchiveCapabilitySnapshot {
+        snapshots[format] ?? .init(actions: [], primaryProvider: nil, unavailableReasons: [:])
+    }
+
+    /// Runtime discovery: register 7z capabilities as available only when the
+    /// system 7zz binary was discovered and validated. Otherwise the 7z snapshot
+    /// exposes no actions so the UI can prompt to install 7zz.
+    public func withSevenZipAvailable(_ available: Bool) -> Self {
+        var copy = snapshots
+        if available {
+            copy[.sevenZip] = Self.productionBaseline.snapshot(format: .sevenZip)
+        } else {
+            copy[.sevenZip] = .init(
+                actions: [],
+                primaryProvider: nil,
+                unavailableReasons: [
+                    .list: .externalProviderNotValidated,
+                    .read: .externalProviderNotValidated,
+                    .preview: .externalProviderNotValidated,
+                    .create: .notYetImplemented,
+                    .update: .notYetImplemented,
+                ]
+            )
+        }
+        return .init(snapshots: copy)
+    }
+
+    /// Runtime discovery: register RAR capabilities as available only when the
+    /// system 7zz binary was discovered and validated. Otherwise the RAR snapshot
+    /// exposes no actions so the UI can prompt to install 7zz.
+    public func withRARAvailable(_ available: Bool) -> Self {
+        var copy = snapshots
+        if available {
+            copy[.rar] = Self.productionBaseline.snapshot(format: .rar)
+        } else {
+            copy[.rar] = .init(
+                actions: [],
+                primaryProvider: nil,
+                unavailableReasons: [
+                    .list: .externalProviderNotValidated,
+                    .read: .externalProviderNotValidated,
+                    .preview: .externalProviderNotValidated,
+                    .create: .externalProviderNotValidated,
+                    .update: .externalProviderNotValidated,
+                ]
+            )
+        }
+        return .init(snapshots: copy)
+    }
+
+    /// Runtime discovery: register DMG capabilities as available only when the
+    /// system 7zz binary was discovered and validated. DMG is strictly read-only;
+    /// creation and update are always unavailable (format is read-only by design).
+    /// When 7zz is missing the UI shows: "需要安装 7zz 以支持此格式".
+    public func withDMGAvailable(_ available: Bool) -> Self {
+        var copy = snapshots
+        if available {
+            copy[.dmg] = Self.productionBaseline.snapshot(format: .dmg)
+        } else {
+            copy[.dmg] = .init(
+                actions: [],
+                primaryProvider: nil,
+                unavailableReasons: [
+                    .list: .externalProviderNotValidated,
+                    .read: .externalProviderNotValidated,
+                    .preview: .externalProviderNotValidated,
+                    .create: .formatReadOnly,
+                    .update: .formatReadOnly,
+                ]
+            )
+        }
+        return .init(snapshots: copy)
+    }
+
+    /// Runtime discovery: register ISO capabilities as available only when the
+    /// system 7zz binary was discovered and validated. ISO is strictly read-only;
+    /// creation and update are always unavailable (format is read-only by design).
+    /// When 7zz is missing the UI shows: "需要安装 7zz 以支持此格式".
+    public func withISOAvailable(_ available: Bool) -> Self {
+        var copy = snapshots
+        if available {
+            copy[.iso] = Self.productionBaseline.snapshot(format: .iso)
+        } else {
+            copy[.iso] = .init(
+                actions: [],
+                primaryProvider: nil,
+                unavailableReasons: [
+                    .list: .externalProviderNotValidated,
+                    .read: .externalProviderNotValidated,
+                    .preview: .externalProviderNotValidated,
+                    .create: .formatReadOnly,
+                    .update: .formatReadOnly,
+                ]
+            )
+        }
+        return .init(snapshots: copy)
+    }
+
+    /// Runtime discovery: register RARLAB rar creation capabilities when the
+    /// external rar binary has been validated AND the user confirmed their license.
+    /// The primary provider is .rarLab (not .sevenZZ) since creation uses RARLAB's
+    /// proprietary binary. Reading still uses 7zz via withRARAvailable().
+    public func withValidatedRARLAB() -> Self {
+        var copy = snapshots
+        copy[.rar] = .init(
+            actions: [.list, .read, .preview, .create, .test],
+            primaryProvider: .rarLab,
+            unavailableReasons: [
+                .update: .notYetImplemented,
+                .repair: .unsupportedByProvider,
+            ]
+        )
+        return .init(snapshots: copy)
+    }
+
+    /// Runtime discovery: gate RAR creation on whether the external RARLAB rar
+    /// provider is available (binary validated + license confirmed). When false,
+    /// creation is marked as externalProviderNotValidated; reading via 7zz is
+    /// unaffected.
+    public func withRARCreateAvailable(_ available: Bool) -> Self {
+        var copy = snapshots
+        if available {
+            copy[.rar] = .init(
+                actions: [.list, .read, .preview, .create, .test],
+                primaryProvider: .rarLab,
+                unavailableReasons: [
+                    .update: .notYetImplemented,
+                    .repair: .unsupportedByProvider,
+                ]
+            )
+        } else {
+            // Preserve read capabilities from 7zz but mark creation unavailable
+            let existing = copy[.rar]
+            var actions = existing?.actions ?? []
+            actions.remove(.create)
+            actions.remove(.test)
+            var reasons = existing?.unavailableReasons ?? [:]
+            reasons[.create] = .externalProviderNotValidated
+            reasons[.test] = .externalProviderNotValidated
+            copy[.rar] = .init(
+                actions: actions,
+                primaryProvider: existing?.primaryProvider,
+                unavailableReasons: reasons
+            )
+        }
+        return .init(snapshots: copy)
+    }
+}

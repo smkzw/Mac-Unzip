@@ -1,0 +1,37 @@
+# Build artifacts
+build/
+DerivedData/
+*.dmg
+*.pkg
+
+# Xcode user data
+*.xcuserdata
+xcuserdata/
+
+# Development artifacts (not for public release)
+context/
+prompts/
+reviews/
+runs/
+metrics/
+HANDOFF_AGENT2/
+HelperFixture/
+HelperSpike/
+HelperSpikeTests/
+LowFDHarness/
+TestFixtures/
+AGENT2_QODER_HANDOFF_PROMPT_*.md
+TASK_RESUME.md
+
+# OS files
+.DS_Store
+*.swp
+*~
+
+# Swift Package Manager build cache
+.build/
+
+# Temporary
+*.tmp
+*.log
+App/Binaries/

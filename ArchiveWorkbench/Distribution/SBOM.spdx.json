@@ -1,0 +1,193 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "ArchiveWorkbench-SBOM",
+  "documentNamespace": "https://smkzw.com/archiveworkbench/sbom",
+  "creationInfo": {
+    "created": "2026-07-27T00:00:00Z",
+    "creators": [
+      "Organization: smkzw",
+      "Tool: manual-spdx-2.3"
+    ],
+    "licenseListVersion": "3.21"
+  },
+  "documentDescribes": ["SPDXRef-Package-ArchiveWorkbench"],
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-ArchiveWorkbench",
+      "name": "ArchiveWorkbench",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "https://smkzw.com/archiveworkbench",
+      "filesAnalyzed": false,
+      "supplier": "Organization: smkzw",
+      "primaryPackagePurpose": "APPLICATION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "Copyright (c) 2026 smkzw. All rights reserved.",
+      "description": "ArchiveWorkbench - macOS archive management application supporting ZIP, 7z, RAR, TAR, DMG, and ISO formats.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "TODO_REPLACE_WITH_ACTUAL_SHA256_OF_RELEASE_BINARY"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:generic/com.smkzw.ArchiveWorkbench@1.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-minizip-ng",
+      "name": "minizip-ng",
+      "versionInfo": "4.2.1",
+      "downloadLocation": "https://github.com/zlib-ng/minizip-ng/archive/26b4619120f714cb76c0c52cdd48223bee944d73.tar.gz",
+      "filesAnalyzed": false,
+      "supplier": "NOASSERTION",
+      "originator": "Organization: zlib-ng",
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "Zlib",
+      "licenseDeclared": "Zlib",
+      "licenseInfoFromFiles": ["Zlib"],
+      "copyrightText": "Copyright (C) Nathan Moinvaziri",
+      "description": "ZIP manipulation library. Vendored source compiled into CMinizipBridge target.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_VENDORED_SOURCES"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:github/zlib-ng/minizip-ng@4.2.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-libarchive",
+      "name": "libarchive",
+      "versionInfo": "3.8.8",
+      "downloadLocation": "https://github.com/libarchive/libarchive/releases/download/v3.8.8/libarchive-3.8.8.tar.gz",
+      "filesAnalyzed": false,
+      "supplier": "NOASSERTION",
+      "originator": "Organization: libarchive",
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "licenseInfoFromFiles": ["BSD-2-Clause"],
+      "copyrightText": "Copyright (c) 2003-2020 Tim Kientzle and contributors",
+      "description": "Multi-format archive and compression library. Linked via system library (Homebrew) through CLibArchiveBridge.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_LIBARCHIVE_TARBALL"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:brew/libarchive@3.8.8"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7zz",
+      "name": "7zz",
+      "versionInfo": "26.02",
+      "downloadLocation": "https://www.7-zip.org/a/7z2602-mac.tar.xz",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Igor Pavlov",
+      "originator": "Person: Igor Pavlov",
+      "primaryPackagePurpose": "APPLICATION",
+      "licenseConcluded": "LGPL-2.1-or-later",
+      "licenseDeclared": "LGPL-2.1-or-later",
+      "licenseInfoFromFiles": ["LGPL-2.1-or-later"],
+      "copyrightText": "Copyright (C) 1999-2026 Igor Pavlov",
+      "description": "7-Zip command-line archiver. External dependency - NOT bundled with ArchiveWorkbench. Invoked via Process() only if user has installed it separately.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_7ZZ_BINARY"
+        }
+      ],
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:brew/p7zip@26.02"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-Apple-libcompression",
+      "name": "Apple libcompression",
+      "versionInfo": "macOS-SDK-26",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Apple Inc.",
+      "originator": "Organization: Apple Inc.",
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "LicenseRef-Apple-SDK",
+      "licenseDeclared": "LicenseRef-Apple-SDK",
+      "copyrightText": "Copyright (c) Apple Inc. All rights reserved.",
+      "description": "Apple Compression library (compression.framework). Part of macOS SDK, linked via -lcompression for deflate/lzma/lz4/zstd hardware-accelerated compression.",
+      "externalRefs": [
+        {
+          "referenceCategory": "OTHER",
+          "referenceType": "advisory",
+          "referenceLocator": "https://developer.apple.com/documentation/compression"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-minizip-ng"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-libarchive"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Apple-libcompression"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-7zz"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-minizip-ng",
+      "relationshipType": "BUILD_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-libarchive",
+      "relationshipType": "BUILD_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Apple-libcompression",
+      "relationshipType": "BUILD_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+    }
+  ],
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-Apple-SDK",
+      "name": "Apple SDK License Agreement",
+      "extractedText": "Use of Apple SDK components is governed by the Apple Software License Agreement. See https://www.apple.com/legal/sla/ for the current terms. These components are provided as part of the macOS operating system and may only be used on Apple-branded hardware."
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+name: ArchiveWorkbench
+options:
+  developmentLanguage: zh-Hans
+  deploymentTarget:
+    macOS: "26.0"
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Config/Local.xcconfig
+  Release: Config/Base.xcconfig
+packages:
+  ArchiveKit:
+    path: Packages/ArchiveKit
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui.git
+    from: "2.1.0"
+targets:
+  HelperSpike:
+    type: framework
+    platform: macOS
+    sources:
+      - HelperSpike
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.HelperSpike
+        DEFINES_MODULE: YES
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+  HelperFixture:
+    type: tool
+    platform: macOS
+    sources:
+      - HelperFixture
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.HelperFixture
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+  LowFDHarness:
+    type: tool
+    platform: macOS
+    sources:
+      - LowFDHarness
+    dependencies:
+      - target: HelperSpike
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.LowFDHarness
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        LD_RUNPATH_SEARCH_PATHS: $(inherited) @loader_path
+  HelperSpikeTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - HelperSpikeTests
+    dependencies:
+      - target: HelperSpike
+      - target: HelperFixture
+      - target: LowFDHarness
+    settings:
+      base:
+        ENABLE_HARDENED_RUNTIME: NO
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
+  ArchiveWorkbench:
+    type: application
+    platform: macOS
+    sources:
+      - App/Sources
+      - path: App/Resources
+        buildPhase: resources
+      - path: App/Binaries
+        buildPhase: resources
+        type: folder
+    dependencies:
+      - package: ArchiveKit
+        product: ArchiveDomain
+      - package: ArchiveKit
+        product: ArchiveProviders
+      - package: ArchiveKit
+        product: ArchiveSecurity
+      - package: MarkdownUI
+      - target: ArchiveWorkbenchQLExtension
+      - target: ArchiveWorkbenchFinderExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench
+        PRODUCT_NAME: ArchiveWorkbench
+        INFOPLIST_KEY_CFBundleDisplayName: Mac解霸
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/ArchiveWorkbench.entitlements
+        ARCHS: arm64
+        OTHER_CODE_SIGN_FLAGS: --options=runtime
+        VALID_ARCHS: arm64
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: YES
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Manual
+          DEVELOPMENT_TEAM: ""
+          ENABLE_DEBUG_DYLIB: NO
+        Release:
+          CODE_SIGN_STYLE: Automatic
+  ArchiveWorkbenchQLExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - QLExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.ql-extension
+        PRODUCT_NAME: ArchiveWorkbenchQLExtension
+        INFOPLIST_FILE: QLExtension/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ARCHS: arm64
+        VALID_ARCHS: arm64
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+  ArchiveWorkbenchFinderExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - FinderExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.finder-extension
+        PRODUCT_NAME: ArchiveWorkbenchFinderExtension
+        INFOPLIST_FILE: FinderExtension/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ARCHS: arm64
+        VALID_ARCHS: arm64
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+  ArchiveWorkbenchAppTests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - AppTests
+      - path: TestFixtures/PreviewDocuments
+        buildPhase: resources
+    dependencies:
+      - target: ArchiveWorkbench
+    settings:
+      base:
+        ENABLE_HARDENED_RUNTIME: NO
+        GENERATE_INFOPLIST_FILE: YES
+  ArchiveWorkbenchUnitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - AppUnitTests
+      - path: TestFixtures/PreviewDocuments
+        buildPhase: resources
+      - path: App/Resources/Localizable.xcstrings
+        buildPhase: resources
+      - App/Sources/AppModel.swift
+      - App/Sources/ArchiveDocumentLoader.swift
+      - App/Sources/ArchiveErrorBanner.swift
+      - App/Sources/ArchiveFileTypes.swift
+      - App/Sources/ArchiveSession.swift
+      - App/Sources/PreviewRouting.swift
+      - App/Sources/SettingsView.swift
+    dependencies:
+      - package: ArchiveKit
+        product: ArchiveDomain
+      - package: ArchiveKit
+        product: ArchiveProviders
+      - package: ArchiveKit
+        product: ArchiveSecurity
+    settings:
+      base:
+        ENABLE_HARDENED_RUNTIME: NO
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
+schemes:
+  ArchiveWorkbench:
+    build:
+      targets:
+        ArchiveWorkbench: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      debugEnabled: false
+      targets:
+        - HelperSpikeTests
+        - ArchiveWorkbenchUnitTests
+        - ArchiveWorkbenchAppTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

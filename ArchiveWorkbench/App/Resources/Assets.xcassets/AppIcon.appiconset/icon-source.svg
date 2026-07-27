@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Blue to purple gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7B68EE;stop-opacity:1" />
+    </linearGradient>
+    <!-- Glass highlight -->
+    <radialGradient id="glassHighlight" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+    <!-- macOS squircle clip path (approximation) -->
+    <clipPath id="squircleClip">
+      <path d="M512,0 C712,0 792,0 862,20 C932,40 984,92 1004,162 C1024,232 1024,312 1024,512 C1024,712 1024,792 1004,862 C984,932 932,984 862,1004 C792,1024 712,1024 512,1024 C312,1024 232,1024 162,1004 C92,984 40,932 20,862 C0,792 0,712 0,512 C0,312 0,232 20,162 C40,92 92,40 162,20 C232,0 312,0 512,0 Z"/>
+    </clipPath>
+  </defs>
+  
+  <!-- Background with squircle shape -->
+  <g clip-path="url(#squircleClip)">
+    <!-- Gradient background -->
+    <rect width="1024" height="1024" fill="url(#bgGradient)"/>
+    <!-- Glass highlight overlay -->
+    <rect width="1024" height="1024" fill="url(#glassHighlight)"/>
+    
+    <!-- Zipper motif -->
+    <g fill="#FFFFFF" opacity="0.95">
+      <!-- Central zipper line -->
+      <rect x="502" y="154" width="20" height="716" rx="10"/>
+      
+      <!-- Zipper teeth - left side (even rows) -->
+      <rect x="432" y="180" width="60" height="35" rx="8"/>
+      <rect x="432" y="290" width="60" height="35" rx="8"/>
+      <rect x="432" y="400" width="60" height="35" rx="8"/>
+      <rect x="432" y="510" width="60" height="35" rx="8"/>
+      <rect x="432" y="620" width="60" height="35" rx="8"/>
+      <rect x="432" y="730" width="60" height="35" rx="8"/>
+      
+      <!-- Zipper teeth - right side (odd rows) -->
+      <rect x="532" y="235" width="60" height="35" rx="8"/>
+      <rect x="532" y="345" width="60" height="35" rx="8"/>
+      <rect x="532" y="455" width="60" height="35" rx="8"/>
+      <rect x="532" y="565" width="60" height="35" rx="8"/>
+      <rect x="532" y="675" width="60" height="35" rx="8"/>
+      <rect x="532" y="785" width="60" height="35" rx="8"/>
+      
+      <!-- Zipper pull/slider -->
+      <rect x="472" y="140" width="80" height="50" rx="12"/>
+      <circle cx="512" cy="125" r="18" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+    </g>
+  </g>
+</svg>

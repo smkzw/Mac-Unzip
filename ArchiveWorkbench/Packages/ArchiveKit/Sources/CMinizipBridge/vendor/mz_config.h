@@ -1,0 +1,1 @@
+../../../ThirdParty/minizip-ng/mz_config.h

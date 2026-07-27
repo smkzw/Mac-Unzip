@@ -1,0 +1,7 @@
+{
+  "name": "minizip-ng",
+  "version": "4.2.1",
+  "commit": "26b4619120f714cb76c0c52cdd48223bee944d73",
+  "repository": "https://github.com/zlib-ng/minizip-ng",
+  "license": "Zlib"
+}

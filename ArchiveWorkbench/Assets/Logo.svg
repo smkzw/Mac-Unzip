@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a1a"/>
+      <stop offset="50%" style="stop-color:#0d1025"/>
+      <stop offset="100%" style="stop-color:#0a0a1a"/>
+    </linearGradient>
+    <linearGradient id="zipperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e5ff"/>
+      <stop offset="100%" style="stop-color:#7c4dff"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#7c4dff;stop-opacity:0.3"/>
+    </linearGradient>
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="15" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="burstGrad" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:0.4"/>
+      <stop offset="60%" style="stop-color:#7c4dff;stop-opacity:0.1"/>
+      <stop offset="100%" style="stop-color:#0a0a1a;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bgGrad)"/>
+
+  <!-- Circuit board pattern -->
+  <g stroke="#00e5ff" stroke-opacity="0.08" stroke-width="1.5" fill="none">
+    <path d="M100,200 H300 V350 H450"/>
+    <path d="M924,200 H724 V350 H574"/>
+    <path d="M100,800 H250 V650 H400"/>
+    <path d="M924,800 H774 V650 H624"/>
+    <path d="M200,100 V250 H350"/>
+    <path d="M824,100 V250 H674"/>
+    <path d="M200,924 V774 H350"/>
+    <path d="M824,924 V774 H674"/>
+    <circle cx="300" cy="200" r="4" fill="#00e5ff" fill-opacity="0.15"/>
+    <circle cx="724" cy="200" r="4" fill="#00e5ff" fill-opacity="0.15"/>
+    <circle cx="250" cy="800" r="4" fill="#7c4dff" fill-opacity="0.15"/>
+    <circle cx="774" cy="800" r="4" fill="#7c4dff" fill-opacity="0.15"/>
+  </g>
+
+  <!-- Hexagonal grid (subtle) -->
+  <g stroke="#7c4dff" stroke-opacity="0.05" stroke-width="1" fill="none">
+    <path d="M512,150 L562,175 L562,225 L512,250 L462,225 L462,175 Z"/>
+    <path d="M412,200 L462,225 L462,275 L412,300 L362,275 L362,225 Z"/>
+    <path d="M612,200 L662,225 L662,275 L612,300 L562,275 L562,225 Z"/>
+  </g>
+
+  <!-- Central burst glow -->
+  <ellipse cx="512" cy="430" rx="280" ry="250" fill="url(#burstGrad)"/>
+
+  <!-- Data streams expanding from zipper -->
+  <g filter="url(#softGlow)" opacity="0.7">
+    <path d="M512,380 L380,280 L360,260" stroke="#00e5ff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M512,380 L644,280 L664,260" stroke="#00e5ff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M512,380 L350,350 L310,340" stroke="#7c4dff" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M512,380 L674,350 L714,340" stroke="#7c4dff" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M512,380 L420,250 L400,220" stroke="#00e5ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+    <path d="M512,380 L604,250 L624,220" stroke="#00e5ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+    <path d="M512,380 L320,420 L280,430" stroke="#7c4dff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <path d="M512,380 L704,420 L744,430" stroke="#7c4dff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- Floating file icons (expanding outward) -->
+  <g filter="url(#neonGlow)" opacity="0.8">
+    <rect x="340" y="240" width="36" height="44" rx="4" fill="none" stroke="#00e5ff" stroke-width="2"/>
+    <path d="M348,252 H368 M348,260 H368 M348,268 H360" stroke="#00e5ff" stroke-width="1.5"/>
+    <rect x="648" y="240" width="36" height="44" rx="4" fill="none" stroke="#7c4dff" stroke-width="2"/>
+    <path d="M656,252 H676 M656,260 H676 M656,268 H668" stroke="#7c4dff" stroke-width="1.5"/>
+    <rect x="290" y="370" width="30" height="38" rx="3" fill="none" stroke="#00e5ff" stroke-width="1.5" opacity="0.6"/>
+    <rect x="704" y="370" width="30" height="38" rx="3" fill="none" stroke="#7c4dff" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Main zipper body -->
+  <g filter="url(#neonGlow)">
+    <!-- Zipper track left -->
+    <path d="M460,580 L490,400 L512,380" stroke="url(#zipperGrad)" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <!-- Zipper track right -->
+    <path d="M564,580 L534,400 L512,380" stroke="url(#zipperGrad)" stroke-width="8" fill="none" stroke-linecap="round"/>
+
+    <!-- Zipper teeth left -->
+    <g stroke="#00e5ff" stroke-width="4" stroke-linecap="round">
+      <line x1="462" y1="560" x2="480" y2="555"/>
+      <line x1="466" y1="530" x2="484" y2="525"/>
+      <line x1="470" y1="500" x2="488" y2="495"/>
+      <line x1="474" y1="470" x2="492" y2="465"/>
+      <line x1="478" y1="440" x2="496" y2="435"/>
+      <line x1="484" y1="415" x2="500" y2="410"/>
+    </g>
+    <!-- Zipper teeth right -->
+    <g stroke="#7c4dff" stroke-width="4" stroke-linecap="round">
+      <line x1="562" y1="560" x2="544" y2="555"/>
+      <line x1="558" y1="530" x2="540" y2="525"/>
+      <line x1="554" y1="500" x2="536" y2="495"/>
+      <line x1="550" y1="470" x2="532" y2="465"/>
+      <line x1="546" y1="440" x2="528" y2="435"/>
+      <line x1="540" y1="415" x2="524" y2="410"/>
+    </g>
+
+    <!-- Zipper pull (futuristic arrow) -->
+    <g transform="translate(512,600)">
+      <path d="M0,-20 L18,10 L8,10 L8,30 L-8,30 L-8,10 L-18,10 Z" fill="url(#zipperGrad)" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.5"/>
+      <circle cx="0" cy="0" r="6" fill="#ffffff" opacity="0.9"/>
+    </g>
+  </g>
+
+  <!-- Particles -->
+  <g fill="#00e5ff" opacity="0.7">
+    <circle cx="380" cy="310" r="3"/>
+    <circle cx="644" cy="310" r="3"/>
+    <circle cx="350" cy="400" r="2"/>
+    <circle cx="674" cy="400" r="2"/>
+    <circle cx="420" cy="260" r="2.5"/>
+    <circle cx="604" cy="260" r="2.5"/>
+  </g>
+  <g fill="#7c4dff" opacity="0.6">
+    <circle cx="320" cy="350" r="2"/>
+    <circle cx="704" cy="350" r="2"/>
+    <circle cx="440" cy="230" r="2"/>
+    <circle cx="584" cy="230" r="2"/>
+  </g>
+
+  <!-- App name text -->
+  <text x="512" y="760" text-anchor="middle" font-family="SF Pro Display, -apple-system, Helvetica Neue, Arial, sans-serif" font-size="72" font-weight="700" fill="#ffffff" letter-spacing="4">
+    Mac Unzip
+  </text>
+  <text x="512" y="820" text-anchor="middle" font-family="SF Pro Display, -apple-system, Helvetica Neue, Arial, sans-serif" font-size="36" font-weight="400" fill="#00e5ff" opacity="0.8" letter-spacing="8">
+    Mac解霸
+  </text>
+
+  <!-- Subtle bottom glow line -->
+  <line x1="312" y1="860" x2="712" y2="860" stroke="url(#zipperGrad)" stroke-width="2" opacity="0.4" stroke-linecap="round"/>
+</svg>
