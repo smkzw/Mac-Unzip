@@ -383,10 +383,12 @@ private struct NativeVideoCanvas: NSViewRepresentable {
     }
 }
 
+// Immutable after init(data:); consumed on MainActor only after detached task completes.
 private struct SendableImage: @unchecked Sendable {
     let image: NSImage
 }
 
+// Immutable after init(data:); consumed on MainActor only after detached task completes.
 private struct SendablePDFDocument: @unchecked Sendable {
     let document: PDFDocument
 }

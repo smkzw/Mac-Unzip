@@ -601,14 +601,6 @@ private struct CreateArchiveView: View {
         draft.canCreate && passwordsMatch && !model.isCreating
     }
 
-    private var estimatedVolumeCount: Int {
-        guard model.creationSplitEnabled else { return 0 }
-        let totalSize = model.totalInputSize(for: draft.inputs)
-        let volumeBytes = model.creationVolumeSize.bytes
-        guard volumeBytes > 0 else { return 0 }
-        return max(1, Int((totalSize + volumeBytes - 1) / volumeBytes))
-    }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -786,25 +778,14 @@ private struct CreateArchiveView: View {
     private var splitSection: some View {
         GroupBox("分卷") {
             VStack(alignment: .leading, spacing: 10) {
-                Toggle("分卷", isOn: $model.creationSplitEnabled)
+                Toggle("分卷", isOn: .constant(false))
+                    .disabled(true)
                     .accessibilityIdentifier("分卷开关")
 
-                if model.creationSplitEnabled {
-                    Picker("分卷大小", selection: $model.creationVolumeSize) {
-                        ForEach(SplitVolumeSize.allCases, id: \.self) { size in
-                            Text(size.displayName).tag(size)
-                        }
-                    }
-                    .labelsHidden()
-                    .accessibilityIdentifier("分卷大小")
-
-                    if estimatedVolumeCount > 0 {
-                        Text("预计 \(estimatedVolumeCount) 个分卷")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("预计分卷数")
-                    }
-                }
+                Text("分卷创建功能即将推出")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("分卷状态")
             }
             .padding(.vertical, 4)
         }

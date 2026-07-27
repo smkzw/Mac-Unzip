@@ -115,13 +115,14 @@ struct ValidatedPreviewCacheURL: Equatable, Sendable {
                 let requestedBytes = min(64 * 1_024, readLimit - result.count)
                 guard let chunk = try handle.read(upToCount: requestedBytes),
                       !chunk.isEmpty else {
-                    return result
+                    break
                 }
                 result.append(chunk)
             }
         } catch {
             return nil
         }
+        guard result.count <= maximumBytes else { return nil }
         return result
     }
 

@@ -746,8 +746,10 @@ final class AppModel {
         guard hasDocument, let selectedEntryID,
               let entry = entries.first(where: { $0.id == selectedEntryID }) else { return }
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !trimmed.contains("/"), !trimmed.contains("\\") else {
-            transientStatusMessage = localization.string("名称无效，不能包含路径分隔符。")
+        let invalidCharacters = CharacterSet(charactersIn: "/:\\<>|?*\"")
+        guard !trimmed.isEmpty,
+              trimmed.rangeOfCharacter(from: invalidCharacters) == nil else {
+            transientStatusMessage = localization.string("名称无效，不能包含路径分隔符或特殊字符。")
             return
         }
         let currentPath = entry.displayPath.hasSuffix("/")
@@ -918,15 +920,7 @@ final class AppModel {
             let outputURL = try await loader.extractAll(to: destinationDirectoryURL) { [weak self] progress in
                 Task { @MainActor in
                     guard let self else { return }
-                    let fraction: Double
-                    if progress.totalBytes > 0 {
-                        fraction = Double(progress.completedBytes) / Double(progress.totalBytes)
-                    } else if progress.totalEntries > 0 {
-                        fraction = Double(progress.completedEntries) / Double(progress.totalEntries)
-                    } else {
-                        fraction = 1
-                    }
-                    self.extractionProgress = min(max(fraction, 0), 1)
+                    self.extractionProgress = self.extractionFraction(progress)
                     self.operationMessage = self.localization.format(
                         "正在解压缩 · %ld/%ld 项",
                         progress.completedEntries,
@@ -1081,7 +1075,7 @@ final class AppModel {
     /// Extracts only the currently selected entry (file or folder) to a destination.
     func extractSelected(to destinationDirectoryURL: URL) async {
         guard hasDocument, let selectedEntryID,
-              entries.contains(where: { $0.id == selectedEntryID }),
+              let selectedEntry = entries.first(where: { $0.id == selectedEntryID }),
               !isExtracting else { return }
         isExtracting = true
         extractionProgress = 0
@@ -1091,19 +1085,15 @@ final class AppModel {
         operationMessage = localization.string("正在准备解压缩…")
         defer { isExtracting = false }
         do {
-            // Extract via the loader; folder structure is maintained by the provider
-            let outputURL = try await loader.extractAll(to: destinationDirectoryURL) { [weak self] progress in
+            let stagingDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacUnzip_extract_\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: stagingDir) }
+
+            _ = try await loader.extractAll(to: stagingDir) { [weak self] progress in
                 Task { @MainActor in
                     guard let self else { return }
-                    let fraction: Double
-                    if progress.totalBytes > 0 {
-                        fraction = Double(progress.completedBytes) / Double(progress.totalBytes)
-                    } else if progress.totalEntries > 0 {
-                        fraction = Double(progress.completedEntries) / Double(progress.totalEntries)
-                    } else {
-                        fraction = 1
-                    }
-                    self.extractionProgress = min(max(fraction, 0), 1)
+                    self.extractionProgress = self.extractionFraction(progress)
                     self.operationMessage = self.localization.format(
                         "正在解压缩 · %ld/%ld 项",
                         progress.completedEntries,
@@ -1112,9 +1102,15 @@ final class AppModel {
                 }
             }
             try Task.checkCancellation()
+
+            let entryPath = selectedEntry.displayPath
+            let sourceURL = stagingDir.appending(path: entryPath)
+            let destURL = destinationDirectoryURL.appending(path: URL(fileURLWithPath: entryPath).lastPathComponent)
+            try FileManager.default.copyItem(at: sourceURL, to: destURL)
+
             extractionProgress = 1
-            lastExtractionURL = outputURL
-            statusMessage = localization.format("解压缩完成：%@", outputURL.lastPathComponent)
+            lastExtractionURL = destURL
+            statusMessage = localization.format("解压缩完成：%@", destURL.lastPathComponent)
             operationMessage = localization.string("解压缩完成")
         } catch is CancellationError {
             presentError(.cancelled)
@@ -1553,9 +1549,17 @@ final class AppModel {
         guard hasDocument else { return }
         do {
             let url = try await loader.materializePreview(entryID: entryID)
+            Self.setQuarantineAttribute(on: url)
             NSWorkspace.shared.open(url)
         } catch {
             presentedError = AppLocalization().format("无法打开文件：%@", error.localizedDescription)
+        }
+    }
+
+    private static func setQuarantineAttribute(on url: URL) {
+        let value = Data("0081;Mac Unzip;;".utf8)
+        value.withUnsafeBytes { buffer in
+            _ = setxattr(url.path, "com.apple.quarantine", buffer.baseAddress, buffer.count, 0, 0)
         }
     }
 
@@ -2033,6 +2037,18 @@ final class AppModel {
         case .providerNotInstalled:
             return localization.string("7z 支持需要安装 7zz")
         }
+    }
+
+    private func extractionFraction(_ progress: ZIPExtractionProgress) -> Double {
+        let fraction: Double
+        if progress.totalBytes > 0 {
+            fraction = Double(progress.completedBytes) / Double(progress.totalBytes)
+        } else if progress.totalEntries > 0 {
+            fraction = Double(progress.completedEntries) / Double(progress.totalEntries)
+        } else {
+            fraction = 1
+        }
+        return min(max(fraction, 0), 1)
     }
 
     private func extractionMessage(for error: Error) -> String {
