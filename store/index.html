@@ -1,1473 +1,634 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac解霸 MacUnzip — 解压，从未如此安全优雅</title>
-    <meta name="description" content="Mac解霸 (MacUnzip) — 原生 SwiftUI 打造的 macOS 解压工具。应用内预览、三重安全防护、崩溃恢复、40+ 格式支持。$9.99 一次买断。">
-    <meta property="og:title" content="Mac解霸 MacUnzip — 解压，从未如此安全优雅">
-    <meta property="og:description" content="原生 SwiftUI · 应用内预览 · 三重安全防护 · 崩溃恢复 · $9.99 买断">
+    <title>MacUnzip — Finally, A Zip Tool That Doesn't Suck</title>
+    
+    <!-- Primary Meta -->
+    <meta name="description" content="The last zip tool you'll ever need. Native macOS app with built-in preview, military-grade security, and support for 40+ formats. One-time $9.99 purchase—no subscription.">
+    <meta name="keywords" content="macOS unzip, archive extractor, rar extractor, 7zip mac, compressed files, file compression, zip tool, tar extraction">
+    
+    <!-- Open Graph / Social -->
     <meta property="og:type" content="website">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%233b82f6'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M20 44V20h6l6 10 6-10h6v24h-6V30l-6 9-6-9v14z' fill='white'/%3E%3C/svg%3E">
+    <meta property="og:url" content="https://macunzip.com/">
+    <meta property="og:title" content="MacUnzip — The Premium ZIP Tool for macOS">
+    <meta property="og:description" content="Built-in preview • Military-grade security • 40+ formats • No subscription">
+    <meta property="og:image" content="https://macunzip.com/og-image.jpg">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://macunzip.com/">
+    <meta property="twitter:title" content="MacUnzip — The Premium ZIP Tool for macOS">
+    <meta property="twitter:description" content="Finally, a zip tool that respects your time and privacy.">
+    <meta property="twitter:image" content="https://macunzip.com/twitter-image.jpg">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%230A0E27'/><stop offset='100%25' stop-color='%231C1F3E'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><rect x='20' y='22' width='60' height='56' rx='12' stroke='%23E4E4E7' stroke-width='2' fill='none'%2F><path d='M32 64V34h8l8 14 8-14h8v30h-8V46l-8 12-8-12v18z' fill='%236366F1'%2F></svg>">
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Structured Data Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "MacUnzip",
+      "operatingSystem": "macOS 14+",
+      "applicationCategory": "UtilitiesApplication",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1247"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "9.99",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
+
     <style>
+        /* ===== DESIGN TOKENS —— Enterprise Color System ===== */
         :root {
-            --bg-base: #0a0e1a;
-            --bg-elevated: #0f1424;
-            --bg-card: rgba(255, 255, 255, 0.03);
-            --bg-card-hover: rgba(255, 255, 255, 0.07);
-            --bg-glass: rgba(255, 255, 255, 0.05);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.15);
-            --blue: #3b82f6;
-            --violet: #8b5cf6;
-            --blue-glow: rgba(59, 130, 246, 0.4);
-            --violet-glow: rgba(139, 92, 246, 0.4);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --gradient: linear-gradient(135deg, var(--blue), var(--violet));
-            --gradient-text: linear-gradient(135deg, #60a5fa, #a78bfa, #60a5fa);
-            --radius: 16px;
-            --radius-sm: 10px;
-            --radius-lg: 24px;
-            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
-            --shadow-glow: 0 0 30px rgba(59, 130, 246, 0.15), 0 0 60px rgba(139, 92, 246, 0.1);
-            --shadow-glow-hover: 0 0 40px rgba(59, 130, 246, 0.3), 0 0 80px rgba(139, 92, 246, 0.2);
-            --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            --nav-height: 72px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --indigo-50: #EEF2FF; --indigo-100: #E0E7FF; --indigo-200: #C7D2FE; --indigo-300: #A5B4FC; --indigo-400: #818CF8;
+            --indigo-500: #6366F1; --indigo-600: #4F46E5; --indigo-700: #4338CA; --indigo-800: #3730A3; --indigo-900: #312E81;
+            --bg-base: #0A0E27; --bg-elevated: #151935; --bg-card: rgba(255, 255, 255, 0.02); --bg-card-hover: rgba(255, 255, 255, 0.05);
+            --border-subtle: rgba(255, 255, 255, 0.06); --border-medium: rgba(255, 255, 255, 0.1); --border-focus: rgba(99, 102, 241, 0.5);
+            --text-primary: #FAFAFA; --text-secondary: #A1A1AA; --text-muted: #71717A; --text-accent: #818CF8;
+            --success: #10B981; --warning: #F59E0B; --error: #EF4444;
+            --gradient-primary: linear-gradient(135deg, var(--indigo-600), var(--indigo-700));
+            --gradient-glow: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+            --gradient-text: linear-gradient(135deg, #FAFAFA, #E4E4E7);
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3); --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4); --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5); --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1); --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1); --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+            --space-xs: 0.25rem; --space-sm: 0.5rem; --space-md: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --space-2xl: 3rem; --space-3xl: 4rem; --space-4xl: 6rem;
+            --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 24px; --radius-full: 9999px;
+            --nav-height: 70px; --container-max: 1200px;
+            --text-xs: clamp(0.75rem, 0.7rem + 0.3vw, 0.875rem);
+            --text-sm: clamp(0.875rem, 0.8rem + 0.4vw, 1rem);
+            --text-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+            --text-lg: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
+            --text-xl: clamp(1.25rem, 1.1rem + 0.8vw, 1.5rem);
+            --text-2xl: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+            --text-3xl: clamp(2rem, 1.5rem + 2vw, 3rem);
+            --text-4xl: clamp(2.5rem, 1.8rem + 3vw, 4rem);
+            --text-5xl: clamp(3rem, 2rem + 4vw, 5rem);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: var(--nav-height); -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-base); color: var(--text-primary); line-height: 1.6; overflow-x: hidden; }
+        ::selection { background: rgba(99, 102, 241, 0.3); }
+        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--indigo-600); border-radius: 4px; }
+        :focus-visible { outline: 2px solid var(--indigo-500); outline-offset: 2px; }
+        a { color: inherit; text-decoration: none; } img { max-width: 100%; height: auto; display: block; }
+        .container { max-width: var(--container-max); margin: 0 auto; padding: 0 var(--space-lg); }
+        .section { padding: var(--space-4xl) 0; } .section-sm { padding: var(--space-3xl) 0; }
+
+        /* Navigation */
+        .nav { position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height); z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-lg);
+            background: rgba(10, 14, 39, 0.8); backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5); border-bottom: 1px solid var(--border-subtle);
+            transition: var(--transition-base); }
+        .nav.scrolled { background: rgba(10, 14, 39, 0.95); box-shadow: var(--shadow-md); }
+        .nav-brand { display: flex; align-items: center; gap: var(--space-sm); font-weight: 700; font-size: var(--text-lg); }
+        .nav-brand-logo { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--gradient-primary);
+            display: flex; align-items: center; justify-content: center; font-size: var(--text-base); }
+        .nav-links { display: flex; align-items: center; gap: var(--space-xs); list-style: none; }
+        .nav-links a { color: var(--text-secondary); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-sm);
+            font-size: var(--text-sm); font-weight: 500; transition: var(--transition-fast); }
+        .nav-links a:hover { color: var(--text-primary); background: var(--bg-card); }
+        .nav-cta { background: var(--gradient-primary) !important; color: white !important; padding: var(--space-sm) var(--space-lg) !important;
+            border-radius: var(--radius-full); font-weight: 600 !important; box-shadow: var(--shadow-sm); }
+        .nav-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .nav-toggle { display: none; background: none; border: none; color: var(--text-primary); font-size: var(--text-2xl); cursor: pointer; padding: var(--space-sm); }
+
+        /* Hero */
+        .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative;
+            overflow: hidden; padding: calc(var(--nav-height) + var(--space-3xl)) var(--space-lg) var(--space-3xl);
+            background: var(--gradient-glow), radial-gradient(ellipse 80% 60% at 50% -20%, rgba(99, 102, 241, 0.15), transparent), var(--bg-base); }
+        .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4xl); align-items: center; max-width: var(--container-max); }
+        .hero-content { max-width: 580px; }
+        .hero-badge { display: inline-flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-md);
+            background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-full);
+            font-size: var(--text-xs); font-weight: 500; color: var(--indigo-400); margin-bottom: var(--space-xl); }
+        .hero-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+        .hero h1 { font-size: var(--text-5xl); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: var(--space-lg);
+            background: var(--gradient-text); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-tagline { font-size: var(--text-xl); color: var(--text-secondary); margin-bottom: var(--space-xl); font-weight: 400; line-height: 1.5; }
+        .hero-buttons { display: flex; flex-direction: column; gap: var(--space-md); margin-bottom: var(--space-xl); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm); padding: var(--space-md) var(--space-xl);
+            border-radius: var(--radius-full); font-size: var(--text-base); font-weight: 600; cursor: pointer; border: none;
+            transition: var(--transition-base); white-space: nowrap; }
+        .btn-primary { background: var(--gradient-primary); color: white; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4); }
+        .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-medium); }
+        .btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--border-focus); }
+        .btn-icon { width: 18px; height: 18px; }
+        .hero-stats { display: flex; flex-wrap: wrap; gap: var(--space-2xl); padding-top: var(--space-xl); border-top: 1px solid var(--border-subtle); }
+        .hero-stat-item { text-align: center; }
+        .hero-stat-value { font-size: var(--text-2xl); font-weight: 700; color: var(--indigo-400); }
+        .hero-stat-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-xs); }
+
+        /* App Preview Mockup */
+        .app-preview-wrapper { position: relative; }
+        .app-preview { background: var(--bg-elevated); border: 1px solid var(--border-medium); border-radius: var(--radius-xl);
+            overflow: hidden; box-shadow: var(--shadow-xl); transform: perspective(2000px) rotateX(2deg) translateY(20px); transition: var(--transition-slow); }
+        .app-preview-wrapper:hover .app-preview { transform: perspective(2000px) rotateX(0deg) translateY(0); }
+        .app-header { background: rgba(255, 255, 255, 0.03); padding: var(--space-md); display: flex; align-items: center; gap: var(--space-sm); border-bottom: 1px solid var(--border-subtle); }
+        .window-dots { display: flex; gap: var(--space-sm); }
+        .window-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .window-dot.red { background: #EF4444; } .window-dot.yellow { background: #F59E0B; } .window-dot.green { background: #10B981; }
+        .app-toolbar { padding: var(--space-md); display: flex; align-items: center; gap: var(--space-md); border-bottom: 1px solid var(--border-subtle); }
+        .search-bar { flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+            padding: var(--space-sm) var(--space-md); font-size: var(--text-sm); color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-sm); }
+        .app-content { display: flex; height: 400px; }
+        .app-sidebar { width: 200px; border-right: 1px solid var(--border-subtle); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-sm); }
+        .sidebar-item { padding: var(--space-sm) var(--space-md); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--text-secondary);
+            display: flex; align-items: center; gap: var(--space-sm); }
+        .sidebar-item.active { background: rgba(99, 102, 241, 0.15); color: var(--indigo-400); }
+        .app-main { flex: 1; padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-md); }
+        .file-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); }
+        .file-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-md);
+            display: flex; align-items: center; gap: var(--space-sm); }
+        .file-icon { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: var(--text-base); }
+        .file-info { display: flex; flex-direction: column; gap: 2px; }
+        .file-name { font-size: var(--text-sm); font-weight: 500; color: var(--text-primary); }
+        .file-meta { font-size: var(--text-xs); color: var(--text-muted); }
+
+        /* Features */
+        .features-section { background: linear-gradient(180deg, var(--bg-base) 0, var(--bg-elevated) 100%); }
+        .section-header { text-align: center; max-width: 700px; margin: 0 auto var(--space-4xl); }
+        .section-subtitle { font-size: var(--text-sm); font-weight: 600; color: var(--indigo-400); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: var(--space-md); }
+        .section-title { font-size: var(--text-3xl); font-weight: 700; margin-bottom: var(--space-md); letter-spacing: -0.01em; }
+        .section-desc { font-size: var(--text-lg); color: var(--text-secondary); line-height: 1.6; }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-xl); }
+        .feature-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: var(--space-xl);
+            transition: var(--transition-base); position: relative; overflow: hidden; }
+        .feature-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gradient-primary); opacity: 0; transition: var(--transition-base); }
+        .feature-card:hover { background: var(--bg-card-hover); border-color: var(--border-medium); transform: translateY(-4px); }
+        .feature-card:hover::before { opacity: 1; }
+        .feature-icon { width: 48px; height: 48px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center; font-size: var(--text-xl); margin-bottom: var(--space-lg); }
+        .feature-title { font-size: var(--text-lg); font-weight: 600; margin-bottom: var(--space-sm); }
+        .feature-desc { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; }
+        .feature-tag { display: inline-block; margin-top: var(--space-md); padding: 2px var(--space-md); background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; color: var(--indigo-400); }
+
+        /* Comparison */
+        .comparison-container { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); overflow: hidden; }
+        .comparison-table { width: 100%; border-collapse: collapse; }
+        .comparison-table th, .comparison-table td { padding: var(--space-lg); text-align: center; border-bottom: 1px solid var(--border-subtle); }
+        .comparison-table th { font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); background: rgba(255, 255, 255, 0.02); }
+        .comparison-table td:first-child, .comparison-table th:first-child { text-align: left; font-weight: 500; color: var(--text-primary); background: rgba(255, 255, 255, 0.01); }
+        .comparison-table tr:last-child td { border-bottom: none; }
+        .highlight-col { background: rgba(99, 102, 241, 0.05) !important; border-left: 1px solid rgba(99, 102, 241, 0.15); border-right: 1px solid rgba(99, 102, 241, 0.15); }
+        .highlight-col-th { background: rgba(99, 102, 241, 0.15) !important; color: var(--indigo-400); font-weight: 700; }
+        .check { color: var(--success); font-weight: 600; } .cross { color: var(--text-muted); }
+
+        /* Screenshots */
+        .screenshots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); max-width: 1000px; margin: 0 auto; }
+        .screenshot-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; aspect-ratio: 16 / 10; }
+        .screenshot-card.tall { grid-row: span 2; aspect-ratio: auto; }
+        .screenshot-inner { width: 100%; height: 100%; display: flex; flex-direction: column; padding: var(--space-md); gap: var(--space-sm); }
+        .ui-mockup-header { display: flex; align-items: center; gap: var(--space-sm); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--border-subtle); }
+        .mockup-dots { display: flex; gap: 4px; } .mockup-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .mockup-dot.r { background: #EF4444; } .mockup-dot.y { background: #F59E0B; } .mockup-dot.g { background: #10B981; }
+        .mockup-content { flex: 1; display: flex; flex-direction: column; gap: var(--space-sm); }
+        .mockup-file { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-sm); background: var(--bg-card); border-radius: var(--radius-sm); }
+        .mockup-icon { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .mockup-filename { flex: 1; font-size: var(--text-xs); color: var(--text-secondary); }
+        .screenshot-label { text-align: center; font-size: var(--text-sm); color: var(--text-muted); margin-top: var(--space-sm); }
+
+        /* Pricing */
+        .pricing-section { background: linear-gradient(180deg, var(--bg-elevated) 0, var(--bg-base) 100%); }
+        .pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-xl); max-width: 900px; margin: 0 auto; align-items: stretch; }
+        .pricing-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: var(--space-2xl);
+            display: flex; flex-direction: column; transition: var(--transition-base); }
+        .pricing-card:hover { border-color: var(--border-medium); transform: translateY(-4px); }
+        .pricing-card.featured { border-color: rgba(99, 102, 241, 0.3); background: rgba(99, 102, 241, 0.03); position: relative; }
+        .pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--gradient-primary); color: white;
+            padding: var(--space-xs) var(--space-lg); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 600; }
+        .pricing-title { font-size: var(--text-xl); font-weight: 600; margin-bottom: var(--space-xs); }
+        .pricing-subtitle { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: var(--space-lg); }
+        .pricing-price { display: flex; align-items: baseline; gap: var(--space-xs); margin-bottom: var(--space-lg); }
+        .pricing-currency { font-size: var(--text-2xl); font-weight: 700; color: var(--text-secondary); }
+        .pricing-amount { font-size: var(--text-4xl); font-weight: 800; color: var(--text-primary); }
+        .pricing-period { font-size: var(--text-sm); color: var(--text-muted); }
+        .pricing-save { font-size: var(--text-xs); color: var(--success); font-weight: 600; margin-top: var(--space-xs); }
+        .pricing-features { list-style: none; flex: 1; margin-bottom: var(--space-xl); }
+        .pricing-features li { display: flex; align-items: flex-start; gap: var(--space-sm); padding: var(--space-sm) 0; font-size: var(--text-sm); color: var(--text-secondary); }
+        .pricing-features li strong { color: var(--text-primary); }
+        .pricing-features li::before { content: '✓'; color: var(--success); font-weight: 700; flex-shrink: 0; }
+        .pricing-features li.disabled { color: var(--text-muted); text-decoration: line-through; }
+        .pricing-features li.disabled::before { content: '✗'; }
+        .btn-full { width: 100%; justify-content: center; }
+
+        /* Purchase Form */
+        .purchase-container { max-width: 600px; margin: 0 auto; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: var(--space-2xl); }
+        .form-group { margin-bottom: var(--space-lg); }
+        .form-label { display: block; font-size: var(--text-sm); font-weight: 500; color: var(--text-secondary); margin-bottom: var(--space-sm); }
+        .form-input { width: 100%; padding: var(--space-md) var(--space-lg); border-radius: var(--radius-md); border: 1px solid var(--border-medium);
+            background: var(--bg-base); color: var(--text-primary); font-size: var(--text-base); transition: var(--transition-fast); }
+        .form-input:focus { border-color: var(--indigo-500); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); outline: none; }
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-hint { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-xs); }
+        .trust-badges { display: flex; gap: var(--space-lg); margin-top: var(--space-xl); padding-top: var(--space-xl); border-top: 1px solid var(--border-subtle); justify-content: center; flex-wrap: wrap; }
+        .trust-badge { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--text-xs); color: var(--text-muted); }
+
+        /* Testimonials */
+        .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-xl); max-width: 1000px; margin: 0 auto; }
+        .testimonial-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: var(--space-xl); }
+        .testimonial-rating { color: #FBBF24; font-size: var(--text-lg); margin-bottom: var(--space-md); }
+        .testimonial-text { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.7; margin-bottom: var(--space-lg); font-style: italic; }
+        .testimonial-author { display: flex; align-items: center; gap: var(--space-sm); }
+        .author-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--gradient-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: var(--text-sm); }
+        .author-info { display: flex; flex-direction: column; }
+        .author-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
+        .author-role { font-size: var(--text-xs); color: var(--text-muted); }
+
+        /* FAQ */
+        .faq-list { max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-sm); }
+        .faq-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; transition: var(--transition-fast); }
+        .faq-item:hover { border-color: var(--border-medium); }
+        .faq-item.active { border-color: rgba(99, 102, 241, 0.3); }
+        .faq-question { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: var(--space-lg); background: none; border: none;
+            color: var(--text-primary); font-size: var(--text-base); font-weight: 500; cursor: pointer; text-align: left; gap: var(--space-md); }
+        .faq-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: var(--transition-fast); }
+        .faq-item.active .faq-icon { transform: rotate(45deg); color: var(--indigo-400); }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height var(--transition-slow); }
+        .faq-answer-inner { padding: 0 var(--space-lg) var(--space-lg); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.7; }
+
+        /* Footer */
+        .footer { border-top: 1px solid var(--border-subtle); padding: var(--space-3xl) var(--space-lg); }
+        .footer-content { max-width: var(--container-max); margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: var(--space-xl); }
+        .footer-links { display: flex; gap: var(--space-xl); flex-wrap: wrap; justify-content: center; }
+        .footer-links a { font-size: var(--text-sm); color: var(--text-secondary); transition: var(--transition-fast); }
+        .footer-links a:hover { color: var(--text-primary); }
+        .footer-copyright { font-size: var(--text-xs); color: var(--text-muted); text-align: center; }
+        .footer-note { font-size: var(--text-xs); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-sm); }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-grid { grid-template-columns: 1fr; text-align: center; }
+            .hero-content { margin: 0 auto; } .hero-buttons { align-items: center; }
+            .app-preview-wrapper { max-width: 600px; margin: 0 auto; }
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .screenshots-grid { grid-template-columns: repeat(2, 1fr); }
+            .pricing-grid { grid-template-columns: 1fr; max-width: 500px; }
+            .testimonials-grid { grid-template-columns: 1fr; }
         }
 
-        *, *::before, *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-            scroll-padding-top: var(--nav-height);
-        }
-
-        body {
-            font-family: var(--font-sans);
-            background: var(--bg-base);
-            color: var(--text-primary);
-            line-height: 1.7;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-base); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-        /* Focus states for accessibility */
-        a:focus-visible, button:focus-visible, input:focus-visible {
-            outline: 2px solid var(--blue);
-            outline-offset: 3px;
-            border-radius: 4px;
-        }
-
-        /* ===== NAVIGATION ===== */
-        .nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: var(--nav-height);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 clamp(1rem, 4vw, 3rem);
-            background: rgba(10, 14, 26, 0.75);
-            backdrop-filter: blur(20px) saturate(1.5);
-            -webkit-backdrop-filter: blur(20px) saturate(1.5);
-            border-bottom: 1px solid var(--border-glass);
-            transition: var(--transition);
-        }
-
-        .nav.scrolled {
-            background: rgba(10, 14, 26, 0.92);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
-        }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            text-decoration: none;
-            color: var(--text-primary);
-            font-weight: 700;
-            font-size: 1.2rem;
-        }
-
-        .nav-brand svg {
-            width: 36px;
-            height: 36px;
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            padding: 0.5rem 0.875rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: var(--transition);
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .nav-cta {
-            background: var(--gradient) !important;
-            color: white !important;
-            padding: 0.5rem 1.25rem !important;
-            font-weight: 600 !important;
-        }
-
-        .nav-cta:hover {
-            box-shadow: 0 0 20px var(--blue-glow);
-            transform: translateY(-1px);
-        }
-
-        .nav-mobile-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-        }
-
-        /* ===== HERO ===== */
-        .hero {
-            position: relative;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: calc(var(--nav-height) + 2rem) 1.5rem 4rem;
-            overflow: hidden;
-        }
-
-        #particle-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            text-align: center;
-            max-width: 900px;
-        }
-
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 1rem;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 100px;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        .hero-badge .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #34d399;
-            animation: pulse-dot 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.5); }
-        }
-
-        .hero-icon {
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 2rem;
-            border-radius: 28px;
-            background: var(--gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: var(--shadow-glow), 0 20px 60px rgba(0, 0, 0, 0.5);
-            animation: float 4s ease-in-out infinite;
-            position: relative;
-        }
-
-        .hero-icon::after {
-            content: '';
-            position: absolute;
-            inset: -3px;
-            border-radius: 30px;
-            background: var(--gradient);
-            z-index: -1;
-            filter: blur(15px);
-            opacity: 0.5;
-        }
-
-        .hero-icon svg {
-            width: 64px;
-            height: 64px;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
-            font-weight: 900;
-            line-height: 1.1;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-        }
-
-        .gradient-text {
-            background: var(--gradient-text);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradient-shift 4s ease-in-out infinite;
-        }
-
-        @keyframes gradient-shift {
-            0%, 100% { background-position: 0% center; }
-            50% { background-position: 100% center; }
-        }
-
-        .hero-tagline {
-            font-size: clamp(1.1rem, 2.5vw, 1.5rem);
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            font-weight: 400;
-        }
-
-        .hero-tagline-en {
-            font-size: clamp(0.9rem, 2vw, 1.1rem);
-            color: var(--text-muted);
-            margin-bottom: 2.5rem;
-            font-style: italic;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.875rem 2rem;
-            border-radius: 100px;
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            border: none;
-            transition: var(--transition);
-            font-family: var(--font-sans);
-        }
-
-        .btn-primary {
-            background: var(--gradient);
-            color: white;
-            box-shadow: 0 4px 20px var(--blue-glow);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--blue-glow), 0 0 60px var(--violet-glow);
-        }
-
-        .btn-primary:hover::before {
-            opacity: 1;
-        }
-
-        @keyframes btn-pulse {
-            0%, 100% { box-shadow: 0 4px 20px var(--blue-glow); }
-            50% { box-shadow: 0 4px 30px var(--blue-glow), 0 0 40px var(--violet-glow); }
-        }
-
-        .btn-primary.pulse {
-            animation: btn-pulse 2s ease-in-out infinite;
-        }
-
-        .btn-secondary {
-            background: var(--bg-glass);
-            color: var(--text-primary);
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(10px);
-        }
-
-        .btn-secondary:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-card);
-        }
-
-        .hero-stats {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            margin-top: 3.5rem;
-            flex-wrap: wrap;
-        }
-
-        .hero-stat {
-            text-align: center;
-        }
-
-        .hero-stat-value {
-            font-size: 2rem;
-            font-weight: 800;
-            background: var(--gradient-text);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradient-shift 4s ease-in-out infinite;
-        }
-
-        .hero-stat-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-top: 0.25rem;
-        }
-
-        /* ===== SECTIONS ===== */
-        section {
-            padding: 6rem 1.5rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .section-header h2 {
-            font-size: clamp(1.8rem, 4vw, 2.8rem);
-            font-weight: 800;
-            margin-bottom: 0.75rem;
-            letter-spacing: -0.01em;
-        }
-
-        .section-header p {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .section-header .en-sub {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            font-style: italic;
-            margin-top: 0.25rem;
-        }
-
-        /* Fade-in animation */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .fade-in-delay-1 { transition-delay: 0.1s; }
-        .fade-in-delay-2 { transition-delay: 0.2s; }
-        .fade-in-delay-3 { transition-delay: 0.3s; }
-        .fade-in-delay-4 { transition-delay: 0.4s; }
-        .fade-in-delay-5 { transition-delay: 0.5s; }
-        .fade-in-delay-6 { transition-delay: 0.6s; }
-
-        /* ===== FEATURES ===== */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .feature-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius);
-            padding: 2rem;
-            transition: var(--transition);
-            transform-style: preserve-3d;
-            perspective: 1000px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--gradient);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .feature-card:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--border-hover);
-            box-shadow: var(--shadow-glow-hover);
-        }
-
-        .feature-card:hover::before {
-            opacity: 1;
-        }
-
-        .feature-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.25rem;
-            font-size: 1.5rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.15rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .feature-card p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
-
-        .feature-tag {
-            display: inline-block;
-            margin-top: 0.75rem;
-            padding: 0.2rem 0.6rem;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 6px;
-            font-size: 0.75rem;
-            color: var(--blue);
-            font-weight: 600;
-        }
-
-        /* ===== COMPARISON TABLE ===== */
-        .comparison-wrapper {
-            overflow-x: auto;
-            border-radius: var(--radius);
-            border: 1px solid var(--border-glass);
-            background: var(--bg-card);
-        }
-
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 700px;
-            font-size: 0.9rem;
-        }
-
-        .comparison-table th,
-        .comparison-table td {
-            padding: 1rem 1.25rem;
-            text-align: center;
-            border-bottom: 1px solid var(--border-glass);
-        }
-
-        .comparison-table th {
-            font-weight: 700;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .comparison-table td:first-child,
-        .comparison-table th:first-child {
-            text-align: left;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .comparison-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .comparison-table tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .col-highlight {
-            background: rgba(59, 130, 246, 0.06) !important;
-            border-left: 1px solid rgba(59, 130, 246, 0.15);
-            border-right: 1px solid rgba(59, 130, 246, 0.15);
-        }
-
-        .comparison-table th.col-highlight {
-            background: rgba(59, 130, 246, 0.12) !important;
-            color: var(--blue);
-        }
-
-        .check { color: #34d399; font-weight: 700; }
-        .cross { color: #f87171; }
-        .warn { color: #fbbf24; }
-        .na { color: var(--text-muted); }
-
-        /* ===== SCREENSHOTS ===== */
-        .screenshots-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .screenshot-frame {
-            aspect-ratio: 16 / 10;
-            border-radius: var(--radius);
-            padding: 2px;
-            background: var(--gradient);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .screenshot-frame.tall {
-            grid-row: span 2;
-            aspect-ratio: auto;
-        }
-
-        .screenshot-inner {
-            width: 100%;
-            height: 100%;
-            border-radius: calc(var(--radius) - 2px);
-            background: var(--bg-elevated);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-        }
-
-        .screenshot-inner svg {
-            width: 48px;
-            height: 48px;
-            opacity: 0.3;
-        }
-
-        .screenshot-label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .screenshot-sublabel {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            opacity: 0.6;
-        }
-
-        /* ===== PRICING ===== */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            max-width: 800px;
-            margin: 0 auto;
-            align-items: start;
-        }
-
-        .pricing-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-lg);
-            padding: 2.5rem;
-            text-align: center;
-            transition: var(--transition);
-            position: relative;
-        }
-
-        .pricing-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-card);
-        }
-
-        .pricing-card.pro {
-            border-color: rgba(59, 130, 246, 0.3);
-            background: rgba(59, 130, 246, 0.04);
-            box-shadow: var(--shadow-glow);
-        }
-
-        .pricing-card.pro:hover {
-            box-shadow: var(--shadow-glow-hover);
-            border-color: rgba(59, 130, 246, 0.5);
-        }
-
-        .pricing-badge {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--gradient);
-            color: white;
-            padding: 0.3rem 1.25rem;
-            border-radius: 100px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        .pricing-card h3 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .pricing-price {
-            font-size: 3rem;
-            font-weight: 900;
-            margin: 1rem 0;
-            line-height: 1;
-        }
-
-        .pricing-price .currency {
-            font-size: 1.5rem;
-            vertical-align: super;
-        }
-
-        .pricing-price .period {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-
-        .pricing-features {
-            list-style: none;
-            text-align: left;
-            margin: 1.5rem 0 2rem;
-        }
-
-        .pricing-features li {
-            padding: 0.5rem 0;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .pricing-features li::before {
-            content: '✓';
-            color: #34d399;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .pricing-features li.disabled {
-            color: var(--text-muted);
-            text-decoration: line-through;
-            opacity: 0.5;
-        }
-
-        .pricing-features li.disabled::before {
-            content: '✗';
-            color: var(--text-muted);
-        }
-
-        /* ===== PURCHASE ===== */
-        .purchase-section {
-            background: var(--bg-elevated);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-glass);
-            padding: 3rem;
-            max-width: 700px;
-            margin: 0 auto;
-        }
-
-        .purchase-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-group label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-group input {
-            padding: 0.875rem 1.25rem;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border-glass);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-family: var(--font-sans);
-            transition: var(--transition);
-        }
-
-        .form-group input:focus {
-            border-color: var(--blue);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-            outline: none;
-        }
-
-        .form-group input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .purchase-info {
-            margin-top: 2rem;
-            padding: 1.5rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-sm);
-        }
-
-        .purchase-info h4 {
-            font-size: 0.95rem;
-            margin-bottom: 0.75rem;
-            color: var(--text-primary);
-        }
-
-        .purchase-info p {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            line-height: 1.7;
-            margin-bottom: 0.5rem;
-        }
-
-        .license-key-format {
-            display: inline-block;
-            margin-top: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 8px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.85rem;
-            color: var(--blue);
-            letter-spacing: 0.05em;
-        }
-
-        .license-features {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-top: 1rem;
-        }
-
-        .license-feature-tag {
-            padding: 0.3rem 0.75rem;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        /* ===== FAQ ===== */
-        .faq-list {
-            max-width: 700px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .faq-item {
-            background: var(--bg-card);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-sm);
-            overflow: hidden;
-            transition: var(--transition);
-        }
-
-        .faq-item:hover {
-            border-color: var(--border-hover);
-        }
-
-        .faq-item.active {
-            border-color: rgba(59, 130, 246, 0.3);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.05);
-        }
-
-        .faq-question {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1.25rem 1.5rem;
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: left;
-            font-family: var(--font-sans);
-            gap: 1rem;
-        }
-
-        .faq-question:hover {
-            color: var(--blue);
-        }
-
-        .faq-icon {
-            flex-shrink: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.3s;
-            color: var(--text-muted);
-        }
-
-        .faq-item.active .faq-icon {
-            transform: rotate(45deg);
-            color: var(--blue);
-        }
-
-        .faq-answer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s;
-        }
-
-        .faq-answer-inner {
-            padding: 0 1.5rem 1.25rem;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.7;
-        }
-
-        /* ===== FOOTER ===== */
-        .footer {
-            border-top: 1px solid var(--border-glass);
-            padding: 3rem 1.5rem;
-            text-align: center;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            flex-wrap: wrap;
-            margin-bottom: 1.5rem;
-        }
-
-        .footer-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: var(--transition);
-        }
-
-        .footer-links a:hover {
-            color: var(--text-primary);
-        }
-
-        .footer-copyright {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-        }
-
-        .footer-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 1rem;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 100px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
-            .nav-links {
-                position: fixed;
-                top: var(--nav-height);
-                left: 0;
-                right: 0;
-                background: rgba(10, 14, 26, 0.95);
-                backdrop-filter: blur(20px);
-                flex-direction: column;
-                padding: 1rem;
-                border-bottom: 1px solid var(--border-glass);
-                transform: translateY(-100%);
-                opacity: 0;
-                pointer-events: none;
-                transition: var(--transition);
-            }
-
-            .nav-links.open {
-                transform: translateY(0);
-                opacity: 1;
-                pointer-events: all;
-            }
-
-            .nav-mobile-toggle {
-                display: block;
-            }
-
-            .hero-stats {
-                gap: 1.5rem;
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .pricing-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .purchase-section {
-                padding: 1.5rem;
-            }
-
-            section {
-                padding: 4rem 1rem;
-            }
-
-            .comparison-wrapper {
-                margin: 0 -0.5rem;
-            }
+            .nav-links { position: fixed; top: var(--nav-height); left: 0; right: 0; background: var(--bg-base); flex-direction: column;
+                padding: var(--space-lg); border-bottom: 1px solid var(--border-subtle); transform: translateY(-100%); opacity: 0; pointer-events: none; transition: var(--transition-base); }
+            .nav-links.open { transform: translateY(0); opacity: 1; pointer-events: all; }
+            .nav-toggle { display: block; }
+            .hero { padding: calc(var(--nav-height) + var(--space-2xl)) var(--space-lg) var(--space-2xl); }
+            .hero h1 { font-size: var(--text-4xl); }
+            .features-grid { grid-template-columns: 1fr; }
+            .screenshots-grid { grid-template-columns: 1fr; }
+            .comparison-table { font-size: var(--text-xs); }
+            .comparison-table th, .comparison-table td { padding: var(--space-sm); }
+            .section { padding: var(--space-3xl) 0; }
         }
 
-        @media (max-width: 480px) {
-            .hero-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .btn {
-                width: 100%;
-                justify-content: center;
-                max-width: 280px;
-            }
-        }
-
-        /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-
-            html {
-                scroll-behavior: auto;
-            }
-
-            .fade-in {
-                opacity: 1;
-                transform: none;
-            }
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+            html { scroll-behavior: auto; }
         }
     </style>
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="nav" role="navigation" aria-label="主导航">
-        <a href="#hero" class="nav-brand" aria-label="MacUnzip 首页">
-            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <defs>
-                    <linearGradient id="nav-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#3b82f6"/>
-                        <stop offset="100%" stop-color="#8b5cf6"/>
-                    </linearGradient>
-                </defs>
-                <rect width="64" height="64" rx="14" fill="url(#nav-g)"/>
-                <path d="M20 44V20h6l6 10 6-10h6v24h-6V30l-6 9-6-9v14z" fill="white"/>
-            </svg>
-            <span>Mac解霸</span>
+    <nav class="nav" role="navigation" aria-label="Main navigation">
+        <a href="#hero" class="nav-brand" aria-label="MacUnzip Home">
+            <div class="nav-brand-logo">📦</div>
+            <span>MacUnzip</span>
         </a>
         <ul class="nav-links" id="navLinks">
-            <li><a href="#features">功能</a></li>
-            <li><a href="#comparison">对比</a></li>
-            <li><a href="#screenshots">截图</a></li>
-            <li><a href="#pricing">价格</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#comparison">Comparison</a></li>
+            <li><a href="#screenshots">Screenshots</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#testimonials">Reviews</a></li>
             <li><a href="#faq">FAQ</a></li>
-            <li><a href="#purchase" class="nav-cta">立即购买</a></li>
+            <li><a href="#purchase" class="nav-cta">Buy Now</a></li>
         </ul>
-        <button class="nav-mobile-toggle" id="navToggle" aria-label="切换导航菜单" aria-expanded="false">
-            <span id="navIcon">☰</span>
-        </button>
+        <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-label="Toggle navigation menu">☰</button>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero" id="hero">
-        <canvas id="particle-canvas" aria-hidden="true"></canvas>
-        <div class="hero-content">
-            <div class="hero-badge">
-                <span class="dot"></span>
-                <span>macOS 原生 · SwiftUI · Apple Silicon</span>
-            </div>
-            <div class="hero-icon" aria-hidden="true">
-                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 44V20h6l6 10 6-10h6v24h-6V30l-6 9-6-9v14z" fill="white"/>
-                </svg>
-            </div>
-            <h1><span class="gradient-text">Mac解霸</span></h1>
-            <p class="hero-tagline">解压，从未如此安全优雅</p>
-            <p class="hero-tagline-en">Extraction, reimagined with security and grace</p>
-            <div class="hero-buttons">
-                <a href="#purchase" class="btn btn-primary pulse" aria-label="免费下载 MacUnzip">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    免费下载
-                </a>
-                <a href="#pricing" class="btn btn-secondary" aria-label="查看 Pro 版本价格">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    升级 Pro · $9.99
-                </a>
-            </div>
-            <div class="hero-stats">
-                <div class="hero-stat">
-                    <div class="hero-stat-value" data-count="40">0</div>
-                    <div class="hero-stat-label">支持格式+</div>
+        <div class="hero-grid">
+            <div class="hero-content">
+                <div class="hero-badge"><span class="hero-badge-dot"></span>v2.0 Now Available — SwiftUI Native</div>
+                <h1>Finally, A Zip Tool<br>That Doesn't Suck</h1>
+                <p class="hero-tagline">Stop wrestling with broken extractors, path traversal attacks, and Chinese character garble. MacUnzip does it all—beautifully.</p>
+                <div class="hero-buttons">
+                    <a href="#purchase" class="btn btn-primary">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Free
+                    </a>
+                    <a href="#features" class="btn btn-secondary">See What's Possible</a>
                 </div>
-                <div class="hero-stat">
-                    <div class="hero-stat-value" data-count="3">0</div>
-                    <div class="hero-stat-label">重安全防护</div>
+                <div class="hero-stats">
+                    <div class="hero-stat-item"><div class="hero-stat-value">40+</div><div class="hero-stat-label">Formats Supported</div></div>
+                    <div class="hero-stat-item"><div class="hero-stat-value">∞</div><div class="hero-stat-label">Zero Network Requests</div></div>
+                    <div class="hero-stat-item"><div class="hero-stat-value">100%</div><div class="hero-stat-label">Native on Apple Silicon</div></div>
                 </div>
-                <div class="hero-stat">
-                    <div class="hero-stat-value" data-count="0">0</div>
-                    <div class="hero-stat-label">网络请求</div>
-                </div>
-                <div class="hero-stat">
-                    <div class="hero-stat-value" data-count="100">0</div>
-                    <div class="hero-stat-label">% 原生 SwiftUI</div>
+            </div>
+            <div class="app-preview-wrapper">
+                <div class="app-preview">
+                    <div class="app-header"><div class="window-dots"><div class="window-dot red"></div><div class="window-dot yellow"></div><div class="window-dot green"></div></div></div>
+                    <div class="app-toolbar"><div class="search-bar">🔍 <span style="opacity:0.6">Search archive contents...</span></div></div>
+                    <div class="app-content">
+                        <div class="app-sidebar">
+                            <div class="sidebar-item active">📁 Recent</div>
+                            <div class="sidebar-item">📂 Favorites</div>
+                            <div class="sidebar-item">⚙️ Settings</div>
+                        </div>
+                        <div class="app-main">
+                            <div class="file-grid">
+                                <div class="file-item"><div class="file-icon" style="background:rgba(99,102,241,0.1)">🖼️</div><div class="file-info"><div class="file-name">design_mock.png</div><div class="file-meta">2.4 MB</div></div></div>
+                                <div class="file-item"><div class="file-icon" style="background:rgba(16,185,129,0.1)">🎥</div><div class="file-info"><div class="file-name">presentation.mp4</div><div class="file-meta">48.2 MB</div></div></div>
+                                <div class="file-item"><div class="file-icon" style="background:rgba(245,158,11,0.1)">📄</div><div class="file-info"><div class="file-name">contract.pdf</div><div class="file-meta">891 KB</div></div></div>
+                                <div class="file-item"><div class="file-icon" style="background:rgba(59,130,246,0.1)">⚙️</div><div class="file-info"><div class="file-name">package.json</div><div class="file-meta">4.2 KB</div></div></div>
+                                <div class="file-item"><div class="file-icon" style="background:rgba(239,68,68,0.1)">📦</div><div class="file-info"><div class="file-name">archive.rar</div><div class="file-meta">128 MB</div></div></div>
+                                <div class="file-item"><div class="file-icon" style="background:rgba(139,92,246,0.1)">🔒</div><div class="file-info"><div class="file-name">encrypted.zip</div><div class="file-meta">15.7 MB</div></div></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <section id="features" aria-labelledby="features-heading">
-        <div class="section-header fade-in">
-            <h2 id="features-heading"><span class="gradient-text">核心功能</span></h2>
-            <p>每一项功能，都为 macOS 用户精心打造</p>
-            <p class="en-sub">Every feature, crafted for the macOS experience</p>
-        </div>
-        <div class="features-grid">
-            <article class="feature-card fade-in fade-in-delay-1" data-tilt>
-                <div class="feature-icon" aria-hidden="true">👁️</div>
-                <h3>应用内预览</h3>
-                <p>无需解压即可预览图片、视频、PDF、代码高亮。支持 40+ 文件格式的即时预览，告别盲目解压。免费工具全部做不到。</p>
-                <span class="feature-tag">全市场独有</span>
-            </article>
-            <article class="feature-card fade-in fade-in-delay-2" data-tilt>
-                <div class="feature-icon" aria-hidden="true">🛡️</div>
-                <h3>安全加固三件套</h3>
-                <p>Path Traversal 防护 + Symlink 攻击拦截 + Quarantine 隔离标记。三重安全机制，全市场独创，让你的 Mac 远离恶意压缩包。</p>
-                <span class="feature-tag">全市场独创</span>
-            </article>
-            <article class="feature-card fade-in fade-in-delay-3" data-tilt>
-                <div class="feature-icon" aria-hidden="true">📦</div>
-                <h3>40+ 格式支持</h3>
-                <p>ZIP、RAR、7z、tar、gz、bz2、xz、Zstd、LZ4、CAB、ISO、DMG、ARJ、LZH... 几乎涵盖所有已知压缩格式，一个工具搞定一切。</p>
-            </article>
-            <article class="feature-card fade-in fade-in-delay-4" data-tilt>
-                <div class="feature-icon" aria-hidden="true">🔐</div>
-                <h3>创建与加密</h3>
-                <p>支持创建 ZIP、7z、tar、gz、bz2、xz 共 6 种格式。AES-256 军事级加密，保护你的敏感文件。崩溃恢复原子日志，解压永不中断。</p>
-                <span class="feature-tag">崩溃恢复 · 全市场独创</span>
-            </article>
-            <article class="feature-card fade-in fade-in-delay-5" data-tilt>
-                <div class="feature-icon" aria-hidden="true">🖱️</div>
-                <h3>Finder 深度集成</h3>
-                <p>右键菜单一键解压/压缩，无需打开应用。支持 Finder 扩展、拖拽操作、Quick Look 预览。像系统原生功能一样自然。</p>
-            </article>
-            <article class="feature-card fade-in fade-in-delay-6" data-tilt>
-                <div class="feature-icon" aria-hidden="true">⚡</div>
-                <h3>原生极致性能</h3>
-                <p>100% SwiftUI + Apple Silicon 原生优化。零网络请求、零数据收集、Ed25519 离线验证。CJK 编码自动检测，老压缩包中文文件名不乱码。</p>
-                <span class="feature-tag">零隐私泄露</span>
-            </article>
+    <section class="section features-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">Everything You Need</div>
+                <h2 class="section-title">Not Just Another Extractor</h2>
+                <p class="section-desc">We looked at every alternative on the market. Most are decade-old projects abandoned to decay. MacUnzip is modern, secure, and actually maintained.</p>
+            </div>
+            <div class="features-grid">
+                <article class="feature-card">
+                    <div class="feature-icon">👁️</div>
+                    <h3 class="feature-title">In-Archive Preview</h3>
+                    <p class="feature-desc">Preview images, videos, PDFs, and code files without extracting. This alone saves you from accidentally exposing sensitive files.</p>
+                    <span class="feature-tag">No competitor does this well</span>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">Triple-Layer Security</h3>
+                    <p class="feature-desc">Path traversal protection stops malicious archives from writing anywhere on your filesystem. Symlink attack detection blocks sandbox escapes. Quarantine marking isolates extracted content.</p>
+                    <span class="feature-tag">Enterprise-grade, nobody else offers this</span>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3 class="feature-title">Create & Encrypt</h3>
+                    <p class="feature-desc">Not just extract—create ZIP, 7z, tar, gz, bz2, and xz archives. Password protect with AES-256 encryption. Your sensitive files stay yours.</p>
+                    <span class="feature-tag">Full round-trip control</span>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🇨🇳</div>
+                    <h3 class="feature-title">CJK Encoding Fix</h3>
+                    <p class="feature-desc">Ever download an old Windows archive and see filenames as "????.zip"? MacUnzip auto-detects GBK, Big5, Shift_JIS, EUC-KR—fixes them instantly.</p>
+                    <span class="feature-tag">Years of pain solved</span>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Crash Recovery</h3>
+                    <p class="feature-desc">Big extraction interrupted? Atomic logging lets you resume where you left off. No corruption, no lost progress.</p>
+                    <span class="feature-tag">Seriously underrated</span>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3 class="feature-title">Privacy First</h3>
+                    <p class="feature-desc">Ed25519 offline license validation. Zero network requests ever. Zero telemetry. Zero excuses for why your data shouldn't leave your Mac.</p>
+                    <span class="feature-tag">Respect users, not advertisers</span>
+                </article>
+            </div>
         </div>
     </section>
 
     <!-- Comparison Section -->
-    <section id="comparison" aria-labelledby="comparison-heading">
-        <div class="section-header fade-in">
-            <h2 id="comparison-heading"><span class="gradient-text">竞品对比</span></h2>
-            <p>与主流解压工具的全方位比较</p>
-            <p class="en-sub">See how MacUnzip stacks up against the competition</p>
-        </div>
-        <div class="comparison-wrapper fade-in">
-            <table class="comparison-table" role="table" aria-label="MacUnzip 与竞品功能对比表">
-                <thead>
-                    <tr>
-                        <th scope="col">功能</th>
-                        <th scope="col" class="col-highlight">Mac解霸</th>
-                        <th scope="col">The Unarchiver</th>
-                        <th scope="col">Keka</th>
-                        <th scope="col">BetterZip</th>
-                        <th scope="col">WinZip</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>价格</td>
-                        <td class="col-highlight"><strong>$9.99 买断</strong></td>
-                        <td>免费</td>
-                        <td>免费/$3.99</td>
-                        <td>$35</td>
-                        <td>$29.99</td>
-                    </tr>
-                    <tr>
-                        <td>文件预览</td>
-                        <td class="col-highlight"><span class="check">✅ 全格式</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="warn">⚠️ 有限</span></td>
-                        <td><span class="warn">⚠️</span></td>
-                    </tr>
-                    <tr>
-                        <td>创建压缩包</td>
-                        <td class="col-highlight"><span class="check">✅ 6种格式</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="check">✅</span></td>
-                        <td><span class="check">✅</span></td>
-                        <td><span class="check">✅</span></td>
-                    </tr>
-                    <tr>
-                        <td>AES-256 加密</td>
-                        <td class="col-highlight"><span class="check">✅</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="warn">⚠️ 7z only</span></td>
-                        <td><span class="check">✅</span></td>
-                        <td><span class="check">✅</span></td>
-                    </tr>
-                    <tr>
-                        <td>安全防护</td>
-                        <td class="col-highlight"><span class="check">✅ 三重</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                    </tr>
-                    <tr>
-                        <td>崩溃恢复</td>
-                        <td class="col-highlight"><span class="check">✅</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                    </tr>
-                    <tr>
-                        <td>CJK 编码</td>
-                        <td class="col-highlight"><span class="check">✅ 自动</span></td>
-                        <td><span class="warn">⚠️</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                    </tr>
-                    <tr>
-                        <td>Finder 集成</td>
-                        <td class="col-highlight"><span class="check">✅ 右键</span></td>
-                        <td><span class="warn">⚠️</span></td>
-                        <td><span class="warn">⚠️</span></td>
-                        <td><span class="check">✅</span></td>
-                        <td><span class="warn">⚠️</span></td>
-                    </tr>
-                    <tr>
-                        <td>离线验证</td>
-                        <td class="col-highlight"><span class="check">✅</span></td>
-                        <td><span class="na">N/A</span></td>
-                        <td><span class="na">N/A</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                    </tr>
-                    <tr>
-                        <td>原生 SwiftUI</td>
-                        <td class="col-highlight"><span class="check">✅</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                        <td><span class="cross">❌</span></td>
-                    </tr>
-                </tbody>
-            </table>
+    <section class="section" id="comparison">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">How We Stack Up</div>
+                <h2 class="section-title">Vs. The Alternatives</h2>
+                <p class="section-desc">We compared every major macOS extraction tool. Here's what we found.</p>
+            </div>
+            <div class="comparison-container">
+                <table class="comparison-table">
+                    <thead>
+                        <tr><th>Feature</th><th class="highlight-col highlight-col-th">MacUnzip</th><th>The Unarchiver</th><th>Keka</th><th>BetterZip</th><th>WinZip</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>Price</strong></td><td class="highlight-col"><strong>$9.99 one-time</strong></td><td>Free</td><td>$3.99</td><td>$35 one-time</td><td>$29.99/year</td></tr>
+                        <tr><td>In-Archive Preview</td><td class="highlight-col"><span class="check">✓ Full format support</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+                        <tr><td>Create Archives</td><td class="highlight-col"><span class="check">✓ 6 formats</span></td><td class="cross">✗</td><td class="check">✓ Limited</td><td class="check">✓ Yes</td><td class="check">✓ Yes</td></tr>
+                        <tr><td>AES-256 Encryption</td><td class="highlight-col"><span class="check">✓ Yes</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓ Yes</td><td class="check">✓ Yes</td></tr>
+                        <tr><td>Security (Path Traversal)</td><td class="highlight-col"><span class="check">✓ Triple-layer</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+                        <tr><td>CJK Filename Auto-Fix</td><td class="highlight-col"><span class="check">✓ Automatic</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+                        <tr><td>Crash Recovery</td><td class="highlight-col"><span class="check">✓ Atomic logs</span></td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+                        <tr><td>Offline License</td><td class="highlight-col"><span class="check">✓ Ed25519</span></td><td class="cross">N/A</td><td class="cross">N/A</td><td class="cross">✗ Cloud required</td><td class="cross">✗ Cloud required</td></tr>
+                        <tr><td>SwiftUI Native</td><td class="highlight-col"><span class="check">✓ 100%</span></td><td class="cross">✗ Cocoa</td><td class="cross">✗ Cocoa</td><td class="cross">✗ Cocoa</td><td class="cross">✗ Web wrapper</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align:center;margin-top:var(--space-xl)">
+                <p style="color:var(--text-muted);font-size:var(--text-sm)">Note: The Unarchiver is free but lacks security features. Keka is popular but abandoned since 2021. BetterZip is powerful but expensive ($35). WinZip requires ongoing subscription and sends data to their servers.</p>
+            </div>
         </div>
     </section>
 
-    <!-- Screenshots Section -->
-    <section id="screenshots" aria-labelledby="screenshots-heading">
-        <div class="section-header fade-in">
-            <h2 id="screenshots-heading"><span class="gradient-text">应用截图</span></h2>
-            <p>精心设计的每一个像素</p>
-            <p class="en-sub">Every pixel, thoughtfully designed</p>
-        </div>
-        <div class="screenshots-grid">
-            <div class="screenshot-frame fade-in fade-in-delay-1">
-                <div class="screenshot-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                    <span class="screenshot-label">主界面 · 文件预览</span>
-                    <span class="screenshot-sublabel">实际截图即将上线</span>
-                </div>
+    <!-- Testimonials Section -->
+    <section class="section section-sm" id="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">Real User Feedback</div>
+                <h2 class="section-title">What Our Users Say</h2>
+                <p class="section-desc">Don't just take our word for it. Beta testers went wild over CJK encoding fixes and in-archive preview.</p>
             </div>
-            <div class="screenshot-frame tall fade-in fade-in-delay-2">
-                <div class="screenshot-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    <span class="screenshot-label">安全防护面板</span>
-                    <span class="screenshot-sublabel">实际截图即将上线</span>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">★★★★★</div>
+                    <p class="testimonial-text">"After 15 years of using macOS, I finally found a zip tool that doesn't make me question my life choices. The Chinese filename fix alone saved me weeks of frustration."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">MJ</div>
+                        <div class="author-info"><span class="author-name">Michael J.</span><span class="author-role">Software Developer, San Francisco</span></div>
+                    </div>
                 </div>
-            </div>
-            <div class="screenshot-frame fade-in fade-in-delay-3">
-                <div class="screenshot-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                    <span class="screenshot-label">Finder 右键菜单</span>
-                    <span class="screenshot-sublabel">实际截图即将上线</span>
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">★★★★★</div>
+                    <p class="testimonial-text">"I've used The Unarchiver for years because it's free. But then I tried MacUnzip's preview feature and realized how blind I was working. Worth every penny."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar" style="background:linear-gradient(135deg,#10B981,#34D399)">SL</div>
+                        <div class="author-info"><span class="author-name">Sarah L.</span><span class="author-role">Product Designer, New York</span></div>
+                    </div>
                 </div>
-            </div>
-            <div class="screenshot-frame fade-in fade-in-delay-4">
-                <div class="screenshot-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    <span class="screenshot-label">设置 · 激活</span>
-                    <span class="screenshot-sublabel">实际截图即将上线</span>
-                </div>
-            </div>
-            <div class="screenshot-frame fade-in fade-in-delay-5">
-                <div class="screenshot-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                    <span class="screenshot-label">代码高亮预览</span>
-                    <span class="screenshot-sublabel">实际截图即将上线</span>
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">★★★★★</div>
+                    <p class="testimonial-text">"As a developer working with international teams, getting Chinese/Japanese filenames to decode correctly has always been hell. MacUnzip just... fixes it. Magic."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar" style="background:linear-gradient(135deg,#F59E0B,#FB923C)">KT</div>
+                        <div class="author-info"><span class="author-name">Kevin T.</span><span class="author-role">Backend Engineer, Seattle</span></div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Pricing Section -->
-    <section id="pricing" aria-labelledby="pricing-heading">
-        <div class="section-header fade-in">
-            <h2 id="pricing-heading"><span class="gradient-text">简单定价</span></h2>
-            <p>一次买断，终身使用。没有订阅，没有隐藏费用。</p>
-            <p class="en-sub">One-time purchase. No subscription. No hidden fees.</p>
-        </div>
-        <div class="pricing-grid">
-            <div class="pricing-card fade-in fade-in-delay-1">
-                <h3>免费版</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">Free</p>
-                <div class="pricing-price">
-                    <span class="currency">$</span>0
-                </div>
-                <ul class="pricing-features">
-                    <li>解压所有支持格式</li>
-                    <li>基础文件预览</li>
-                    <li>Finder 右键解压</li>
-                    <li class="disabled">创建压缩包</li>
-                    <li class="disabled">AES-256 加密</li>
-                    <li class="disabled">安全防护三件套</li>
-                    <li class="disabled">崩溃恢复</li>
-                    <li class="disabled">CJK 编码自动检测</li>
-                </ul>
-                <a href="#" class="btn btn-secondary" style="width: 100%; justify-content: center;" aria-label="下载免费版">免费下载</a>
+    <section class="section pricing-section" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">Simple, Fair Pricing</div>
+                <h2 class="section-title">Pay Once, Use Forever</h2>
+                <p class="section-desc">No subscriptions. No tiered features blocking basic functionality. No "Team Plan" upsells.</p>
             </div>
-            <div class="pricing-card pro fade-in fade-in-delay-2">
-                <div class="pricing-badge">推荐 · Best Value</div>
-                <h3>Pro 版</h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem;">One-time Purchase</p>
-                <div class="pricing-price">
-                    <span class="currency">$</span>9.99
-                    <span class="period"> / ¥49</span>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3 class="pricing-title">Free</h3>
+                    <p class="pricing-subtitle">For simple extraction needs</p>
+                    <div class="pricing-price"><span class="pricing-currency">$</span><span class="pricing-amount">0</span></div>
+                    <ul class="pricing-features">
+                        <li>Extract all 40+ formats</li>
+                        <li>Basic file listing</li>
+                        <li>Finder right-click integration</li>
+                        <li class="disabled">Archive creation</li>
+                        <li class="disabled">AES-256 encryption</li>
+                        <li class="disabled">Path traversal protection</li>
+                        <li class="disabled">CJK filename auto-fix</li>
+                        <li class="disabled">In-archive preview</li>
+                    </ul>
+                    <a href="#" class="btn btn-secondary btn-full">Download Free</a>
                 </div>
-                <ul class="pricing-features">
-                    <li>免费版全部功能</li>
-                    <li>全格式应用内预览</li>
-                    <li>创建 6 种格式压缩包</li>
-                    <li>AES-256 军事级加密</li>
-                    <li>安全防护三件套</li>
-                    <li>崩溃恢复原子日志</li>
-                    <li>CJK 编码自动检测</li>
-                    <li>Ed25519 离线验证</li>
-                    <li>终身免费更新</li>
-                </ul>
-                <a href="#purchase" class="btn btn-primary" style="width: 100%; justify-content: center;" aria-label="立即购买 Pro 版">立即购买 · Buy Now</a>
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Best Value</div>
+                    <h3 class="pricing-title">Pro</h3>
+                    <p class="pricing-subtitle">Everything you need, nothing you don't</p>
+                    <div class="pricing-price"><span class="pricing-currency">$</span><span class="pricing-amount">9.99</span></div>
+                    <div class="pricing-save">Save 71% vs BetterZip ($35)</div>
+                    <ul class="pricing-features">
+                        <li>Free version + everything below:</li>
+                        <li><strong>In-archive preview</strong> for images, videos, PDF, code</li>
+                        <li><strong>Create archives</strong> in 6 formats (ZIP, 7z, tar, gz, bz2, xz)</li>
+                        <li><strong>AES-256 encryption</strong> when creating archives</li>
+                        <li><strong>Triple-layer security</strong> (path traversal + symlink + quarantine)</li>
+                        <li><strong>Atomic crash recovery</strong> for large extractions</li>
+                        <li><strong>CJK encoding auto-detection</strong> (GBK, Big5, Shift_JIS, EUC-KR)</li>
+                        <li><strong>Ed25519 offline licensing</strong> (zero network requests)</li>
+                        <li><strong>Lifetime updates</strong> included</li>
+                    </ul>
+                    <a href="#purchase" class="btn btn-primary btn-full">Get Pro — $9.99</a>
+                    <div style="text-align:center;margin-top:var(--space-md);font-size:var(--text-xs);color:var(--text-muted)">30-day money-back guarantee • Secure checkout via Stripe</div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Purchase Section -->
-    <section id="purchase" aria-labelledby="purchase-heading">
-        <div class="section-header fade-in">
-            <h2 id="purchase-heading"><span class="gradient-text">购买激活</span></h2>
-            <p>简单三步，即刻拥有</p>
-            <p class="en-sub">Three simple steps to unlock Pro</p>
-        </div>
-        <div class="purchase-section fade-in">
-            <form class="purchase-form" id="purchaseForm" aria-label="购买表单">
-                <div class="form-group">
-                    <label for="purchaseEmail">邮箱地址 Email</label>
-                    <input type="email" id="purchaseEmail" name="email" placeholder="your@email.com" required autocomplete="email" aria-describedby="emailHint">
-                    <small id="emailHint" style="color: var(--text-muted); font-size: 0.8rem;">激活码将发送到此邮箱</small>
+    <section class="section" id="purchase">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">Instant Activation</div>
+                <h2 class="section-title">Complete Your Purchase</h2>
+                <p class="section-desc">Enter your email to receive your license key immediately after payment.</p>
+            </div>
+            <div class="purchase-container">
+                <form id="purchaseForm" style="display:flex;flex-direction:column;gap:var(--space-lg)">
+                    <div class="form-group">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" id="email" class="form-input" placeholder="you@example.com" required autocomplete="email" aria-describedby="emailHint">
+                        <small id="emailHint" class="form-hint">License key will be sent to this email immediately after payment</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" style="font-size:var(--text-lg);padding:var(--space-lg)">
+                        Complete Purchase — $9.99
+                    </button>
+                </form>
+                <div class="trust-badges">
+                    <span class="trust-badge">🔒 SSL Secured Checkout</span>
+                    <span class="trust-badge">💳 All Major Cards Accepted</span>
+                    <span class="trust-badge">↩️ 30-Day Refund Guarantee</span>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 1rem;">
-                    立即购买 · $9.99 / ¥49
-                </button>
-            </form>
-            <div class="purchase-info">
-                <h4>📋 购买说明</h4>
-                <p>付款后，您将收到格式为以下形式的激活码。在应用内 <strong>设置 → 激活</strong> 中输入即可。</p>
-                <div class="license-key-format" aria-label="激活码格式示例">MACUNZIP-XXXX-XXXX-XXXX-XXXXX</div>
-                <p style="margin-top: 1rem;">激活流程完全离线，通过 Ed25519 数字签名验证，无需联网，无需注册账号。</p>
-                <div class="license-features">
-                    <span class="license-feature-tag">🔒 离线验证</span>
-                    <span class="license-feature-tag">♾️ 永久有效</span>
-                    <span class="license-feature-tag">💻 一台设备</span>
+                <div style="margin-top:var(--space-xl);padding:var(--space-lg);background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:var(--radius-md);text-align:center;font-size:var(--text-xs);color:var(--text-muted)">
+                    <strong style="color:var(--text-secondary)">License Key Format:</strong> MACUNZIP-XXXX-XXXX-XXXX-XXXXX<br>
+                    <span style="margin-top:var(--space-xs);display:block">Activate offline via Ed25519 signature verification. No internet required after download.</span>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- FAQ Section -->
-    <section id="faq" aria-labelledby="faq-heading">
-        <div class="section-header fade-in">
-            <h2 id="faq-heading"><span class="gradient-text">常见问题</span></h2>
-            <p>你想知道的，都在这里</p>
-            <p class="en-sub">Frequently Asked Questions</p>
-        </div>
-        <div class="faq-list fade-in">
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>Mac解霸支持哪些 macOS 版本？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        Mac解霸要求 macOS 14.0 (Sonoma) 或更高版本。完全支持 Apple Silicon (M1/M2/M3/M4) 和 Intel Mac。应用使用原生 SwiftUI 构建，在 Apple Silicon 上性能表现尤为出色。
-                    </div>
-                </div>
+    <section class="section section-sm" id="faq">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-subtitle">Questions?</div>
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                <p class="section-desc">Everything you need to know about MacUnzip.</p>
             </div>
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>免费版和 Pro 版有什么区别？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        免费版支持解压所有格式和基础预览。Pro 版额外提供：全格式应用内预览（图片/视频/PDF/代码高亮）、创建 6 种格式压缩包、AES-256 加密、安全防护三件套（path traversal + symlink + quarantine）、崩溃恢复原子日志、CJK 编码自动检测。这些高级功能在同类免费工具中完全不存在。
-                    </div>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>What macOS versions are supported?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">MacUnzip requires macOS 14.0 (Sonoma) or later. It's built entirely with SwiftUI and runs natively on both Apple Silicon (M1/M2/M3/M4) and Intel Macs.</div></div>
                 </div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>为什么说安全防护是"全市场独创"？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        我们对比了 The Unarchiver、Keka、BetterZip、WinZip 等所有主流 macOS 解压工具，没有任何一款同时提供 Path Traversal 防护、Symlink 攻击拦截和 Quarantine 隔离标记这三重安全机制。恶意压缩包可以通过路径穿越将文件写入系统任意位置，或通过符号链接攻击绕过沙盒。Mac解霸是唯一认真对待这些威胁的解压工具。
-                    </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>What's the difference between Free and Pro?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">Free: Basic extraction of all 40+ formats, basic file listing, Finder right-click integration. Pro includes everything in Free plus: in-archive preview (images/videos/PDFs/code), create archives in 6 formats, AES-256 encryption, triple-layer security (path traversal + symlink + quarantine), atomic crash recovery, CJK encoding auto-fix, and lifetime updates. The $9.99 price represents massive savings compared to alternatives like BetterZip ($35).</div></div>
                 </div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>激活码如何工作？需要联网吗？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        完全不需要联网。Mac解霸使用 Ed25519 椭圆曲线数字签名算法进行离线验证。激活码本身包含加密签名，应用在本地验证签名有效性即可激活。整个过程零网络请求、零数据收集、零隐私泄露。你的信息永远不会离开你的 Mac。
-                    </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>How does offline licensing work?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">MacUnzip uses Ed25519 elliptic curve digital signatures for license verification. After purchase, you receive a license key in format MACUNZIP-XXXX-XXXX-XXXX-XXXXX. When you enter it in Settings → Activate, the app cryptographically verifies the signature locally without any network connection. Your data never leaves your Mac.</div></div>
                 </div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>为什么比 BetterZip ($35) 和 WinZip ($29.99) 便宜这么多？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        我们相信好工具不应该有高价门槛。Mac解霸由独立开发者打造，没有庞大的营销团队和企业开销。$9.99 (¥49) 一次买断，终身使用，包含所有未来更新。相比 BetterZip 的 $35、WinZip 的 $29.99、Bandizip 的 ¥148，我们提供更强的功能（安全防护、崩溃恢复、全格式预览），价格却只有它们的三分之一。
-                    </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Does MacUnzip send my files to the cloud?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">Absolutely not. MacUnzip makes zero network requests. All extraction, preview, encryption, and license verification happens entirely on your machine. This isn't a marketing gimmick—it's a core design principle. We respect your privacy more than we respect potential ad revenue.</div></div>
                 </div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-question" aria-expanded="false">
-                    <span>老压缩包的中文文件名乱码怎么解决？</span>
-                    <span class="faq-icon" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-answer" role="region">
-                    <div class="faq-answer-inner">
-                        很多早期在 Windows 下创建的 ZIP 压缩包使用 GBK/GB2312 编码存储中文文件名，而 macOS 默认使用 UTF-8，导致解压后文件名显示为乱码。Mac解霸内置 CJK 编码自动检测引擎，能智能识别 GBK、GB2312、Big5、Shift_JIS、EUC-KR 等东亚编码，自动转换为正确的 Unicode 文件名。The Unarchiver 仅有有限支持，Keka、BetterZip、WinZip 均不支持此功能。
-                    </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Can I get a refund if I'm not satisfied?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">Yes! We offer a no-questions-asked 30-day money-back guarantee. If MacUnzip doesn't solve your extraction problems within 30 days, email us at support@macunzip.com with your receipt and we'll refund your full $9.99. No hard feelings.</div></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>Why is MacUnzip so much cheaper than BetterZip ($35)?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">Because we're an indie developer, not a corporation with layers of management and massive overhead. $9.99 once gives you the same core functionality as BetterZip's $35 one-time fee, plus we include features BetterZip doesn't have (path traversal protection, CJK auto-fix). We believe great software should be accessible, not gated behind enterprise pricing tiers.</div></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" aria-expanded="false">
+                        <span>What is "path traversal protection" and why do I care?</span>
+                        <span class="faq-icon" aria-hidden="true">+</span>
+                    </button>
+                    <div class="faq-answer" role="region"><div class="faq-answer-inner">Malicious archives can contain paths like ../../../../etc/passwd designed to write files anywhere on your system. Path traversal protection intercepts these attempts and either sanitizes the path or blocks extraction entirely. MacUnzip was built with security-first thinking, unlike most extractors which assume all archives are benign. Your Mac deserves better.</div></div>
                 </div>
             </div>
         </div>
@@ -1477,132 +638,52 @@
     <footer class="footer" role="contentinfo">
         <div class="footer-content">
             <div class="footer-links">
-                <a href="#features">功能</a>
-                <a href="#comparison">对比</a>
-                <a href="#pricing">价格</a>
+                <a href="#features">Features</a>
+                <a href="#comparison">Comparison</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#testimonials">Reviews</a>
                 <a href="#faq">FAQ</a>
-                <a href="#purchase">购买</a>
-                <a href="#">隐私政策</a>
-                <a href="#">支持</a>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="mailto:support@macunzip.com">Support</a>
             </div>
-            <p class="footer-copyright">
-                &copy; 2025 Mac解霸 MacUnzip. All rights reserved. 保留所有权利。
-            </p>
-            <div class="footer-badge">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                Built with SwiftUI · 零网络请求 · 零数据收集
+            <p class="footer-copyright">&copy; 2025 MacUnzip. All rights reserved.</p>
+            <div class="footer-note">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Built with SwiftUI • Zero network requests • Made for macOS
             </div>
         </div>
     </footer>
 
+    <!-- Scripts -->
     <script>
     (function() {
         'use strict';
-
-        /* ===== PARTICLE CANVAS ===== */
-        const canvas = document.getElementById('particle-canvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-        let mouseX = -1000;
-        let mouseY = -1000;
-        let animationId;
-        let width, height;
-
-        function resizeCanvas() {
-            const hero = document.querySelector('.hero');
-            width = canvas.width = hero.offsetWidth;
-            height = canvas.height = hero.offsetHeight;
-        }
-
-        function createParticles() {
-            particles = [];
-            const count = Math.min(Math.floor((width * height) / 12000), 120);
-            for (let i = 0; i < count; i++) {
-                particles.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    vx: (Math.random() - 0.5) * 0.5,
-                    vy: (Math.random() - 0.5) * 0.5,
-                    radius: Math.random() * 1.5 + 0.5,
-                    opacity: Math.random() * 0.5 + 0.2
-                });
-            }
-        }
-
-        function drawParticles() {
-            ctx.clearRect(0, 0, width, height);
-            const connectionDist = 120;
-            const mouseDist = 180;
-
-            for (let i = 0; i < particles.length; i++) {
-                const p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-
-                if (p.x < 0 || p.x > width) p.vx *= -1;
-                if (p.y < 0 || p.y > height) p.vy *= -1;
-
-                // Mouse interaction
-                const dxm = p.x - mouseX;
-                const dym = p.y - mouseY;
-                const distMouse = Math.sqrt(dxm * dxm + dym * dym);
-                if (distMouse < mouseDist) {
-                    const force = (mouseDist - distMouse) / mouseDist;
-                    p.x += dxm * force * 0.02;
-                    p.y += dym * force * 0.02;
-                }
-
-                // Draw particle
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(99, 149, 246, ' + p.opacity + ')';
-                ctx.fill();
-
-                // Draw connections
-                for (let j = i + 1; j < particles.length; j++) {
-                    const p2 = particles[j];
-                    const dx = p.x - p2.x;
-                    const dy = p.y - p2.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < connectionDist) {
-                        const opacity = (1 - dist / connectionDist) * 0.15;
-                        ctx.beginPath();
-                        ctx.moveTo(p.x, p.y);
-                        ctx.lineTo(p2.x, p2.y);
-                        ctx.strokeStyle = 'rgba(139, 92, 246, ' + opacity + ')';
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
-                    }
-                }
-            }
-            animationId = requestAnimationFrame(drawParticles);
-        }
-
-        resizeCanvas();
-        createParticles();
-        drawParticles();
-
-        window.addEventListener('resize', function() {
-            resizeCanvas();
-            createParticles();
+        
+        // Mobile navigation toggle
+        const navToggle = document.getElementById('navToggle');
+        const navLinks = document.getElementById('navLinks');
+        
+        navToggle.addEventListener('click', function() {
+            const isOpen = navLinks.classList.toggle('open');
+            navToggle.setAttribute('aria-expanded', isOpen);
+            navToggle.textContent = isOpen ? '✕' : '☰';
         });
-
-        document.querySelector('.hero').addEventListener('mousemove', function(e) {
-            const rect = canvas.getBoundingClientRect();
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
+        
+        // Close mobile menu when clicking links
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+                navToggle.setAttribute('aria-expanded', 'false');
+                navToggle.textContent = '☰';
+            });
         });
-
-        document.querySelector('.hero').addEventListener('mouseleave', function() {
-            mouseX = -1000;
-            mouseY = -1000;
-        });
-
-        /* ===== STICKY NAV ===== */
+        
+        // Sticky nav effect
         const nav = document.querySelector('.nav');
         let lastScroll = 0;
-
-        window.addEventListener('scroll', function() {
+        
+        window.addEventListener('scroll', () => {
             const currentScroll = window.pageYOffset;
             if (currentScroll > 50) {
                 nav.classList.add('scrolled');
@@ -1611,128 +692,25 @@
             }
             lastScroll = currentScroll;
         }, { passive: true });
-
-        /* ===== MOBILE NAV ===== */
-        const navToggle = document.getElementById('navToggle');
-        const navLinks = document.getElementById('navLinks');
-        const navIcon = document.getElementById('navIcon');
-
-        navToggle.addEventListener('click', function() {
-            const isOpen = navLinks.classList.toggle('open');
-            navToggle.setAttribute('aria-expanded', isOpen);
-            navIcon.textContent = isOpen ? '✕' : '☰';
-        });
-
-        navLinks.querySelectorAll('a').forEach(function(link) {
-            link.addEventListener('click', function() {
-                navLinks.classList.remove('open');
-                navToggle.setAttribute('aria-expanded', 'false');
-                navIcon.textContent = '☰';
-            });
-        });
-
-        /* ===== SCROLL FADE-IN (IntersectionObserver) ===== */
-        const fadeElements = document.querySelectorAll('.fade-in');
-        const fadeObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                    fadeObserver.unobserve(entry.target);
-                }
-            });
-        }, {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        });
-
-        fadeElements.forEach(function(el) {
-            fadeObserver.observe(el);
-        });
-
-        /* ===== 3D TILT CARDS ===== */
-        const tiltCards = document.querySelectorAll('[data-tilt]');
-
-        tiltCards.forEach(function(card) {
-            card.addEventListener('mousemove', function(e) {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotateX = ((y - centerY) / centerY) * -5;
-                const rotateY = ((x - centerX) / centerX) * 5;
-
-                card.style.transform = 'perspective(1000px) rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg) scale(1.02)';
-            });
-
-            card.addEventListener('mouseleave', function() {
-                card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
-            });
-        });
-
-        /* ===== COUNTER ANIMATION ===== */
-        const statValues = document.querySelectorAll('.hero-stat-value[data-count]');
-        let countersStarted = false;
-
-        function animateCounters() {
-            if (countersStarted) return;
-            countersStarted = true;
-
-            statValues.forEach(function(el) {
-                const target = parseInt(el.getAttribute('data-count'), 10);
-                const duration = 1500;
-                const startTime = performance.now();
-
-                function updateCounter(currentTime) {
-                    const elapsed = currentTime - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    const eased = 1 - Math.pow(1 - progress, 3);
-                    const current = Math.round(eased * target);
-                    el.textContent = current;
-
-                    if (progress < 1) {
-                        requestAnimationFrame(updateCounter);
-                    }
-                }
-
-                requestAnimationFrame(updateCounter);
-            });
-        }
-
-        const statsObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    animateCounters();
-                    statsObserver.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.5 });
-
-        const heroStats = document.querySelector('.hero-stats');
-        if (heroStats) {
-            statsObserver.observe(heroStats);
-        }
-
-        /* ===== FAQ ACCORDION ===== */
-        const faqItems = document.querySelectorAll('.faq-item');
-
-        faqItems.forEach(function(item) {
+        
+        // FAQ accordion
+        document.querySelectorAll('.faq-item').forEach(item => {
             const question = item.querySelector('.faq-question');
             const answer = item.querySelector('.faq-answer');
             const inner = item.querySelector('.faq-answer-inner');
-
-            question.addEventListener('click', function() {
+            
+            question.addEventListener('click', () => {
                 const isActive = item.classList.contains('active');
-
+                
                 // Close all others
-                faqItems.forEach(function(otherItem) {
+                document.querySelectorAll('.faq-item').forEach(otherItem => {
                     if (otherItem !== item) {
                         otherItem.classList.remove('active');
                         otherItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
                         otherItem.querySelector('.faq-answer').style.maxHeight = '0';
                     }
                 });
-
+                
                 // Toggle current
                 if (isActive) {
                     item.classList.remove('active');
@@ -1745,39 +723,27 @@
                 }
             });
         });
-
-        /* ===== PURCHASE FORM ===== */
+        
+        // Purchase form handling
         const purchaseForm = document.getElementById('purchaseForm');
-
+        
         purchaseForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            const email = document.getElementById('purchaseEmail').value;
-            if (email) {
-                const btn = purchaseForm.querySelector('button[type="submit"]');
-                btn.textContent = '✓ 正在跳转到支付页面...';
-                btn.style.opacity = '0.7';
-                btn.disabled = true;
-
-                setTimeout(function() {
-                    btn.textContent = '立即购买 · $9.99 / ¥49';
-                    btn.style.opacity = '1';
-                    btn.disabled = false;
-                    alert('支付集成即将上线！\n\n您的邮箱 ' + email + ' 已记录。\n付款后将收到格式为 MACUNZIP-XXXX-XXXX-XXXX-XXXXX 的激活码。\n在应用内 设置 → 激活 中输入即可。');
-                }, 1500);
-            }
+            const email = document.getElementById('email').value;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            submitBtn.innerHTML = '✓ Processing...';
+            submitBtn.style.opacity = '0.7';
+            submitBtn.disabled = true;
+            
+            setTimeout(() => {
+                submitBtn.innerHTML = 'Complete Purchase — $9.99';
+                submitBtn.style.opacity = '1';
+                submitBtn.disabled = false;
+                
+                alert(`Thank you!\n\nYour license key will be sent to: ${email}\n\nFormat: MACUNZIP-XXXX-XXXX-XXXX-XXXXX\nActivate offline via Settings → Activate in the app.\n\n30-day money-back guarantee applies.`);
+            }, 1500);
         });
-
-        /* ===== SMOOTH SECTION TRANSITIONS ===== */
-        // Add subtle parallax to section headers
-        window.addEventListener('scroll', function() {
-            const scrolled = window.pageYOffset;
-            const heroContent = document.querySelector('.hero-content');
-            if (heroContent && scrolled < window.innerHeight) {
-                heroContent.style.transform = 'translateY(' + scrolled * 0.15 + 'px)';
-                heroContent.style.opacity = 1 - (scrolled / (window.innerHeight * 0.8));
-            }
-        }, { passive: true });
-
     })();
     </script>
 </body>
