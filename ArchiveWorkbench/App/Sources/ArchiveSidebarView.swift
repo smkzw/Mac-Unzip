@@ -54,13 +54,18 @@ struct ArchiveSidebarView: View {
 
     private var recentSection: some View {
         Section {
+            let maxCount = UserDefaults.standard.object(forKey: SettingsKeys.recentArchivesCount) == nil
+                ? 10
+                : UserDefaults.standard.integer(forKey: SettingsKeys.recentArchivesCount)
             let recent = RecentArchivesManager.shared.recentURLs
-            if recent.isEmpty {
+            if maxCount == 0 {
+                EmptyView()
+            } else if recent.isEmpty {
                 Text("暂无最近打开的压缩包")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } else {
-                ForEach(recent.prefix(8), id: \.self) { url in
+                ForEach(recent.prefix(maxCount), id: \.self) { url in
                     Button {
                         onOpenRecent(url)
                     } label: {
@@ -68,7 +73,7 @@ struct ArchiveSidebarView: View {
                             Image(systemName: "archivebox")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text(url.deletingPathExtension().lastPathComponent)
+                            Text(url.lastPathComponent)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }

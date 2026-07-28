@@ -107,17 +107,26 @@ public enum CrashRecoveryJournalStore {
         in directories: [URL]
     ) -> [(journalURL: URL, journal: CrashRecoveryJournal)] {
         var results: [(journalURL: URL, journal: CrashRecoveryJournal)] = []
+        let journalExtension = CrashRecoveryJournal.fileExtension
         for directory in directories {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
+            guard let enumerator = FileManager.default.enumerator(
                 at: directory,
                 includingPropertiesForKeys: [.isRegularFileKey],
-                options: []
+                options: [.skipsHiddenFiles]
             ) else { continue }
-            for fileURL in contents
-            where fileURL.pathExtension == CrashRecoveryJournal.fileExtension {
+            for case let fileURL as URL in enumerator {
+                if enumerator.level > 5 {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                guard fileURL.pathExtension == journalExtension else { continue }
                 guard let journal = read(at: fileURL),
                       journal.state == .inProgress
                 else { continue }
+                let expectedSource = fileURL.deletingPathExtension().path
+                guard journal.sourceArchive == expectedSource else { continue }
+                let stagingDir = URL(fileURLWithPath: journal.stagingFile).deletingLastPathComponent()
+                guard stagingDir == fileURL.deletingLastPathComponent() else { continue }
                 results.append((journalURL: fileURL, journal: journal))
             }
         }
@@ -146,24 +155,54 @@ public enum CrashRecoveryJournalStore {
         let stagingURL = URL(fileURLWithPath: journal.stagingFile)
         let targetURL = URL(fileURLWithPath: journal.sourceArchive)
 
-        guard FileManager.default.fileExists(atPath: stagingURL.path) else {
-            // Staging is gone: the save either completed or never started.
+        let stagingFD = stagingURL.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        guard stagingFD >= 0 else {
+            deleteJournal(forArchiveAt: targetURL)
+            throw CrashRecoveryError.stagingFileMissing
+        }
+        var statBuf = stat()
+        guard Darwin.fstat(stagingFD, &statBuf) == 0, (statBuf.st_mode & S_IFMT) == S_IFREG else {
+            Darwin.close(stagingFD)
+            deleteJournal(forArchiveAt: targetURL)
+            throw CrashRecoveryError.stagingFileMissing
+        }
+        let stagingSize = Int(statBuf.st_size)
+
+        guard stagingSize >= 22 else {
+            Darwin.close(stagingFD)
             deleteJournal(forArchiveAt: targetURL)
             throw CrashRecoveryError.stagingFileMissing
         }
 
-        // Atomic rename: staging -> target.
         let renameResult = stagingURL.withUnsafeFileSystemRepresentation { stagePath in
             targetURL.withUnsafeFileSystemRepresentation { targetPath in
                 guard let stagePath, let targetPath else { return Int32(-1) }
                 return Darwin.rename(stagePath, targetPath)
             }
         }
+        Darwin.close(stagingFD)
         guard renameResult == 0 else {
             throw CrashRecoveryError.renameFailed(errno)
         }
 
-        // fsync the containing directory so the rename is durable.
+        let verifyFD = targetURL.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        }
+        if verifyFD >= 0 {
+            var verifyBuf = stat()
+            let ok = Darwin.fstat(verifyFD, &verifyBuf) == 0
+                && (verifyBuf.st_mode & S_IFMT) == S_IFREG
+                && Int(verifyBuf.st_size) == stagingSize
+            Darwin.close(verifyFD)
+            guard ok else {
+                throw CrashRecoveryError.renameFailed(EIO)
+            }
+        }
+
         syncDirectory(at: targetURL.deletingLastPathComponent())
 
         deleteJournal(forArchiveAt: targetURL)
@@ -183,7 +222,7 @@ public enum CrashRecoveryJournalStore {
     private static func syncDirectory(at url: URL) {
         let descriptor = url.withUnsafeFileSystemRepresentation { path -> Int32 in
             guard let path else { return -1 }
-            return Darwin.open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+            return Darwin.open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
         }
         guard descriptor >= 0 else { return }
         fsync(descriptor)

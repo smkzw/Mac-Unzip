@@ -1,0 +1,39 @@
+{
+  "agent": "hermes",
+  "requested_provider": "aishuo",
+  "requested_model": "GLM-5.2",
+  "round_count": 3,
+  "fallback": {
+    "provider": "buddy",
+    "model": "GLM-5.2",
+    "reason": "primary route failed before a resumable session was established",
+    "primary_output": "Warning: Unknown toolsets: messaging, moa\nAPI call failed after 3 retries: HTTP 503: No available channel for model GLM-5.2 under group default (distributor) (request id: 202607111812438186571218268d9d6ERrJwQY0)\n\n\nsession_id: 20260712_021230_7a7e3b\nException ignored in: <coroutine object MCPServerTask.run at 0x1091c1940>\nTraceback (most recent call last):\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 2783, in run\n    parked = await self._wait_for_reconnect_or_shutdown(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 1997, in _wait_for_reconnect_or_shutdown\n    t.cancel()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 762, in call_soon\n    self._check_closed()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 520, in _check_closed\n    raise RuntimeError('Event loop is closed')\nRuntimeError: Event loop is closed\nException ignored in: <coroutine object MCPServerTask.run at 0x1091c1a80>\nTraceback (most recent call last):\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 2783, in run\n    parked = await self._wait_for_reconnect_or_shutdown(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 1997, in _wait_for_reconnect_or_shutdown\n    t.cancel()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 762, in call_soon\n    self._check_closed()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 520, in _check_closed\n    raise RuntimeError('Event loop is closed')\nRuntimeError: Event loop is closed\nException ignored in: <coroutine object MCPServerTask.run at 0x1091c1800>\nTraceback (most recent call last):\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 2783, in run\n    parked = await self._wait_for_reconnect_or_shutdown(\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/smkzw/.hermes/hermes-agent/tools/mcp_tool.py\", line 1997, in _wait_for_reconnect_or_shutdown\n    t.cancel()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 762, in call_soon\n    self._check_closed()\n  File \"/Users/smkzw/.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/asyncio/base_events.py\", line 520, in _check_closed\n    raise RuntimeError('Event loop is closed')\nRuntimeError: Event loop is closed\n"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "command": [
+        "hermes",
+        "chat",
+        "--provider",
+        "buddy",
+        "--model",
+        "GLM-5.2",
+        "--query",
+        "You are Hermes running a bounded technical foundation review for Codex.\n\nFirst read and comply with `/Users/smkzw/.hermes/SOUL.md` in full. State honestly whether you did so.\n\nPrimary provider/model contract: `aishuo / GLM-5.2`. If the actual runtime markers show any other provider or model, stop and report a routing failure. Codex may separately invoke the documented `buddy / GLM-5.2` fallback after a terminal primary failure.\n\n## Hard boundaries\n\nWork only in `/Users/smkzw/Documents/AI Products/.worktrees/foundation`. Do not edit files, browse the web, inspect images, or run commands. Write exactly one output file: `runs/conference/archive_foundation_acceptance/general_aishuo_glm.md`.\n\n## Read these files only\n\n- `/Users/smkzw/.hermes/SOUL.md`\n- `context/archive_foundation_acceptance_conference_context.md`\n- `ArchiveWorkbench/Docs/foundation-acceptance.md`\n- `ArchiveWorkbench/Docs/security-spike-results.md`\n- `ArchiveWorkbench/Packages/ArchiveKit/Sources/ArchiveDomain/ArchiveDomain.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Sources/ArchiveDomain/ArchivePathPolicy.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Sources/ArchiveDomain/OperationScheduler.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Tests/ArchiveDomainTests/ArchiveDomainTests.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Tests/ArchiveDomainTests/ArchivePathPolicyTests.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Tests/ArchiveDomainTests/CapabilityRegistryTests.swift`\n- `ArchiveWorkbench/Packages/ArchiveKit/Tests/ArchiveDomainTests/OperationSchedulerTests.swift`\n- `ArchiveWorkbench/HelperSpike/Sources/HelperSpike/HelperProcessRunner.swift`\n- `ArchiveWorkbench/HelperSpike/Sources/HelperSpike/PasswordTransport.swift`\n- `ArchiveWorkbench/HelperSpike/Tests/HelperSpikeTests/PasswordTransportTests.swift`\n- `ArchiveWorkbench/HelperSpike/Tests/HelperSpikeTests/SevenZipProbeTests.swift`\n- `plans/mac_archive_app_requirements_traceability.md`\n\nAudit whether the evidence supports only a foundation handoff, not product completion. Challenge the capability registry, raw-path preservation, scheduler isolation/cancellation, private password transport, process cleanup, residual TOCTOU/escaped-descendant risks, and provider/UI runtime capability gap. Identify exact Critical/Important/Minor issues with file evidence. Return a complete Markdown review with route check, sources read, evidence, findings, contradictions, provider-handoff invariants, and accept/revise recommendation. Codex is final authority.\n",
+        "--quiet",
+        "--max-turns",
+        "30",
+        "--source",
+        "cli",
+        "--pass-session-id"
+      ],
+      "returncode": 1,
+      "output": "Warning: Unknown toolsets: messaging, moa\nHTTP 400: {\"error\": \"不支持的模型: GLM-5.2\"}\n\n\nsession_id: 20260712_021244_9131f1\n",
+      "duration_seconds": 5.676,
+      "timed_out": false,
+      "session_id": "20260712_021244_9131f1"
+    }
+  ],
+  "failure": "no usable Hermes session was established"
+}

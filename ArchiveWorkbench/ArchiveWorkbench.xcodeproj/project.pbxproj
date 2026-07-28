@@ -29,6 +29,7 @@
 		407C3B5D651B1369B009C8BD /* 首页主视觉.png in Resources */ = {isa = PBXBuildFile; fileRef = C28EF4BFD4145BB3D0F58580 /* 首页主视觉.png */; };
 		427D80100C22AE6142B3CDAD /* MarkdownPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5B91892CC463E135402B11 /* MarkdownPreviewView.swift */; };
 		4311778B5445AF9C2899C26E /* RoutedPreviewViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4CCF6D54ECBED7995C59D0 /* RoutedPreviewViews.swift */; };
+		4609552AE35E5FC586A7985F /* LicenseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06AB60B6A5D99C052EAA1818 /* LicenseManager.swift */; };
 		46A3DF24C03A9411FFBFDC95 /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 798AD6F11521A88D6CCF1622 /* AppModelTests.swift */; };
 		47E05A2FACB75BEE04964E7D /* 示例.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 213BABF7D2158F4AA1BBF440 /* 示例.mp4 */; };
 		4850A1EAB4A46FF96368C06E /* ArchiveDocumentLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770F293E93B737E3A5533F47 /* ArchiveDocumentLoader.swift */; };
@@ -43,6 +44,7 @@
 		5CAD892818C2C88A3AAE9585 /* ServiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E796F9D0E02F4FA1CF57BF4 /* ServiceProvider.swift */; };
 		5CD985CF3EDF2BF4476C9D4D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A8D29BF29905F2E45E6474D7 /* Localizable.xcstrings */; };
 		5D0CF42808E3E05A5BF8F8C2 /* ArchiveDomain in Frameworks */ = {isa = PBXBuildFile; productRef = F53D686932326F7374918D78 /* ArchiveDomain */; };
+		65863C866C96A72C1A75B3A1 /* LicenseGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5812E2830D103C01A56D9467 /* LicenseGate.swift */; };
 		6BE088AE06C98E0D0DA3FE92 /* SpikeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F616687C7F6E7F15DB0041A /* SpikeCommand.swift */; };
 		76C45C9D3617D6A2A59178BA /* HelperSpike.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 444D6F4BD01A66D3164023C2 /* HelperSpike.framework */; };
 		775E01984A950454DB5A2AB1 /* HelpMenuCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D32E78E983E07F524D8D90A /* HelpMenuCommands.swift */; };
@@ -60,6 +62,7 @@
 		90E2FD212C170E1A874E527F /* ArchiveSecurity in Frameworks */ = {isa = PBXBuildFile; productRef = 59AD3EF9A62EEACC04132FA4 /* ArchiveSecurity */; };
 		92076C752DB90E21E1D3197E /* AppLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C25AECF520E960B567FD5E /* AppLaunchTests.swift */; };
 		946328D0A3A99CE4D2EE6BC1 /* 示例.pdf in Resources */ = {isa = PBXBuildFile; fileRef = B1748DD7FCA4D22D5A7DC399 /* 示例.pdf */; };
+		9836E3095E2D94131D155A63 /* LicenseActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A5F2DA2CF446AC2A216DC5E /* LicenseActivationView.swift */; };
 		98CD893524C143809B03E1BD /* RecentArchivesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D3C479C0372D0123A4DFF0 /* RecentArchivesManager.swift */; };
 		9C49C0B6A60BF73E8640DFAC /* RootWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B37B72D1497D4200044B25 /* RootWindowView.swift */; };
 		A094028CCF35D810FE1943B4 /* DocumentShellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EC136E67CF7D7E4076FE15 /* DocumentShellTests.swift */; };
@@ -168,6 +171,7 @@
 /* Begin PBXFileReference section */
 		005C22B2DBADAFF743ECC962 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		029F5AD80F57A2BF594CACDF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		06AB60B6A5D99C052EAA1818 /* LicenseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseManager.swift; sourceTree = "<group>"; };
 		084C36A85CB67064C50EE9C5 /* ArchiveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSession.swift; sourceTree = "<group>"; };
 		090CFC53B2BF930D58E09BDA /* ArchiveDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveDocumentView.swift; sourceTree = "<group>"; };
 		0A2F4E89F4B9531694BC6AA2 /* ArchiveWorkbench.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ArchiveWorkbench.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -192,6 +196,7 @@
 		444D6F4BD01A66D3164023C2 /* HelperSpike.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = HelperSpike.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		471DB954D0F51445A3930E2F /* ArchiveFileTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveFileTypes.swift; sourceTree = "<group>"; };
 		57C54C88367139C6DF1618EC /* MediaPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPreviewView.swift; sourceTree = "<group>"; };
+		5812E2830D103C01A56D9467 /* LicenseGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseGate.swift; sourceTree = "<group>"; };
 		6188170E442CC79AFB49D276 /* ArchiveWorkbenchFinderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ArchiveWorkbenchFinderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		62ACAF4AC5878D0A593DBE97 /* LowFDHarness */ = {isa = PBXFileReference; includeInIndex = 0; path = LowFDHarness; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D32E78E983E07F524D8D90A /* HelpMenuCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpMenuCommands.swift; sourceTree = "<group>"; };
@@ -206,6 +211,7 @@
 		9865B3CED7EDF8FD4598AE7F /* ProviderStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderStatusView.swift; sourceTree = "<group>"; };
 		996C34868DBB232904EF8D0D /* DocumentToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentToolbar.swift; sourceTree = "<group>"; };
 		9A0639E0224E8AEDE19A65BC /* ArchiveSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSidebarView.swift; sourceTree = "<group>"; };
+		9A5F2DA2CF446AC2A216DC5E /* LicenseActivationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseActivationView.swift; sourceTree = "<group>"; };
 		9F4CCF6D54ECBED7995C59D0 /* RoutedPreviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutedPreviewViews.swift; sourceTree = "<group>"; };
 		9FBF0F54A519ABC48B5E8BEC /* HelperSpikeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HelperSpikeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4267D6323505110133E4E57 /* ArchiveInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveInspectorView.swift; sourceTree = "<group>"; };
@@ -362,6 +368,9 @@
 				DE162E57C298AE72CB4A1465 /* DiagnosticsExporter.swift */,
 				996C34868DBB232904EF8D0D /* DocumentToolbar.swift */,
 				6D32E78E983E07F524D8D90A /* HelpMenuCommands.swift */,
+				9A5F2DA2CF446AC2A216DC5E /* LicenseActivationView.swift */,
+				5812E2830D103C01A56D9467 /* LicenseGate.swift */,
+				06AB60B6A5D99C052EAA1818 /* LicenseManager.swift */,
 				8A5B91892CC463E135402B11 /* MarkdownPreviewView.swift */,
 				57C54C88367139C6DF1618EC /* MediaPreviewView.swift */,
 				C731365AAAD2F3E0BAF8E72D /* PreviewRouting.swift */,
@@ -827,6 +836,9 @@
 				EF26BABAE130041F4A6A99F7 /* DiagnosticsExporter.swift in Sources */,
 				3261321335F58BEB6E7B6EDB /* DocumentToolbar.swift in Sources */,
 				775E01984A950454DB5A2AB1 /* HelpMenuCommands.swift in Sources */,
+				9836E3095E2D94131D155A63 /* LicenseActivationView.swift in Sources */,
+				65863C866C96A72C1A75B3A1 /* LicenseGate.swift in Sources */,
+				4609552AE35E5FC586A7985F /* LicenseManager.swift in Sources */,
 				427D80100C22AE6142B3CDAD /* MarkdownPreviewView.swift in Sources */,
 				4A6DDC477E75CC47167F25D7 /* MediaPreviewView.swift in Sources */,
 				C45C39C08E6F86DCD00D1633 /* PreviewRouting.swift in Sources */,
@@ -960,7 +972,7 @@
 				);
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.ArchiveWorkbench;
-				PRODUCT_NAME = ArchiveWorkbench;
+				PRODUCT_NAME = MacUnzip;
 				SDKROOT = macosx;
 				VALID_ARCHS = arm64;
 			};
@@ -984,7 +996,7 @@
 				);
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.ArchiveWorkbench;
-				PRODUCT_NAME = ArchiveWorkbench;
+				PRODUCT_NAME = MacUnzip;
 				SDKROOT = macosx;
 				VALID_ARCHS = arm64;
 			};

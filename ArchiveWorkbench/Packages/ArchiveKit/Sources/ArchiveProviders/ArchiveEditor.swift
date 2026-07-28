@@ -104,6 +104,7 @@ public actor ArchiveEditor {
     private var sourceURL: URL?
     private var baseEntries: [EditableEntry] = []
     private var sourceFingerprint: EditorFileFingerprint?
+    private var fingerprintUnavailable = false
     private var stagedChanges: [PendingChange] = []
 
     public init() {
@@ -151,6 +152,7 @@ public actor ArchiveEditor {
         sourceURL = url
         baseEntries = entries
         sourceFingerprint = try? EditorFileFingerprint(fileURL: url)
+        fingerprintUnavailable = sourceFingerprint == nil
         stagedChanges = []
     }
 
@@ -213,12 +215,12 @@ public actor ArchiveEditor {
         return try publish(to: sourceURL, allowOverwrite: true)
     }
 
-    /// Saves the staged changes to a new location without overwriting an
-    /// existing file. Returns the published URL.
+    /// Saves the staged changes to a new location, atomically replacing any
+    /// existing file at the target path. Returns the published URL.
     @discardableResult
     public func saveAs(to targetURL: URL) throws -> URL {
         guard sourceURL != nil else { throw ArchiveEditorError.noSourceArchive }
-        return try publish(to: targetURL, allowOverwrite: false)
+        return try publish(to: targetURL, allowOverwrite: true)
     }
 
     private func publish(to targetURL: URL, allowOverwrite: Bool) throws -> URL {
@@ -276,7 +278,11 @@ public actor ArchiveEditor {
     }
 
     private func verifySourceUnchanged() throws {
-        guard let sourceURL, let expected = sourceFingerprint else { return }
+        guard let sourceURL else { return }
+        guard let expected = sourceFingerprint else {
+            if fingerprintUnavailable { throw ArchiveEditorError.sourceArchiveChanged }
+            return
+        }
         guard let actual = try? EditorFileFingerprint(fileURL: sourceURL) else {
             throw ArchiveEditorError.sourceArchiveChanged
         }
@@ -314,8 +320,12 @@ public actor ArchiveEditor {
                 guard let index = livePaths.firstIndex(of: target) else {
                     throw ArchiveEditorError.missingEntry(target)
                 }
-                livePaths.remove(at: index)
-                output.removeAll { Self.normalize(nameBytes: $0.nameBytes) == target }
+                let targetPrefix = target + "/"
+                livePaths.removeAll { $0 == target || $0.hasPrefix(targetPrefix) }
+                output.removeAll {
+                    let normalized = Self.normalize(nameBytes: $0.nameBytes, usesUTF8Flag: $0.usesUTF8)
+                    return normalized == target || normalized.hasPrefix(targetPrefix)
+                }
 
             case let .rename(from, to):
                 let source = Self.normalize(from)
@@ -323,11 +333,18 @@ public actor ArchiveEditor {
                 guard let index = livePaths.firstIndex(of: source) else {
                     throw ArchiveEditorError.missingEntry(source)
                 }
-                livePaths[index] = destination
                 let sourcePrefix = source + "/"
                 let destinationPrefix = destination + "/"
+                for position in livePaths.indices {
+                    if livePaths[position] == source {
+                        livePaths[position] = destination
+                    } else if livePaths[position].hasPrefix(sourcePrefix) {
+                        let suffix = String(livePaths[position].dropFirst(sourcePrefix.count))
+                        livePaths[position] = destinationPrefix + suffix
+                    }
+                }
                 for position in output.indices {
-                    let current = Self.normalize(nameBytes: output[position].nameBytes)
+                    let current = Self.normalize(nameBytes: output[position].nameBytes, usesUTF8Flag: output[position].usesUTF8)
                     if current == source {
                         output[position] = renamed(output[position], to: destination)
                     } else if current.hasPrefix(sourcePrefix) {
@@ -340,7 +357,7 @@ public actor ArchiveEditor {
                 let target = Self.normalize(entryPath)
                 guard livePaths.contains(target),
                       let position = output.firstIndex(where: {
-                          Self.normalize(nameBytes: $0.nameBytes) == target && !$0.isDirectory
+                          Self.normalize(nameBytes: $0.nameBytes, usesUTF8Flag: $0.usesUTF8) == target && !$0.isDirectory
                       })
                 else {
                     throw ArchiveEditorError.missingEntry(target)
@@ -387,7 +404,7 @@ public actor ArchiveEditor {
     private func detectCollisions(in output: [OutputEntry]) throws {
         var seen: [String: String] = [:]
         for entry in output {
-            let path = Self.normalize(nameBytes: entry.nameBytes)
+            let path = Self.normalize(nameBytes: entry.nameBytes, usesUTF8Flag: entry.usesUTF8)
             let key = path.precomposedStringWithCanonicalMapping
                 .lowercased(with: Locale(identifier: "en_US_POSIX"))
             if let existing = seen[key] {
@@ -402,11 +419,11 @@ public actor ArchiveEditor {
         path.hasSuffix("/") ? String(path.dropLast()) : path
     }
 
-    private static func normalize(nameBytes: [UInt8]) -> String {
+    private static func normalize(nameBytes: [UInt8], usesUTF8Flag: Bool) -> String {
         var bytes = nameBytes
         if bytes.last == UInt8(ascii: "/") { bytes.removeLast() }
         let detector = EncodingDetector()
-        return detector.detect(rawBytes: bytes, usesUTF8Flag: false).decodedName
+        return detector.detect(rawBytes: bytes, usesUTF8Flag: usesUTF8Flag).decodedName
     }
 
     private func writeOutputEntry(_ entry: OutputEntry, reader: ZIPBridgeReader, writer: EditorWriter) throws {

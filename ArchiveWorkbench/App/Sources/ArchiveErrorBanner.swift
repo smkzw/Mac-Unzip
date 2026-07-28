@@ -89,8 +89,6 @@ enum ArchiveErrorPresentation: Equatable {
         switch self {
         case .missingVolume:
             return localization.string("定位")
-        case .corruptedArchive:
-            return localization.string("尝试部分解压")
         default:
             return nil
         }
@@ -138,8 +136,10 @@ struct ArchiveErrorBanner: View {
     @Binding var retryPassword: String
     let passwordAttemptCount: Int
     let onRetryPassword: (String) -> Void
+    var onResetLockout: (() -> Void)?
 
     @State private var isVisible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var severity: ArchiveErrorSeverity { errorType.severity }
 
@@ -203,9 +203,14 @@ struct ArchiveErrorBanner: View {
         .opacity(isVisible ? 1 : 0)
         .offset(y: isVisible ? 0 : -10)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.25)) {
+            if reduceMotion {
                 isVisible = true
+            } else {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    isVisible = true
+                }
             }
+            NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .layoutChanged, userInfo: nil)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("错误横幅")
@@ -240,6 +245,14 @@ struct ArchiveErrorBanner: View {
                 .accessibilityIdentifier("密码重试按钮")
             }
             .padding(.leading, 28)
+        } else {
+            Button(AppLocalization().string("重新输入")) {
+                onResetLockout?()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .padding(.leading, 28)
+            .accessibilityIdentifier("密码重置按钮")
         }
     }
 

@@ -12,6 +12,7 @@ protocol ArchiveDocumentLoading: Actor {
     /// implementation below.
     func openWithPassword(url: URL, password: String) async throws -> ArchiveDocumentSnapshot
     func materializePreview(entryID: ArchiveEntryID) async throws -> URL
+    func materializeEntryForExtraction(entryID: ArchiveEntryID, under rootURL: URL) async throws -> URL
     func extractAll(
         to destinationDirectoryURL: URL,
         progress: @Sendable (ZIPExtractionProgress) -> Void
@@ -19,6 +20,9 @@ protocol ArchiveDocumentLoading: Actor {
     func createWindowsZIP(
         at outputURL: URL,
         inputs: [URL],
+        compressLevel: Int32,
+        password: String?,
+        encryptMethod: Int32,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) async throws -> ArchiveDocumentSnapshot
     /// Creates a TAR archive (optionally compressed) at outputURL from inputs.
@@ -57,6 +61,9 @@ extension ArchiveDocumentLoading {
     func createWindowsZIP(
         at outputURL: URL,
         inputs: [URL],
+        compressLevel: Int32,
+        password: String?,
+        encryptMethod: Int32,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) async throws -> ArchiveDocumentSnapshot {
         throw ArchiveError.helperFailed
@@ -133,6 +140,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         ArchiveCapabilityRegistry.productionBaseline
             .withSevenZipAvailable(sevenZipProvider != nil)
             .withRARAvailable(rarProvider != nil)
+            .withRARCreateAvailable(RARBinaryDiscovery.discover() != nil)
             .withDMGAvailable(dmgProvider != nil)
             .withISOAvailable(isoProvider != nil)
     }
@@ -179,14 +187,22 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             guard let sevenZipProvider else {
                 throw ArchiveError.providerNotInstalled
             }
-            snapshot = try await sevenZipProvider.open(url: url)
+            if let password, !password.isEmpty {
+                snapshot = try await sevenZipProvider.openWithPassword(url: url, password: password)
+            } else {
+                snapshot = try await sevenZipProvider.open(url: url)
+            }
         case .rar:
             // RAR reads go through the isolated, validated 7zz binary only.
             // Supports RAR4/RAR5, solid, multipart, Unicode filenames.
             guard let rarProvider else {
                 throw ArchiveError.providerNotInstalled
             }
-            snapshot = try await rarProvider.open(url: url)
+            if let password, !password.isEmpty {
+                snapshot = try await rarProvider.openWithPassword(url: url, password: password)
+            } else {
+                snapshot = try await rarProvider.open(url: url)
+            }
         case .dmg:
             // DMG reads go through 7zz only. Never mount the disk image to avoid
             // auto-execution of embedded code. Strictly read-only.
@@ -261,11 +277,37 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             return materializedURL
         } catch {
             try? FileManager.default.removeItem(at: requestRoot)
+            if let previousRoot, previousRoot != requestRoot {
+                try? FileManager.default.removeItem(at: previousRoot)
+            }
             if activePreviewRootURL == requestRoot {
                 activePreviewRootURL = nil
             }
             throw error
         }
+    }
+
+    func materializeEntryForExtraction(entryID: ArchiveEntryID, under rootURL: URL) async throws -> URL {
+        try Task.checkCancellation()
+        let materializedURL: URL
+        if currentFormat == .sevenZip {
+            guard let sevenZipProvider else { throw ArchiveError.providerNotInstalled }
+            materializedURL = try await sevenZipProvider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        } else if currentFormat == .rar {
+            guard let rarProvider else { throw ArchiveError.providerNotInstalled }
+            materializedURL = try await rarProvider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        } else if currentFormat == .dmg {
+            guard let dmgProvider else { throw ArchiveError.providerNotInstalled }
+            materializedURL = try await dmgProvider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        } else if currentFormat == .iso {
+            guard let isoProvider else { throw ArchiveError.providerNotInstalled }
+            materializedURL = try await isoProvider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        } else if Self.isTARFormat(currentFormat) {
+            materializedURL = try await tarProvider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        } else {
+            materializedURL = try await provider.materializeEntry(id: entryID, under: rootURL, budget: .extractionDefault)
+        }
+        return materializedURL
     }
 
     func extractAll(
@@ -279,10 +321,8 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             if accessed { destinationDirectoryURL.stopAccessingSecurityScopedResource() }
         }
 
-        let baseName = currentArchiveURL.deletingPathExtension().lastPathComponent.isEmpty
-            ? ArchiveExtractionCopy.defaultFolderName()
-            : currentArchiveURL.deletingPathExtension().lastPathComponent
-        let finalURL = availableExtractionURL(baseName: baseName, under: destinationDirectoryURL)
+        let baseName = Self.archiveBaseName(from: currentArchiveURL)
+        let finalURL = try availableExtractionURL(baseName: baseName, under: destinationDirectoryURL)
         let stagingURL = destinationDirectoryURL.appending(
             path: ".MacUnzip-\(UUID().uuidString).partial",
             directoryHint: .isDirectory
@@ -294,7 +334,10 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         )
         var published = false
         defer {
-            if !published { try? FileManager.default.removeItem(at: stagingURL) }
+            if !published {
+                try? FileManager.default.removeItem(at: stagingURL)
+                try? FileManager.default.removeItem(at: finalURL)
+            }
         }
         if currentFormat == .sevenZip {
             guard let sevenZipProvider else { throw ArchiveError.providerNotInstalled }
@@ -349,7 +392,11 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             _ = try await provider.extractAll(under: stagingURL, progress: progress)
         }
         try Task.checkCancellation()
-        try FileManager.default.moveItem(at: stagingURL, to: finalURL)
+        let stagingContents = try FileManager.default.contentsOfDirectory(at: stagingURL, includingPropertiesForKeys: nil)
+        for item in stagingContents {
+            try FileManager.default.moveItem(at: item, to: finalURL.appending(path: item.lastPathComponent))
+        }
+        try FileManager.default.removeItem(at: stagingURL)
         published = true
         return finalURL
     }
@@ -357,6 +404,9 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
     func createWindowsZIP(
         at outputURL: URL,
         inputs: [URL],
+        compressLevel: Int32,
+        password: String?,
+        encryptMethod: Int32,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) async throws -> ArchiveDocumentSnapshot {
         try Task.checkCancellation()
@@ -369,11 +419,18 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             if outputAccessed { outputURL.stopAccessingSecurityScopedResource() }
         }
 
-        try await provider.createWindowsZIP(at: outputURL, inputs: inputs, progress: progress)
+        try await provider.createWindowsZIP(at: outputURL, inputs: inputs, compressLevel: compressLevel, password: password, encryptMethod: encryptMethod, progress: progress)
         try Task.checkCancellation()
         try resetPreviewSession()
-        let snapshot = try await provider.open(url: outputURL)
+        let snapshot: ArchiveDocumentSnapshot
+        if let password, !password.isEmpty {
+            snapshot = try await provider.openWithPassword(url: outputURL, password: SecurePassword(password))
+        } else {
+            snapshot = try await provider.open(url: outputURL)
+        }
+        try await editor.open(url: snapshot.sourceURL)
         currentArchiveURL = snapshot.sourceURL
+        currentFormat = snapshot.format
         return snapshot
     }
 
@@ -432,6 +489,9 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             password: password
         )
         try Task.checkCancellation()
+        if let password, !password.isEmpty {
+            return try await open(url: outputURL, password: password)
+        }
         return try await open(url: outputURL)
     }
 
@@ -459,7 +519,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             }
             if outputAccessed { outputURL.stopAccessingSecurityScopedResource() }
         }
-        let rarProvider = RARCreateProvider(binaryPath: discovery.resolvedPath)
+        let rarProvider = RARCreateProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
         var options = RARCreateOptions()
         options.password = password
         try await rarProvider.create(
@@ -468,6 +528,9 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             options: options
         )
         try Task.checkCancellation()
+        if let password, !password.isEmpty {
+            return try await open(url: outputURL, password: password)
+        }
         return try await open(url: outputURL)
     }
 
@@ -526,17 +589,21 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         return snapshot
     }
 
-    private func availableExtractionURL(baseName: String, under destinationDirectoryURL: URL) -> URL {
+    private func availableExtractionURL(baseName: String, under destinationDirectoryURL: URL) throws -> URL {
         var suffix = 1
         var candidate = destinationDirectoryURL.appending(path: baseName, directoryHint: .isDirectory)
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            suffix += 1
-            candidate = destinationDirectoryURL.appending(
-                path: "\(baseName) \(suffix)",
-                directoryHint: .isDirectory
-            )
+        while true {
+            do {
+                try FileManager.default.createDirectory(at: candidate, withIntermediateDirectories: false)
+                return candidate
+            } catch let error as NSError where error.code == NSFileWriteFileExistsError {
+                suffix += 1
+                candidate = destinationDirectoryURL.appending(
+                    path: "\(baseName) \(suffix)",
+                    directoryHint: .isDirectory
+                )
+            }
         }
-        return candidate
     }
 
     private static func isTARFormat(_ format: ArchiveFormat?) -> Bool {
@@ -544,6 +611,21 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         case .tar, .gzip, .bzip2, .xz, .zstandard: return true
         default: return false
         }
+    }
+
+    private static let compoundExtensions = [
+        ".tar.gz", ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.z", ".tar.lz4",
+    ]
+
+    static func archiveBaseName(from url: URL) -> String {
+        let name = url.lastPathComponent
+        let lowered = name.lowercased()
+        for ext in compoundExtensions where lowered.hasSuffix(ext) {
+            let base = String(name.dropLast(ext.count))
+            if !base.isEmpty { return base }
+        }
+        let base = url.deletingPathExtension().lastPathComponent
+        return base.isEmpty ? ArchiveExtractionCopy.defaultFolderName() : base
     }
 
     private func resetPreviewSession() throws {

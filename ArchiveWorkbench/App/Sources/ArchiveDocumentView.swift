@@ -55,6 +55,7 @@ struct ArchiveDocumentView: View {
                 onExtract: onExtract,
                 onAdd: onAdd,
                 onOpenRecent: { url in
+                    RecentArchivesManager.shared.noteRecentArchive(url)
                     Task { await model.openArchive(url: url) }
                 }
             )
@@ -73,18 +74,35 @@ struct ArchiveDocumentView: View {
                         onDismiss: { model.dismissError() },
                         retryPassword: $model.passwordRetryText,
                         passwordAttemptCount: model.passwordAttemptCount,
-                        onRetryPassword: { password in model.retryWithPassword(password) }
+                        onRetryPassword: { password in model.retryWithPassword(password) },
+                        onResetLockout: { model.passwordAttemptCount = 0 }
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                // Inline conflict resolution dialog
-                if let conflict = model.activeConflict {
-                    ExtractionConflictDialog(
-                        conflictInfo: conflict,
-                        onResolution: { resolution in model.resolveConflict(resolution) }
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                // Format mismatch warning (persistent until dismissed)
+                if let mismatchWarning = model.formatMismatchWarning {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .font(.caption)
+                        Text(mismatchWarning)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
+                            model.formatMismatchWarning = nil
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("关闭格式警告")
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.08))
                 }
 
                 Group {
@@ -95,6 +113,8 @@ struct ArchiveDocumentView: View {
                             metadataByEntryID: model.metadataByEntryID,
                             selection: $model.selectedEntryID,
                             nestedArchiveEntryIDs: model.nestedArchiveEntryIDs,
+                            canEdit: model.canAdd,
+                            canExtractSelected: model.canExtractSelected,
                             onDelete: onRemove,
                             onRename: onRename,
                             onOpenNestedArchive: { entryID in
@@ -127,7 +147,6 @@ struct ArchiveDocumentView: View {
                 }
             }
             .animation(accessibilityAnimation, value: model.activeErrorPresentation)
-            .animation(accessibilityAnimation, value: model.activeConflict)
             .task(id: model.viewMode == .media ? model.selectedEntryID : nil) {
                 guard model.viewMode == .media else { return }
                 await model.loadSelectedPreview()
@@ -143,48 +162,7 @@ struct ArchiveDocumentView: View {
         }
         .toolbar { DocumentToolbar(model: model, onAdd: onAdd, onExtract: onExtract, onExtractSelected: onExtractSelected, onRemove: onRemove, onRename: onRename, onReplace: onReplace) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Group {
-                if model.isExtracting {
-                    HStack(spacing: 10) {
-                        ProgressView(value: model.extractionProgress)
-                            .frame(width: 140)
-                            .accessibilityIdentifier("解压缩进度")
-                            .accessibilityLabel(AppLocalization().string("解压缩进度"))
-                            .accessibilityValue(model.extractionProgress.formatted(.percent.precision(.fractionLength(0))))
-                        Text(model.extractionProgress.formatted(.percent.precision(.fractionLength(0))))
-                            .font(.caption.monospacedDigit())
-                        Spacer()
-                        Button("取消") { model.cancelExtraction() }
-                            .buttonStyle(.borderless)
-                            .accessibilityIdentifier("取消解压缩")
-                    }
-                    .padding(.horizontal, 32)
-                } else if let outputURL = model.lastExtractionURL {
-                    HStack {
-                        Text(model.statusMessage)
-                            .font(.callout)
-                            .foregroundStyle(.primary)
-                            .fontWeight(.medium)
-                        Spacer()
-                        Button {
-                            NSWorkspace.shared.activateFileViewerSelecting([outputURL])
-                        } label: {
-                            Label("在 Finder 中显示", systemImage: "folder")
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("在 Finder 中显示")
-                    }
-                    .padding(.horizontal, 32)
-                } else {
-                    Text(model.statusMessage)
-                        .accessibilityIdentifier("状态栏消息")
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .fontWeight(.medium)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.horizontal, 32)
-                }
-            }
+            statusBarContent
             .frame(maxWidth: .infinity)
             .frame(height: 38)
             .background(statusBackground)
@@ -192,6 +170,11 @@ struct ArchiveDocumentView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("状态栏")
             .accessibilityLabel(statusBarLabel)
+            .onChange(of: model.lastExtractionURL) { _, newValue in
+                if newValue != nil {
+                    NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .layoutChanged, userInfo: nil)
+                }
+            }
         }
         .background(
             effectiveReduceTransparency
@@ -211,6 +194,50 @@ struct ArchiveDocumentView: View {
                 }
                 .allowsHitTesting(false)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var statusBarContent: some View {
+        if model.isExtracting {
+            HStack(spacing: 10) {
+                ProgressView(value: model.extractionProgress)
+                    .frame(width: 140)
+                    .accessibilityIdentifier("解压缩进度")
+                    .accessibilityLabel(AppLocalization().string("解压缩进度"))
+                    .accessibilityValue(model.extractionProgress.formatted(.percent.precision(.fractionLength(0))))
+                Text(model.extractionProgress.formatted(.percent.precision(.fractionLength(0))))
+                    .font(.caption.monospacedDigit())
+                Spacer()
+                Button("取消") { model.cancelExtraction() }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("取消解压缩")
+            }
+            .padding(.horizontal, 32)
+        } else if let outputURL = model.lastExtractionURL {
+            HStack {
+                Text(model.statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .fontWeight(.medium)
+                Spacer()
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+                } label: {
+                    Label("在 Finder 中显示", systemImage: "folder")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("在 Finder 中显示")
+            }
+            .padding(.horizontal, 32)
+        } else {
+            Text(model.statusMessage)
+                .accessibilityIdentifier("状态栏消息")
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .fontWeight(.medium)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 32)
         }
     }
 

@@ -63,6 +63,8 @@ public enum SevenZipProviderError: Error, Equatable, Sendable {
     case cancelled
     /// The helper could not be spawned or its output could not be drained.
     case helperProtocolFailure
+    /// Archive creation failed; carries the helper's stderr diagnostic.
+    case creationFailed(message: String)
 }
 
 // MARK: - Binary discovery & validation
@@ -193,12 +195,17 @@ public struct SevenZipBinaryDiscovery: Equatable, Sendable {
         isDigit(scalar) || scalar == "."
     }
 
-    private static func sha256(ofFileAt path: String) -> String? {
+    static func sha256(ofFileAt path: String) -> String? {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
-            let chunk = handle.readData(ofLength: 1 << 20)
+            let chunk: Data
+            do {
+                chunk = try handle.read(upToCount: 1 << 20) ?? Data()
+            } catch {
+                return nil
+            }
             if chunk.isEmpty { break }
             hasher.update(data: chunk)
         }
@@ -233,11 +240,18 @@ struct SevenZipProcessRunner: Sendable {
         arguments: [String],
         timeoutSeconds: Int,
         maximumStdoutBytes: Int,
-        maximumStderrBytes: Int = 256 * 1024
+        maximumStderrBytes: Int = 256 * 1024,
+        expectedSHA256: String? = nil
     ) throws -> SevenZipProcessResult {
         guard !Task.isCancelled else { throw SevenZipHelperError.cancelled }
         guard access(executablePath, X_OK) == 0 else {
             throw SevenZipProviderError.binaryValidationFailed(reason: "not executable")
+        }
+        if let expectedSHA256 {
+            guard let actual = SevenZipBinaryDiscovery.sha256(ofFileAt: executablePath),
+                  actual == expectedSHA256 else {
+                throw SevenZipProviderError.binaryValidationFailed(reason: "integrity hash mismatch")
+            }
         }
 
         var stdoutPipe: [Int32] = [-1, -1]
@@ -274,7 +288,14 @@ struct SevenZipProcessRunner: Sendable {
 
         let argv = [executablePath] + arguments
         var argvVector = argv.map { strdup($0) }
-        defer { argvVector.forEach { free($0) } }
+        defer {
+            argvVector.forEach { ptr in
+                if let ptr {
+                    memset_s(ptr, strlen(ptr), 0, strlen(ptr))
+                    free(ptr)
+                }
+            }
+        }
         argvVector.append(nil)
         let environment = [
             "LANG=en_US.UTF-8",
@@ -364,11 +385,20 @@ struct SevenZipProcessRunner: Sendable {
             stderrDrain.cancel()
             _ = drainGroup.wait(timeout: .now() + .seconds(2))
         }
+        // Drains own and close the read-end FDs; prevent double-close in defer.
+        stdoutPipe[0] = -1
+        stderrPipe[0] = -1
 
         if let terminal { throw terminal }
         guard exited else { throw SevenZipHelperError.drainFailure }
+        let exitCode: Int32
+        if (waitStatus & 0x7f) == 0 {
+            exitCode = (waitStatus >> 8) & 0xff
+        } else {
+            exitCode = 128 + (waitStatus & 0x7f)
+        }
         return SevenZipProcessResult(
-            exitStatus: (waitStatus >> 8) & 0xff,
+            exitStatus: exitCode,
             stdout: stdoutDrain.snapshotData(),
             stderr: stderrDrain.snapshotData(),
             stdoutExceeded: stdoutDrain.exceeded(),
@@ -596,6 +626,7 @@ struct SevenZipListingParser: Sendable {
 
 public actor SevenZipProvider: ArchiveProvider {
     private let binaryPath: String
+    private let binarySHA256: String?
     private let listingTimeoutSeconds: Int
     private let extractionTimeoutSeconds: Int
     private let listingEntryLimit: Int
@@ -604,6 +635,7 @@ public actor SevenZipProvider: ArchiveProvider {
     private var entriesByID: [ArchiveEntryID: ArchiveEntrySnapshot] = [:]
     private var isSolidArchive = false
     private var looksLikeMultipartVolume = false
+    private var currentPassword: SecurePassword?
 
     /// The capabilities this provider exposes. Read-only by design.
     public static let capabilities: Set<SevenZipCapability> = [.list, .read, .preview]
@@ -612,11 +644,13 @@ public actor SevenZipProvider: ArchiveProvider {
     ///   discover and validate the system binary first.
     public init(
         binaryPath: String,
+        binarySHA256: String? = nil,
         listingTimeoutSeconds: Int = 30,
         extractionTimeoutSeconds: Int = 600,
         listingEntryLimit: Int = 1_000_000
     ) {
         self.binaryPath = binaryPath
+        self.binarySHA256 = binarySHA256
         self.listingTimeoutSeconds = listingTimeoutSeconds
         self.extractionTimeoutSeconds = extractionTimeoutSeconds
         self.listingEntryLimit = listingEntryLimit
@@ -630,7 +664,7 @@ public actor SevenZipProvider: ArchiveProvider {
         guard let discovery = SevenZipBinaryDiscovery.discover() else {
             throw SevenZipProviderError.binaryNotFound
         }
-        return SevenZipProvider(binaryPath: discovery.resolvedPath)
+        return SevenZipProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
     }
 
     /// True when the opened archive uses solid compression, where extracting a
@@ -644,10 +678,71 @@ public actor SevenZipProvider: ArchiveProvider {
         archiveURL = nil
         entriesByID = [:]
         isSolidArchive = false
+        currentPassword = nil
         looksLikeMultipartVolume = Self.looksLikeSplitVolume(url)
 
         let result = try invoke(
             arguments: ["l", "-slt", url.path],
+            timeoutSeconds: listingTimeoutSeconds,
+            maximumStdoutBytes: maximumStdoutListingBytes
+        )
+        guard result.exitStatus == 0 else {
+            throw mapError(result: result, forListing: true)
+        }
+        guard !result.stdoutExceeded else { throw ArchiveError.resourceLimit }
+
+        let parse = SevenZipListingParser().parse(String(decoding: result.stdout, as: UTF8.self))
+        isSolidArchive = parse.signals.isSolid
+        looksLikeMultipartVolume = parse.signals.isMultipart || looksLikeMultipartVolume
+
+        guard parse.entries.count <= listingEntryLimit else {
+            throw ArchiveError.resourceLimit
+        }
+
+        var snapshots: [ArchiveEntrySnapshot] = []
+        snapshots.reserveCapacity(parse.entries.count)
+        for parsed in parse.entries {
+            let normalized = parsed.path.replacingOccurrences(of: "\\", with: "/")
+            let isDirectory = parsed.isDirectory || normalized.hasSuffix("/")
+            let validationPath = isDirectory && normalized.hasSuffix("/")
+                ? String(normalized.dropLast())
+                : normalized
+            do {
+                try ArchivePathPolicy().validate(validationPath)
+            } catch {
+                throw ArchiveError.unsafePath
+            }
+            let entry = ArchiveEntry(
+                id: ArchiveEntryID(),
+                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                displayPath: validationPath
+            )
+            snapshots.append(ArchiveEntrySnapshot(
+                entry: entry,
+                compressedSize: parsed.packedSize,
+                uncompressedSize: parsed.size,
+                modifiedAt: parsed.modifiedAt,
+                isDirectory: isDirectory,
+                isSymbolicLink: false,
+                isEncrypted: parsed.encrypted,
+                usesUTF8FileName: true
+            ))
+        }
+
+        archiveURL = url
+        entriesByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.entry.id, $0) })
+        return ArchiveDocumentSnapshot(sourceURL: url, format: .sevenZip, entries: snapshots)
+    }
+
+    public func openWithPassword(url: URL, password: String) throws -> ArchiveDocumentSnapshot {
+        archiveURL = nil
+        entriesByID = [:]
+        isSolidArchive = false
+        currentPassword = SecurePassword(password)
+        looksLikeMultipartVolume = Self.looksLikeSplitVolume(url)
+
+        let result = try invoke(
+            arguments: ["l", "-slt", "-p\(password)", url.path],
             timeoutSeconds: listingTimeoutSeconds,
             maximumStdoutBytes: maximumStdoutListingBytes
         )
@@ -704,18 +799,24 @@ public actor SevenZipProvider: ArchiveProvider {
             throw ArchiveError.helperFailed
         }
         guard !snapshot.isDirectory else { throw ArchiveError.unsafePath }
-        guard !snapshot.isEncrypted else { throw ArchiveError.passwordRequired }
+        if snapshot.isEncrypted && currentPassword == nil { throw ArchiveError.passwordRequired }
         guard snapshot.uncompressedSize <= maximumBytes,
               snapshot.uncompressedSize <= UInt64(Int.max) else {
             throw ArchiveError.resourceLimit
         }
+        let stdoutLimit = Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
+        var arguments = ["x", "-so", "-y", "-spd", "-bso0", "-bsp0"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                arguments.append("-p" + String(cString: ptr))
+            }
+        }
+        arguments.append(archiveURL.path)
+        arguments.append("-i!" + snapshot.entry.displayPath + "!")
         let result = try invoke(
-            arguments: [
-                "x", "-so", "-y", "-spd", "-bso0", "-bsp0",
-                archiveURL.path, snapshot.entry.displayPath,
-            ],
-            timeoutSeconds: listingTimeoutSeconds,
-            maximumStdoutBytes: Int(maximumBytes) + 1
+            arguments: arguments,
+            timeoutSeconds: extractionTimeoutSeconds,
+            maximumStdoutBytes: stdoutLimit
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result, forListing: false)
@@ -764,7 +865,7 @@ public actor SevenZipProvider: ArchiveProvider {
         let snapshots = entriesByID.values.sorted {
             $0.entry.displayPath < $1.entry.displayPath
         }
-        guard !snapshots.contains(where: { $0.isEncrypted }) else {
+        if snapshots.contains(where: { $0.isEncrypted }) && currentPassword == nil {
             throw ArchiveError.passwordRequired
         }
         guard !snapshots.contains(where: { $0.isSymbolicLink }) else {
@@ -820,11 +921,16 @@ public actor SevenZipProvider: ArchiveProvider {
             if !published { try? FileManager.default.removeItem(at: stagingURL) }
         }
 
+        var extractArguments = ["x", "-y", "-bso0", "-bsp0"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                extractArguments.append("-p" + String(cString: ptr))
+            }
+        }
+        extractArguments.append("-o\(stagingURL.path)")
+        extractArguments.append(archiveURL.path)
         let result = try invoke(
-            arguments: [
-                "x", "-y", "-bso0", "-bsp0",
-                "-o\(stagingURL.path)", archiveURL.path,
-            ],
+            arguments: extractArguments,
             timeoutSeconds: extractionTimeoutSeconds,
             maximumStdoutBytes: 1 << 20
         )
@@ -832,6 +938,13 @@ public actor SevenZipProvider: ArchiveProvider {
             throw mapError(result: result, forListing: false)
         }
         try Task.checkCancellation()
+        let stagingSize = FileManager.default
+            .enumerator(at: stagingURL, includingPropertiesForKeys: [.fileSizeKey])?
+            .compactMap { (try? ($0 as? URL)?.resourceValues(forKeys: [.fileSizeKey]))?.fileSize }
+            .reduce(0, +) ?? 0
+        guard UInt64(stagingSize) <= budget.maxExpandedBytes else {
+            throw ArchiveError.resourceLimit
+        }
         try verifyNoSymlinksAndContained(under: stagingURL)
         try Task.checkCancellation()
 
@@ -845,9 +958,34 @@ public actor SevenZipProvider: ArchiveProvider {
                 _ = try materializer.createDirectory(relativePath: path)
             } else {
                 let stagedFile = stagingURL.appending(path: path)
-                let data = try Data(contentsOf: stagedFile)
-                _ = try materializer.write(data, relativePath: path)
-                writtenBytes += UInt64(data.count)
+                var fileBytes: UInt64 = 0
+                _ = try materializer.write(relativePath: path) { writer in
+                    let fd = stagedFile.withUnsafeFileSystemRepresentation { p -> Int32 in
+                        guard let p else { return -1 }
+                        return Darwin.open(p, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+                    }
+                    guard fd >= 0 else {
+                        throw SevenZipProviderError.helperProtocolFailure
+                    }
+                    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+                    defer { try? handle.close() }
+                    while true {
+                        try Task.checkCancellation()
+                        let chunk: Data
+                        do {
+                            chunk = try handle.read(upToCount: 1 << 20) ?? Data()
+                        } catch {
+                            throw SevenZipProviderError.helperProtocolFailure
+                        }
+                        if chunk.isEmpty { break }
+                        try writer.write(chunk)
+                        fileBytes += UInt64(chunk.count)
+                    }
+                }
+                if snapshot.uncompressedSize > 0, fileBytes != snapshot.uncompressedSize {
+                    throw ArchiveError.corruptedArchive
+                }
+                writtenBytes += fileBytes
             }
             completedEntries += 1
             progress(SevenZipExtractionProgress(
@@ -857,8 +995,8 @@ public actor SevenZipProvider: ArchiveProvider {
                 totalBytes: expandedBytes
             ))
         }
-        try FileManager.default.removeItem(at: stagingURL)
         published = true
+        try? FileManager.default.removeItem(at: stagingURL)
         return SevenZipExtractionResult(
             completedEntries: completedEntries,
             expandedBytes: writtenBytes
@@ -873,12 +1011,17 @@ public actor SevenZipProvider: ArchiveProvider {
         password: String?
     ) async throws {
         try Task.checkCancellation()
+        let stageURL = outputURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(outputURL.lastPathComponent).awb_stage_\(UUID().uuidString)")
+        var stagePublished = false
+        defer { if !stagePublished { try? FileManager.default.removeItem(at: stageURL) } }
+
         var arguments = ["a", "-t7z", "-mx=5"]
         if let password, !password.isEmpty {
             arguments.append("-mhe=on")
             arguments.append("-p\(password)")
         }
-        arguments.append(outputURL.path)
+        arguments.append(stageURL.path)
         for input in inputs {
             arguments.append(input.path)
         }
@@ -889,8 +1032,12 @@ public actor SevenZipProvider: ArchiveProvider {
         )
         guard result.exitStatus == 0 else {
             let message = String(data: result.stderr, encoding: .utf8) ?? "7z creation failed"
-            throw SevenZipProviderError.helperProtocolFailure
+            throw SevenZipProviderError.creationFailed(message: message)
         }
+        try Task.checkCancellation()
+        try syncFile(at: stageURL)
+        try publishAtomically(stageURL: stageURL, outputURL: outputURL)
+        stagePublished = true
     }
 
     // MARK: Private helpers
@@ -905,7 +1052,8 @@ public actor SevenZipProvider: ArchiveProvider {
                 executablePath: binaryPath,
                 arguments: arguments,
                 timeoutSeconds: timeoutSeconds,
-                maximumStdoutBytes: maximumStdoutBytes
+                maximumStdoutBytes: maximumStdoutBytes,
+                expectedSHA256: binarySHA256
             )
         } catch let error as SevenZipHelperError {
             switch error {
@@ -927,8 +1075,8 @@ public actor SevenZipProvider: ArchiveProvider {
             + "\n"
             + String(decoding: result.stdout, as: UTF8.self)).lowercased()
         if text.contains("wrong password")
-            || text.contains("password")
-            || text.contains("enter password") {
+            || text.contains("enter password")
+            || text.contains("cannot open encrypted archive") {
             return .passwordRequired
         }
         if text.contains("cannot open archive")
@@ -970,7 +1118,7 @@ public actor SevenZipProvider: ArchiveProvider {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else { return }
         for case let fileURL as URL in enumerator {
             let values = try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey])
@@ -978,6 +1126,41 @@ public actor SevenZipProvider: ArchiveProvider {
             guard fileURL.standardizedFileURL.path.hasPrefix(rootPath + "/") else {
                 throw ArchiveError.unsafePath
             }
+        }
+    }
+
+    private func syncFile(at url: URL) throws {
+        let fd = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        }
+        guard fd >= 0 else {
+            throw SevenZipProviderError.creationFailed(message: "open for fsync failed: \(errno)")
+        }
+        defer { Darwin.close(fd) }
+        guard fsync(fd) == 0 else {
+            throw SevenZipProviderError.creationFailed(message: "fsync failed: \(errno)")
+        }
+    }
+
+    private func publishAtomically(stageURL: URL, outputURL: URL) throws {
+        let linkResult = stageURL.withUnsafeFileSystemRepresentation { stagePath in
+            outputURL.withUnsafeFileSystemRepresentation { outputPath in
+                guard let stagePath, let outputPath else { return Int32(-1) }
+                return Darwin.link(stagePath, outputPath)
+            }
+        }
+        guard linkResult == 0 else {
+            throw SevenZipProviderError.creationFailed(message: "link failed: \(errno)")
+        }
+        try? FileManager.default.removeItem(at: stageURL)
+        let dirFD = outputURL.deletingLastPathComponent().withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_DIRECTORY)
+        }
+        if dirFD >= 0 {
+            fsync(dirFD)
+            Darwin.close(dirFD)
         }
     }
 }

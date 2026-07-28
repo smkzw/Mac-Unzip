@@ -23,6 +23,11 @@ extern "C" {
 #define AWB_MZ_ENCRYPT_AES256 1
 #define AWB_MZ_ENCRYPT_ZIPCRYPTO 2
 
+/* Compression levels for writer */
+#define AWB_MZ_LEVEL_STORE 0
+#define AWB_MZ_LEVEL_NORMAL 6
+#define AWB_MZ_LEVEL_MAXIMUM 9
+
 typedef struct awb_mz_reader awb_mz_reader;
 typedef struct awb_mz_writer awb_mz_writer;
 
@@ -50,6 +55,7 @@ int32_t awb_mz_reader_close_current(awb_mz_reader *reader);
 void awb_mz_reader_close(awb_mz_reader **reader);
 int32_t awb_mz_writer_open(const char *path, awb_mz_writer **out_writer);
 int32_t awb_mz_writer_open_with_password(const char *path, const char *password, int32_t encrypt_method, awb_mz_writer **out_writer);
+int32_t awb_mz_writer_open_configured(const char *path, int32_t compress_level, const char *password, int32_t encrypt_method, awb_mz_writer **out_writer);
 int32_t awb_mz_writer_add_file(
     awb_mz_writer *writer,
     const char *source_path,

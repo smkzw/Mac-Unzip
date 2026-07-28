@@ -85,7 +85,10 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
 
         let snapshot = try await loader.createWindowsZIP(
             at: output,
-            inputs: [input]
+            inputs: [input],
+            compressLevel: 6,
+            password: nil,
+            encryptMethod: 0
         ) { progress in
             progressRecorder.record(progress)
         }

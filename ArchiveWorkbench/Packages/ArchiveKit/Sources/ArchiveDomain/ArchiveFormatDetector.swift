@@ -48,13 +48,13 @@ public struct ArchiveFormatDetector: Sendable {
         // Read header: enough for all signatures including ISO at offset 32769
         let headerLength = min(fileSize, 32_780)
         try fileHandle.seek(toOffset: 0)
-        let header = fileHandle.readData(ofLength: Int(headerLength))
+        let header = try fileHandle.read(upToCount: Int(headerLength)) ?? Data()
 
         // Read trailer for DMG koly block (last 512 bytes)
         var trailer = Data()
         if fileSize >= 512 {
             try fileHandle.seek(toOffset: fileSize - 512)
-            trailer = fileHandle.readData(ofLength: 512)
+            trailer = try fileHandle.read(upToCount: 512) ?? Data()
         }
 
         let detectedFormat = detect(fromHeader: header, trailer: trailer, fileSize: fileSize)

@@ -110,10 +110,10 @@ struct MediaPreviewView: View {
                                         width: 96,
                                         height: isCompact ? 50 : 60
                                     )
-                                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                                    .background(.quaternary, in: Rectangle())
                                     .overlay {
                                         if entry.id == displayedEntry?.id {
-                                            RoundedRectangle(cornerRadius: 8)
+                                            Rectangle()
                                                 .stroke(selectionRingColor, lineWidth: increaseContrast ? 4 : 3)
                                         }
                                     }

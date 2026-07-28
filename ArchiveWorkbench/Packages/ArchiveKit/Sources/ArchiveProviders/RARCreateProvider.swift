@@ -136,10 +136,12 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
 
         // The resolved target must stay inside a trusted install prefix or the app bundle.
         let bundlePrefix = Bundle.main.resourceURL?.path ?? ""
+        let home = NSHomeDirectory()
         guard resolved.hasPrefix("/opt/homebrew/")
             || resolved.hasPrefix("/usr/local/")
             || resolved.hasPrefix("/Applications/")
-            || resolved.hasPrefix(NSHomeDirectory() + "/")
+            || resolved.hasPrefix(home + "/.local/bin/")
+            || resolved.hasPrefix(home + "/bin/")
             || (!bundlePrefix.isEmpty && resolved.hasPrefix(bundlePrefix)) else {
             return nil
         }
@@ -168,7 +170,10 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
     static func verifyArm64(path: String) -> Bool {
         guard let handle = FileHandle(forReadingAtPath: path) else { return false }
         defer { try? handle.close() }
-        let header = handle.readData(ofLength: 8)
+        let header: Data
+        do {
+            header = try handle.read(upToCount: 8) ?? Data()
+        } catch { return false }
         guard header.count >= 4 else { return false }
 
         let magic = header.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
@@ -201,7 +206,10 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
             }
             let archCount = needsSwap ? nfat.byteSwapped : nfat
             guard archCount <= 32 else { return false } // sanity limit
-            let archData = handle.readData(ofLength: Int(archCount) * 20)
+            let archData: Data
+            do {
+                archData = try handle.read(upToCount: Int(archCount) * 20) ?? Data()
+            } catch { return false }
             guard archData.count == Int(archCount) * 20 else { return false }
             for i in 0..<Int(archCount) {
                 let offset = i * 20
@@ -289,7 +297,12 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
-            let chunk = handle.readData(ofLength: 1 << 20)
+            let chunk: Data
+            do {
+                chunk = try handle.read(upToCount: 1 << 20) ?? Data()
+            } catch {
+                return nil
+            }
             if chunk.isEmpty { break }
             hasher.update(data: chunk)
         }
@@ -374,16 +387,19 @@ public struct RARCreateOptions: Sendable {
 /// It never bundles rar; the user must install it separately.
 public actor RARCreateProvider {
     private let binaryPath: String
+    private let binarySHA256: String?
     private let creationTimeoutSeconds: Int
     private let testTimeoutSeconds: Int
 
     /// - Parameter binaryPath: a validated rar path from RARBinaryDiscovery.
     public init(
         binaryPath: String,
+        binarySHA256: String? = nil,
         creationTimeoutSeconds: Int = 600,
         testTimeoutSeconds: Int = 300
     ) {
         self.binaryPath = binaryPath
+        self.binarySHA256 = binarySHA256
         self.creationTimeoutSeconds = creationTimeoutSeconds
         self.testTimeoutSeconds = testTimeoutSeconds
     }
@@ -398,7 +414,7 @@ public actor RARCreateProvider {
         }
         let license = RARLicenseConfirmation(defaults: defaults)
         guard license.isConfirmed else { return nil }
-        return RARCreateProvider(binaryPath: discovery.resolvedPath)
+        return RARCreateProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
     }
 
     /// Creates a RAR archive from the given source files/directories.
@@ -418,13 +434,19 @@ public actor RARCreateProvider {
             throw RARCreateProviderError.rarFailed(exitCode: -1, message: "No source files specified")
         }
 
+        let stageURL = archiveURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(archiveURL.lastPathComponent).awb_stage_\(UUID().uuidString)")
+        var stagePublished = false
+        defer { if !stagePublished { try? FileManager.default.removeItem(at: stageURL) } }
+
         var arguments = ["a"]
         // Compression method
         arguments.append(options.method.argument)
-        // Strip paths (recurse into directories, store relative names)
+        // Always recurse into directories
+        arguments.append("-r")
+        // Strip paths (store relative names)
         if !options.storeFullPaths {
             arguments.append("-ep1")
-            arguments.append("-r")
         }
         // Solid compression
         if options.solid {
@@ -438,8 +460,8 @@ public actor RARCreateProvider {
         }
         // Overwrite without asking
         arguments.append("-o+")
-        // Archive path
-        arguments.append(archiveURL.path)
+        // Archive path (staging)
+        arguments.append(stageURL.path)
         // Source files
         arguments.append(contentsOf: sources)
 
@@ -451,6 +473,10 @@ public actor RARCreateProvider {
         guard result.exitStatus == 0 else {
             throw mapError(result: result)
         }
+        try Task.checkCancellation()
+        try syncFile(at: stageURL)
+        try publishAtomically(stageURL: stageURL, outputURL: archiveURL)
+        stagePublished = true
     }
 
     /// Tests integrity of a RAR archive (equivalent to `rar t`).
@@ -472,28 +498,6 @@ public actor RARCreateProvider {
         return true
     }
 
-    /// Extracts a RAR archive to a destination directory (live extract verification).
-    ///
-    /// - Parameters:
-    ///   - archiveURL: Path to the .rar file.
-    ///   - destinationURL: Directory to extract into.
-    /// - Throws: RARCreateProviderError on failure.
-    public func extract(archiveURL: URL, to destinationURL: URL) throws {
-        try Task.checkCancellation()
-        let result = try invoke(
-            arguments: [
-                "x", "-o+", "-y",
-                archiveURL.path,
-                destinationURL.path + "/",
-            ],
-            timeoutSeconds: creationTimeoutSeconds,
-            maximumStdoutBytes: 1 << 20
-        )
-        guard result.exitStatus == 0 else {
-            throw mapError(result: result)
-        }
-    }
-
     // MARK: Private helpers
 
     private func invoke(
@@ -506,7 +510,8 @@ public actor RARCreateProvider {
                 executablePath: binaryPath,
                 arguments: arguments,
                 timeoutSeconds: timeoutSeconds,
-                maximumStdoutBytes: maximumStdoutBytes
+                maximumStdoutBytes: maximumStdoutBytes,
+                expectedSHA256: binarySHA256
             )
         } catch let error as SevenZipHelperError {
             switch error {
@@ -525,5 +530,40 @@ public actor RARCreateProvider {
             + "\n"
             + String(decoding: result.stdout, as: UTF8.self)
         return .rarFailed(exitCode: result.exitStatus, message: message.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func syncFile(at url: URL) throws {
+        let fd = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        }
+        guard fd >= 0 else {
+            throw RARCreateProviderError.rarFailed(exitCode: -1, message: "open for fsync failed: \(errno)")
+        }
+        defer { Darwin.close(fd) }
+        guard fsync(fd) == 0 else {
+            throw RARCreateProviderError.rarFailed(exitCode: -1, message: "fsync failed: \(errno)")
+        }
+    }
+
+    private func publishAtomically(stageURL: URL, outputURL: URL) throws {
+        let linkResult = stageURL.withUnsafeFileSystemRepresentation { stagePath in
+            outputURL.withUnsafeFileSystemRepresentation { outputPath in
+                guard let stagePath, let outputPath else { return Int32(-1) }
+                return Darwin.link(stagePath, outputPath)
+            }
+        }
+        guard linkResult == 0 else {
+            throw RARCreateProviderError.rarFailed(exitCode: -1, message: "link failed: \(errno)")
+        }
+        try? FileManager.default.removeItem(at: stageURL)
+        let dirFD = outputURL.deletingLastPathComponent().withUnsafeFileSystemRepresentation { path -> Int32 in
+            guard let path else { return -1 }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_DIRECTORY)
+        }
+        if dirFD >= 0 {
+            fsync(dirFD)
+            Darwin.close(dirFD)
+        }
     }
 }

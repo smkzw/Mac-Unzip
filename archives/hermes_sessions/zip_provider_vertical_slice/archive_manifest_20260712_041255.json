@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "dry_run": true,
+  "state_db": "/Users/smkzw/.hermes/state.db",
+  "export_dir": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/zip_provider_vertical_slice",
+  "sessions": [
+    {
+      "session_id": "20260712_035503_25a05d",
+      "was_archived": false,
+      "changed": false,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/zip_provider_vertical_slice/20260712_035503_25a05d.jsonl",
+      "model": "glm-5.2",
+      "provider": "custom",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    },
+    {
+      "session_id": "20260712_035503_685150",
+      "was_archived": false,
+      "changed": false,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/zip_provider_vertical_slice/20260712_035503_685150.jsonl",
+      "model": "MiniMax-M3",
+      "provider": "custom",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    },
+    {
+      "session_id": "20260712_040824_4c655b",
+      "was_archived": false,
+      "changed": false,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/zip_provider_vertical_slice/20260712_040824_4c655b.jsonl",
+      "model": "MiniMax-M3",
+      "provider": "custom",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    }
+  ],
+  "errors": []
+}

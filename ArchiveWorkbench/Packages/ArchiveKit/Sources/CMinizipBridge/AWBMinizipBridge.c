@@ -20,6 +20,8 @@ struct awb_mz_reader {
 struct awb_mz_writer {
     void *handle;
     uint8_t entry_open;
+    uint16_t compress_method;
+    int32_t encrypt_method;
 };
 
 static int32_t awb_mz_map_result(int32_t result) {
@@ -34,8 +36,9 @@ static int32_t awb_mz_map_result(int32_t result) {
             return AWB_MZ_OPEN_ERROR;
         case MZ_FORMAT_ERROR:
         case MZ_DATA_ERROR:
-        case MZ_EXIST_ERROR:
             return AWB_MZ_FORMAT_ERROR;
+        case MZ_EXIST_ERROR:
+            return AWB_MZ_OPEN_ERROR;
         case MZ_PASSWORD_ERROR:
         case MZ_CRYPT_ERROR:
             return AWB_MZ_PASSWORD_ERROR;
@@ -75,6 +78,9 @@ static int32_t awb_mz_reader_build_index(awb_mz_reader *reader) {
         reader->index_built = 1;
         return AWB_MZ_OK;
     }
+    if (total_entries > INT32_MAX) {
+        return AWB_MZ_INVALID_ARGUMENT;
+    }
 
     int64_t *offsets = (int64_t *)malloc((size_t)total_entries * sizeof(int64_t));
     if (offsets == NULL) {
@@ -90,7 +96,12 @@ static int32_t awb_mz_reader_build_index(awb_mz_reader *reader) {
 
     uint64_t idx = 0;
     while (result == MZ_OK && idx < total_entries) {
-        offsets[idx] = mz_zip_get_entry(zip_handle);
+        int64_t entry_offset = mz_zip_get_entry(zip_handle);
+        if (entry_offset < 0) {
+            free(offsets);
+            return AWB_MZ_FORMAT_ERROR;
+        }
+        offsets[idx] = entry_offset;
         idx += 1;
         result = mz_zip_goto_next_entry(zip_handle);
     }
@@ -307,6 +318,7 @@ int32_t awb_mz_writer_open(const char *path, awb_mz_writer **out_writer) {
     }
     mz_zip_writer_set_compress_method(writer->handle, MZ_COMPRESS_METHOD_DEFLATE);
     mz_zip_writer_set_compress_level(writer->handle, MZ_COMPRESS_LEVEL_NORMAL);
+    writer->compress_method = MZ_COMPRESS_METHOD_DEFLATE;
     mz_zip_writer_set_follow_links(writer->handle, 0);
     mz_zip_writer_set_store_links(writer->handle, 0);
 
@@ -361,6 +373,61 @@ int32_t awb_mz_writer_open_with_password(const char *path, const char *password,
     }
 
     *out_writer = writer;
+    writer->encrypt_method = encrypt_method;
+    return AWB_MZ_OK;
+}
+
+int32_t awb_mz_writer_open_configured(const char *path, int32_t compress_level, const char *password, int32_t encrypt_method, awb_mz_writer **out_writer) {
+    if (path == NULL || out_writer == NULL) {
+        return AWB_MZ_INVALID_ARGUMENT;
+    }
+    if (password != NULL && password[0] != '\0') {
+        if (encrypt_method != AWB_MZ_ENCRYPT_AES256 && encrypt_method != AWB_MZ_ENCRYPT_ZIPCRYPTO) {
+            return AWB_MZ_INVALID_ARGUMENT;
+        }
+    }
+    *out_writer = NULL;
+
+    awb_mz_writer *writer = (awb_mz_writer *)calloc(1, sizeof(awb_mz_writer));
+    if (writer == NULL) {
+        return AWB_MZ_MEMORY_ERROR;
+    }
+    writer->handle = mz_zip_writer_create();
+    if (writer->handle == NULL) {
+        free(writer);
+        return AWB_MZ_MEMORY_ERROR;
+    }
+
+    if (compress_level == AWB_MZ_LEVEL_STORE) {
+        mz_zip_writer_set_compress_method(writer->handle, MZ_COMPRESS_METHOD_STORE);
+        mz_zip_writer_set_compress_level(writer->handle, MZ_COMPRESS_LEVEL_NORMAL);
+        writer->compress_method = MZ_COMPRESS_METHOD_STORE;
+    } else {
+        mz_zip_writer_set_compress_method(writer->handle, MZ_COMPRESS_METHOD_DEFLATE);
+        mz_zip_writer_set_compress_level(writer->handle, compress_level);
+        writer->compress_method = MZ_COMPRESS_METHOD_DEFLATE;
+    }
+    mz_zip_writer_set_follow_links(writer->handle, 0);
+    mz_zip_writer_set_store_links(writer->handle, 0);
+
+    if (password != NULL && password[0] != '\0') {
+        mz_zip_writer_set_password(writer->handle, password);
+        if (encrypt_method == AWB_MZ_ENCRYPT_AES256) {
+            mz_zip_writer_set_aes(writer->handle, 1);
+        } else {
+            mz_zip_writer_set_aes(writer->handle, 0);
+        }
+    }
+
+    int32_t result = mz_zip_writer_open_file(writer->handle, path, 0, 0);
+    if (result != MZ_OK) {
+        mz_zip_writer_delete(&writer->handle);
+        free(writer);
+        return awb_mz_map_result(result);
+    }
+
+    *out_writer = writer;
+    writer->encrypt_method = (password != NULL && password[0] != '\0') ? encrypt_method : AWB_MZ_ENCRYPT_NONE;
     return AWB_MZ_OK;
 }
 
@@ -394,11 +461,15 @@ int32_t awb_mz_writer_open_entry(
     memset(&file_info, 0, sizeof(file_info));
     file_info.version_madeby = MZ_VERSION_MADEBY;
     file_info.flag = MZ_ZIP_FLAG_UTF8;
-    file_info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
+    file_info.compression_method = writer->compress_method;
     file_info.modified_date = (time_t)modified_unix_time;
     file_info.uncompressed_size = (int64_t)uncompressed_size;
     file_info.filename = archive_path;
     file_info.filename_size = (uint16_t)path_length;
+    if (writer->encrypt_method == AWB_MZ_ENCRYPT_AES256) {
+        file_info.aes_version = 2;
+        file_info.aes_strength = 3;
+    }
 
     int32_t result = mz_zip_writer_entry_open(writer->handle, &file_info);
     if (result == MZ_OK) {
@@ -436,11 +507,15 @@ int32_t awb_mz_writer_open_entry_raw(
     memset(&file_info, 0, sizeof(file_info));
     file_info.version_madeby = MZ_VERSION_MADEBY;
     file_info.flag = uses_utf8_name ? MZ_ZIP_FLAG_UTF8 : 0;
-    file_info.compression_method = MZ_COMPRESS_METHOD_DEFLATE;
+    file_info.compression_method = writer->compress_method;
     file_info.modified_date = (time_t)modified_unix_time;
     file_info.uncompressed_size = (int64_t)uncompressed_size;
     file_info.filename = name_copy;
     file_info.filename_size = name_size;
+    if (writer->encrypt_method == AWB_MZ_ENCRYPT_AES256) {
+        file_info.aes_version = 2;
+        file_info.aes_strength = 3;
+    }
 
     int32_t result = mz_zip_writer_entry_open(writer->handle, &file_info);
     free(name_copy);

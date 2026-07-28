@@ -1,0 +1,17 @@
+{
+  "estimated_cost_usd": 0.0,
+  "cost_status": "unknown",
+  "cost_source": "none",
+  "input_tokens": 123706,
+  "output_tokens": 17216,
+  "cache_read_tokens": 189959,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 0,
+  "total_tokens": 330881,
+  "api_calls": 8,
+  "model": "MiniMax-M3",
+  "provider": "custom",
+  "session_id": "20260711_115540_1482c4",
+  "completed": true,
+  "failed": false
+}

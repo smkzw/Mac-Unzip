@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "dry_run": false,
+  "state_db": "/Users/smkzw/.hermes/state.db",
+  "export_dir": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/windows_zip_creation_vertical_slice",
+  "sessions": [
+    {
+      "session_id": "20260713_063918_f1c6b3",
+      "was_archived": false,
+      "changed": true,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/windows_zip_creation_vertical_slice/20260713_063918_f1c6b3.jsonl",
+      "model": "glm-5.2",
+      "provider": "custom",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    }
+  ],
+  "errors": []
+}

@@ -8,9 +8,9 @@
 			<key>CFBundleTypeName</key>
 			<string>ZIP Archive</string>
 			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
+			<string>Editor</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>public.zip-archive</string>
@@ -20,9 +20,9 @@
 			<key>CFBundleTypeName</key>
 			<string>7-Zip Archive</string>
 			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
+			<string>Editor</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.7-zip.7-zip-archive</string>
@@ -34,7 +34,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.rarlab.rar-archive</string>
@@ -46,7 +46,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>public.tar-archive</string>
@@ -58,10 +58,70 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string>
+			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>public.gzip-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>XZ Archive</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.tukaani.xz-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Zstandard Archive</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.facebook.zstd-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>BZip2 Archive</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.bzip2-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Disk Image</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.apple.disk-image-udif</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>ISO Image</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.iso-image</string>
 			</array>
 		</dict>
 	</array>

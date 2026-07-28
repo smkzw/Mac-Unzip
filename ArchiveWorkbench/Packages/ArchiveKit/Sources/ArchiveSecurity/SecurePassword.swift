@@ -1,5 +1,8 @@
 import Darwin
 import Foundation
+import os.log
+
+private let securePasswordLog = Logger(subsystem: "com.archiveworkbench.ArchiveKit", category: "SecurePassword")
 
 /// A secure wrapper for password bytes that ensures:
 /// - Memory is locked (mlock) to prevent swapping to disk
@@ -20,8 +23,9 @@ public final class SecurePassword: @unchecked Sendable {
         if _count > 0 {
             _bytes.copyMemory(from: UnsafeRawBufferPointer(start: utf8, count: _count))
         }
-        // Lock memory to prevent swapping
-        mlock(_bytes.baseAddress, _bytes.count)
+        if mlock(_bytes.baseAddress, _bytes.count) != 0 {
+            securePasswordLog.warning("mlock failed (errno \(errno)); password memory may be swappable")
+        }
         // Zeroize the temporary array
         utf8.withUnsafeMutableBytes { ptr in
             if let base = ptr.baseAddress {
@@ -30,15 +34,6 @@ public final class SecurePassword: @unchecked Sendable {
         }
     }
 
-    /// Creates a SecurePassword from raw bytes.
-    public init(bytes: [UInt8]) {
-        _count = bytes.count
-        _bytes = UnsafeMutableRawBufferPointer.allocate(byteCount: max(_count, 1), alignment: 16)
-        if _count > 0 {
-            _bytes.copyMemory(from: UnsafeRawBufferPointer(start: bytes, count: _count))
-        }
-        mlock(_bytes.baseAddress, _bytes.count)
-    }
 
     deinit {
         // Zeroize before unlocking and freeing
@@ -59,10 +54,13 @@ public final class SecurePassword: @unchecked Sendable {
     /// The closure receives a pointer that is valid only during the call.
     /// The caller must NOT retain the pointer beyond the closure.
     public func withCString<T>(_ body: (UnsafePointer<CChar>) throws -> T) rethrows -> T {
-        // Create a temporary null-terminated buffer
         let temp = UnsafeMutablePointer<CChar>.allocate(capacity: _count + 1)
+        if mlock(temp, _count + 1) != 0 {
+            securePasswordLog.warning("mlock failed for temp buffer (errno \(errno))")
+        }
         defer {
             memset_s(temp, _count + 1, 0, _count + 1)
+            munlock(temp, _count + 1)
             temp.deallocate()
         }
         if _count > 0 {

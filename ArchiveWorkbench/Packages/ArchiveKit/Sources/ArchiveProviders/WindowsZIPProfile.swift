@@ -1,4 +1,5 @@
 import ArchiveDomain
+import ArchiveSecurity
 import CMinizipBridge
 import CryptoKit
 import Darwin
@@ -35,6 +36,9 @@ extension ZIPArchiveProvider {
     public func createWindowsZIP(
         at outputURL: URL,
         inputs: [URL],
+        compressLevel: Int32 = AWB_MZ_LEVEL_NORMAL,
+        password: String? = nil,
+        encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) throws {
         try Task.checkCancellation()
@@ -60,7 +64,7 @@ extension ZIPArchiveProvider {
             if stageExists { try? FileManager.default.removeItem(at: stageURL) }
         }
 
-        let writer = try ZIPBridgeWriter(url: stageURL)
+        let writer = try ZIPBridgeWriter(url: stageURL, compressLevel: compressLevel, password: password, encryptMethod: encryptMethod)
         stageExists = true
         var completedEntries = 0
         var completedBytes: UInt64 = 0
@@ -108,7 +112,8 @@ extension ZIPArchiveProvider {
         try Task.checkCancellation()
         try writer.finish()
         try syncFile(at: stageURL)
-        try verify(stageURL: stageURL, expectedEntries: entries)
+        let isEncrypted = password.map { !$0.isEmpty } ?? false
+        try verify(stageURL: stageURL, expectedEntries: entries, expectEncrypted: isEncrypted, password: password)
         try Task.checkCancellation()
         try publishExclusively(stageURL: stageURL, outputURL: outputURL)
         stageExists = false
@@ -124,8 +129,13 @@ extension ZIPArchiveProvider {
         guard fsync(descriptor) == 0 else { throw WindowsZIPProfileError.io(errno) }
     }
 
-    private func verify(stageURL: URL, expectedEntries: [WindowsZIPInputEntry]) throws {
-        let reader = try ZIPBridgeReader(url: stageURL)
+    private func verify(stageURL: URL, expectedEntries: [WindowsZIPInputEntry], expectEncrypted: Bool, password: String?) throws {
+        let reader: ZIPBridgeReader
+        if expectEncrypted, let password {
+            reader = try ZIPBridgeReader(url: stageURL, password: SecurePassword(password))
+        } else {
+            reader = try ZIPBridgeReader(url: stageURL)
+        }
         let entries = try reader.allEntries(maximumCount: expectedEntries.count + 1)
         guard entries.count == expectedEntries.count else { throw ArchiveError.sourceChanged }
         for (ordinal, pair) in zip(entries, expectedEntries).enumerated() {
@@ -137,7 +147,7 @@ extension ZIPArchiveProvider {
                   entry.usesUTF8FileName,
                   entry.isDirectory == expected.isDirectory,
                   !entry.isSymbolicLink,
-                  !entry.isEncrypted,
+                  entry.isEncrypted == expectEncrypted,
                   entry.uncompressedSize == expectedSize else {
                 throw ArchiveError.sourceChanged
             }
@@ -386,11 +396,11 @@ private struct WindowsZIPPreflight {
 private final class ZIPBridgeWriter {
     private var handle: OpaquePointer?
 
-    init(url: URL) throws {
+    init(url: URL, compressLevel: Int32 = AWB_MZ_LEVEL_NORMAL, password: String? = nil, encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE) throws {
         var opened: OpaquePointer?
         let status = url.withUnsafeFileSystemRepresentation { path in
             guard let path else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
-            return awb_mz_writer_open(path, &opened)
+            return awb_mz_writer_open_configured(path, compressLevel, password, encryptMethod, &opened)
         }
         guard status == AWB_MZ_OK, let opened else {
             throw ZIPProviderErrorMapper.archiveError(for: status)

@@ -98,11 +98,11 @@ enum ProviderStatusDetector {
         ProviderStatusInfo(
             id: "libarchive",
             name: "libarchive",
-            role: "tar / gz / xz / ISO",
-            isAvailable: false,
-            statusText: "❌ 未实现",
-            version: "—",
-            path: "计划中"
+            role: "tar / gz / xz / zst",
+            isAvailable: true,
+            statusText: "✅ 系统内嵌",
+            version: "系统版本",
+            path: "系统内嵌"
         )
     }
 

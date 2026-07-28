@@ -157,7 +157,7 @@ public struct RARMultipartDetector: Sendable {
                 if fm.fileExists(atPath: nextPath) {
                     missing.append(volumeName)
                     detected.append(nextPath)
-                    index += 1
+                    index += 2
                     continue
                 } else {
                     break
@@ -211,7 +211,7 @@ public struct RARMultipartDetector: Sendable {
                 if fm.fileExists(atPath: nextPath) {
                     missing.append(volumeName)
                     detected.append(nextPath)
-                    index += 1
+                    index += 2
                     continue
                 } else {
                     break
@@ -276,6 +276,7 @@ public struct RARMultipartDetector: Sendable {
 
 public actor RARArchiveProvider: ArchiveProvider {
     private let binaryPath: String
+    private let binarySHA256: String?
     private let listingTimeoutSeconds: Int
     private let extractionTimeoutSeconds: Int
     private let listingEntryLimit: Int
@@ -284,6 +285,7 @@ public actor RARArchiveProvider: ArchiveProvider {
     private var entriesByID: [ArchiveEntryID: ArchiveEntrySnapshot] = [:]
     private var isSolidArchive = false
     private var volumeSet: RARMultipartDetector.VolumeSet?
+    private var currentPassword: SecurePassword?
 
     /// The capabilities this provider exposes. Read-only by design.
     public static let capabilities: Set<SevenZipCapability> = [.list, .read, .preview]
@@ -292,11 +294,13 @@ public actor RARArchiveProvider: ArchiveProvider {
     ///   discover and validate the system binary first.
     public init(
         binaryPath: String,
+        binarySHA256: String? = nil,
         listingTimeoutSeconds: Int = 30,
         extractionTimeoutSeconds: Int = 600,
         listingEntryLimit: Int = 1_000_000
     ) {
         self.binaryPath = binaryPath
+        self.binarySHA256 = binarySHA256
         self.listingTimeoutSeconds = listingTimeoutSeconds
         self.extractionTimeoutSeconds = extractionTimeoutSeconds
         self.listingEntryLimit = listingEntryLimit
@@ -309,7 +313,7 @@ public actor RARArchiveProvider: ArchiveProvider {
         guard let discovery = SevenZipBinaryDiscovery.discover() else {
             throw RARProviderError.binaryNotFound
         }
-        return RARArchiveProvider(binaryPath: discovery.resolvedPath)
+        return RARArchiveProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
     }
 
     /// True when the opened archive uses solid compression.
@@ -322,6 +326,7 @@ public actor RARArchiveProvider: ArchiveProvider {
         archiveURL = nil
         entriesByID = [:]
         isSolidArchive = false
+        currentPassword = nil
 
         // Detect multipart volumes and validate completeness
         let detector = RARMultipartDetector()
@@ -398,25 +403,107 @@ public actor RARArchiveProvider: ArchiveProvider {
         return ArchiveDocumentSnapshot(sourceURL: url, format: .rar, entries: snapshots)
     }
 
+    public func openWithPassword(url: URL, password: String) throws -> ArchiveDocumentSnapshot {
+        archiveURL = nil
+        entriesByID = [:]
+        isSolidArchive = false
+        currentPassword = SecurePassword(password)
+
+        let detector = RARMultipartDetector()
+        let detected = detector.detect(firstVolumeURL: url)
+        volumeSet = detected
+
+        if !detected.missingVolumes.isEmpty {
+            throw ArchiveError.missingVolume
+        }
+
+        let targetPath = detected.firstVolumePath
+
+        let result = try invoke(
+            arguments: ["l", "-slt", "-p\(password)", targetPath],
+            timeoutSeconds: listingTimeoutSeconds,
+            maximumStdoutBytes: maximumStdoutListingBytes
+        )
+        guard result.exitStatus == 0 else {
+            throw mapError(result: result, forListing: true)
+        }
+        guard !result.stdoutExceeded else { throw ArchiveError.resourceLimit }
+
+        let parse = SevenZipListingParser().parse(String(decoding: result.stdout, as: UTF8.self))
+        isSolidArchive = parse.signals.isSolid
+
+        if parse.signals.isMultipart {
+            volumeSet = RARMultipartDetector.VolumeSet(
+                firstVolumePath: detected.firstVolumePath,
+                detectedVolumes: detected.detectedVolumes,
+                isMultipart: true,
+                missingVolumes: detected.missingVolumes
+            )
+        }
+
+        guard parse.entries.count <= listingEntryLimit else {
+            throw ArchiveError.resourceLimit
+        }
+
+        var snapshots: [ArchiveEntrySnapshot] = []
+        snapshots.reserveCapacity(parse.entries.count)
+        for parsed in parse.entries {
+            let normalized = parsed.path.replacingOccurrences(of: "\\", with: "/")
+            let isDirectory = parsed.isDirectory || normalized.hasSuffix("/")
+            let validationPath = isDirectory && normalized.hasSuffix("/")
+                ? String(normalized.dropLast())
+                : normalized
+            do {
+                try ArchivePathPolicy().validate(validationPath)
+            } catch {
+                throw ArchiveError.unsafePath
+            }
+            let entry = ArchiveEntry(
+                id: ArchiveEntryID(),
+                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                displayPath: validationPath
+            )
+            snapshots.append(ArchiveEntrySnapshot(
+                entry: entry,
+                compressedSize: parsed.packedSize,
+                uncompressedSize: parsed.size,
+                modifiedAt: parsed.modifiedAt,
+                isDirectory: isDirectory,
+                isSymbolicLink: false,
+                isEncrypted: parsed.encrypted,
+                usesUTF8FileName: true
+            ))
+        }
+
+        archiveURL = url
+        entriesByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.entry.id, $0) })
+        return ArchiveDocumentSnapshot(sourceURL: url, format: .rar, entries: snapshots)
+    }
+
     public func readEntry(id: ArchiveEntryID, maximumBytes: UInt64) throws -> Data {
         guard let snapshot = entriesByID[id], let archiveURL else {
             throw ArchiveError.helperFailed
         }
         guard !snapshot.isDirectory else { throw ArchiveError.unsafePath }
-        guard !snapshot.isEncrypted else { throw ArchiveError.passwordRequired }
+        if snapshot.isEncrypted && currentPassword == nil { throw ArchiveError.passwordRequired }
         guard snapshot.uncompressedSize <= maximumBytes,
               snapshot.uncompressedSize <= UInt64(Int.max) else {
             throw ArchiveError.resourceLimit
         }
         // Use the first volume path for extraction (7zz finds other volumes)
         let targetPath = volumeSet?.firstVolumePath ?? archiveURL.path
+        var arguments = ["x", "-so", "-y", "-spd", "-bso0", "-bsp0"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                arguments.append("-p" + String(cString: ptr))
+            }
+        }
+        arguments.append(targetPath)
+        arguments.append("!" + snapshot.entry.displayPath + "!")
         let result = try invoke(
-            arguments: [
-                "x", "-so", "-y", "-spd", "-bso0", "-bsp0",
-                targetPath, snapshot.entry.displayPath,
-            ],
-            timeoutSeconds: listingTimeoutSeconds,
-            maximumStdoutBytes: Int(maximumBytes) + 1
+            arguments: arguments,
+            timeoutSeconds: extractionTimeoutSeconds,
+            maximumStdoutBytes: Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result, forListing: false)
@@ -464,7 +551,7 @@ public actor RARArchiveProvider: ArchiveProvider {
         let snapshots = entriesByID.values.sorted {
             $0.entry.displayPath < $1.entry.displayPath
         }
-        guard !snapshots.contains(where: { $0.isEncrypted }) else {
+        if snapshots.contains(where: { $0.isEncrypted }) && currentPassword == nil {
             throw ArchiveError.passwordRequired
         }
         try validateExtractionPaths(snapshots)
@@ -516,11 +603,16 @@ public actor RARArchiveProvider: ArchiveProvider {
         }
 
         let targetPath = volumeSet?.firstVolumePath ?? archiveURL.path
+        var extractArguments = ["x", "-y", "-bso0", "-bsp0"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                extractArguments.append("-p" + String(cString: ptr))
+            }
+        }
+        extractArguments.append("-o\(stagingURL.path)")
+        extractArguments.append(targetPath)
         let result = try invoke(
-            arguments: [
-                "x", "-y", "-bso0", "-bsp0",
-                "-o\(stagingURL.path)", targetPath,
-            ],
+            arguments: extractArguments,
             timeoutSeconds: extractionTimeoutSeconds,
             maximumStdoutBytes: 1 << 20
         )
@@ -528,6 +620,13 @@ public actor RARArchiveProvider: ArchiveProvider {
             throw mapError(result: result, forListing: false)
         }
         try Task.checkCancellation()
+        let stagingSize = FileManager.default
+            .enumerator(at: stagingURL, includingPropertiesForKeys: [.fileSizeKey])?
+            .compactMap { (try? ($0 as? URL)?.resourceValues(forKeys: [.fileSizeKey]))?.fileSize }
+            .reduce(0, +) ?? 0
+        guard UInt64(stagingSize) <= budget.maxExpandedBytes else {
+            throw ArchiveError.resourceLimit
+        }
         try verifyNoSymlinksAndContained(under: stagingURL)
         try Task.checkCancellation()
 
@@ -541,9 +640,29 @@ public actor RARArchiveProvider: ArchiveProvider {
                 _ = try materializer.createDirectory(relativePath: path)
             } else {
                 let stagedFile = stagingURL.appending(path: path)
-                let data = try Data(contentsOf: stagedFile)
-                _ = try materializer.write(data, relativePath: path)
-                writtenBytes += UInt64(data.count)
+                var fileBytes: UInt64 = 0
+                _ = try materializer.write(relativePath: path) { writer in
+                    let fd = stagedFile.withUnsafeFileSystemRepresentation { p -> Int32 in
+                        guard let p else { return -1 }
+                        return Darwin.open(p, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+                    }
+                    guard fd >= 0 else {
+                        throw ArchiveError.helperFailed
+                    }
+                    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+                    defer { try? handle.close() }
+                    while true {
+                        try Task.checkCancellation()
+                        let chunk = try handle.read(upToCount: 1 << 20) ?? Data()
+                        if chunk.isEmpty { break }
+                        try writer.write(chunk)
+                        fileBytes += UInt64(chunk.count)
+                    }
+                }
+                if snapshot.uncompressedSize > 0, fileBytes != snapshot.uncompressedSize {
+                    throw ArchiveError.corruptedArchive
+                }
+                writtenBytes += fileBytes
             }
             completedEntries += 1
             progress(SevenZipExtractionProgress(
@@ -553,8 +672,8 @@ public actor RARArchiveProvider: ArchiveProvider {
                 totalBytes: expandedBytes
             ))
         }
-        try FileManager.default.removeItem(at: stagingURL)
         published = true
+        try? FileManager.default.removeItem(at: stagingURL)
         return SevenZipExtractionResult(
             completedEntries: completedEntries,
             expandedBytes: writtenBytes
@@ -573,7 +692,8 @@ public actor RARArchiveProvider: ArchiveProvider {
                 executablePath: binaryPath,
                 arguments: arguments,
                 timeoutSeconds: timeoutSeconds,
-                maximumStdoutBytes: maximumStdoutBytes
+                maximumStdoutBytes: maximumStdoutBytes,
+                expectedSHA256: binarySHA256
             )
         } catch let error as SevenZipHelperError {
             switch error {
@@ -596,8 +716,8 @@ public actor RARArchiveProvider: ArchiveProvider {
             + String(decoding: result.stdout, as: UTF8.self)).lowercased()
         // Encrypted headers or password-protected content
         if text.contains("wrong password")
-            || text.contains("password")
             || text.contains("enter password")
+            || text.contains("cannot open encrypted archive")
             || text.contains("encrypted headers") {
             return .passwordRequired
         }
@@ -636,7 +756,7 @@ public actor RARArchiveProvider: ArchiveProvider {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else { return }
         for case let fileURL as URL in enumerator {
             let values = try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey])

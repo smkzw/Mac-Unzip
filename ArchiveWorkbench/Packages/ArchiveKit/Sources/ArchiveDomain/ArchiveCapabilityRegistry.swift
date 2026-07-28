@@ -4,10 +4,9 @@ public struct ArchiveCapabilityRegistry: Sendable {
     /// 运行时发现原则：provider 能力必须按真实运行时发现和验证；不能把设计矩阵直接当作已安装能力。
     public static let productionBaseline = ArchiveCapabilityRegistry(snapshots: [
         .zip: .init(
-            actions: [.list, .read, .preview, .create],
+            actions: [.list, .read, .preview, .create, .update],
             primaryProvider: .minizipNG,
             unavailableReasons: [
-                .update: .notYetImplemented,
                 .encrypt: .notYetImplemented,
                 .split: .notYetImplemented,
                 .test: .notYetImplemented,
@@ -102,7 +101,17 @@ public struct ArchiveCapabilityRegistry: Sendable {
     public func withSevenZipAvailable(_ available: Bool) -> Self {
         var copy = snapshots
         if available {
-            copy[.sevenZip] = Self.productionBaseline.snapshot(format: .sevenZip)
+            copy[.sevenZip] = .init(
+                actions: [.list, .read, .preview, .create],
+                primaryProvider: .sevenZZ,
+                unavailableReasons: [
+                    .update: .notYetImplemented,
+                    .encrypt: .notYetImplemented,
+                    .split: .notYetImplemented,
+                    .test: .notYetImplemented,
+                    .repair: .unsupportedByProvider,
+                ]
+            )
         } else {
             copy[.sevenZip] = .init(
                 actions: [],
@@ -111,7 +120,7 @@ public struct ArchiveCapabilityRegistry: Sendable {
                     .list: .externalProviderNotValidated,
                     .read: .externalProviderNotValidated,
                     .preview: .externalProviderNotValidated,
-                    .create: .notYetImplemented,
+                    .create: .externalProviderNotValidated,
                     .update: .notYetImplemented,
                 ]
             )

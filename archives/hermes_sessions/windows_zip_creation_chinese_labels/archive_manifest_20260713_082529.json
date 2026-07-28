@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "dry_run": false,
+  "state_db": "/Users/smkzw/.hermes/state.db",
+  "export_dir": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/windows_zip_creation_chinese_labels",
+  "sessions": [
+    {
+      "session_id": "20260713_081636_04db01",
+      "was_archived": false,
+      "changed": true,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/windows_zip_creation_chinese_labels/20260713_081636_04db01.jsonl",
+      "model": "deepseek-v4-pro",
+      "provider": "custom",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    }
+  ],
+  "errors": []
+}

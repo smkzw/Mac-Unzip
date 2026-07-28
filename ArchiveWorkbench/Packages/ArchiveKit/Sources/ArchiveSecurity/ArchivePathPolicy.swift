@@ -5,6 +5,7 @@ public enum ArchiveSecurityError: Error, Equatable, Sendable {
     case parentTraversal
     case emptyComponent
     case controlCharacter
+    case componentTooLong
 }
 
 /// Validates only the structural form of an archive member path.
@@ -28,6 +29,15 @@ public struct ArchivePathPolicy: Sendable {
         }
         if components.contains("..") {
             throw ArchiveSecurityError.parentTraversal
+        }
+        if path.hasPrefix("-") {
+            throw ArchiveSecurityError.controlCharacter
+        }
+        if components.contains(".") {
+            throw ArchiveSecurityError.emptyComponent
+        }
+        if components.contains(where: { $0.utf8.count > 255 }) {
+            throw ArchiveSecurityError.componentTooLong
         }
     }
 }

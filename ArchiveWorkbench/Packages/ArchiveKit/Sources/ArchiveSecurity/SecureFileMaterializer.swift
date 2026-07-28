@@ -21,7 +21,9 @@ public final class SecureFileWriter {
         try data.withUnsafeBytes { bytes in
             var offset = 0
             while offset < bytes.count {
-                guard let baseAddress = bytes.baseAddress else { break }
+                guard let baseAddress = bytes.baseAddress else {
+                    throw SecureMaterializationError.io(EFAULT)
+                }
                 let result = Darwin.write(
                     descriptor,
                     baseAddress.advanced(by: offset),

@@ -11,11 +11,15 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
     /// URL from application(_:openURLs:) that arrived before the view subscribed.
     static var pendingLaunchURL: URL?
 
+    /// Journals found during launch scan, before AppModel exists to observe the notification.
+    static var pendingRecoveryJournals: [(journalURL: URL, journal: CrashRecoveryJournal)] = []
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = serviceProvider
         guard !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
         try? FileManager.default.removeItem(at: ValidatedPreviewCacheURL.cacheRoot)
         cleanStaleFinderTempFiles()
+        handleLaunchArguments()
         registerFinderIPC()
         scanForCrashRecoveryJournals()
     }
@@ -33,9 +37,10 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
         guard let userInfo = notification.userInfo,
               let pathsString = userInfo["paths"] as? String else { return }
         let action = userInfo["action"] as? String ?? "compress"
-        let paths = pathsString.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+        let paths = pathsString.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
         guard !paths.isEmpty else { return }
         let urls = paths.map { URL(fileURLWithPath: $0) }
+        guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
         if action == "open", urls.count == 1 {
             RecentArchivesManager.shared.noteRecentArchive(urls[0])
             NotificationCenter.default.post(name: .openArchiveURL, object: urls[0])
@@ -62,6 +67,36 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func handleLaunchArguments() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let filesIndex = args.firstIndex(of: "-finder-files"),
+              filesIndex + 1 < args.count else { return }
+        let tempPath = args[filesIndex + 1]
+        let action: String = {
+            guard let actionIndex = args.firstIndex(of: "-finder-action"),
+                  actionIndex + 1 < args.count else { return "open" }
+            return args[actionIndex + 1]
+        }()
+        guard let data = FileManager.default.contents(atPath: tempPath) else { return }
+        try? FileManager.default.removeItem(atPath: tempPath)
+        let pathsString = String(decoding: data, as: UTF8.self)
+        let paths = pathsString.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
+        guard !paths.isEmpty else { return }
+        let urls = paths.map { URL(fileURLWithPath: $0) }
+        guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        if action == "open", urls.count == 1 {
+            Self.pendingLaunchURL = urls[0]
+            RecentArchivesManager.shared.noteRecentArchive(urls[0])
+            NotificationCenter.default.post(name: .openArchiveURL, object: urls[0])
+        } else {
+            NotificationCenter.default.post(
+                name: .finderCompressRequest,
+                object: nil,
+                userInfo: ["urls": urls, "action": action]
+            )
+        }
+    }
+
     /// Scans common user directories for unfinished crash-recovery journals
     /// and posts Notification/Name/crashRecoveryJournalsFound if any are
     /// discovered. Recovery is never automatic; the UI presents the user with
@@ -74,6 +109,7 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
         ].compactMap { $0 }
         let unfinished = CrashRecoveryJournalStore.scanForUnfinishedJournals(in: searchDirectories)
         guard !unfinished.isEmpty else { return }
+        Self.pendingRecoveryJournals = unfinished
         NotificationCenter.default.post(
             name: .crashRecoveryJournalsFound,
             object: unfinished
@@ -331,6 +367,7 @@ struct EditArchiveCommands: Commands {
             Button(AppLocalization().string("解压选中…")) {
                 NotificationCenter.default.post(name: .extractSelectedRequest, object: nil)
             }
+            .keyboardShortcut("e", modifiers: .command)
             .disabled(model?.canExtractSelected != true)
         }
     }

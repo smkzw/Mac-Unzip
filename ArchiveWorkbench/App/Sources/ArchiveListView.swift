@@ -108,6 +108,8 @@ struct ArchiveListView: NSViewRepresentable {
     let metadataByEntryID: [ArchiveEntryID: ArchiveEntryMetadata]
     @Binding var selection: ArchiveEntryID?
     var nestedArchiveEntryIDs: Set<ArchiveEntryID> = []
+    var canEdit: Bool = false
+    var canExtractSelected: Bool = true
     var onDelete: (() -> Void)? = nil
     var onRename: (() -> Void)? = nil
     var onOpenNestedArchive: ((ArchiveEntryID) -> Void)? = nil
@@ -125,6 +127,9 @@ struct ArchiveListView: NSViewRepresentable {
         }
         outline.renameAction = { [weak coordinator = context.coordinator] in
             coordinator?.parent.onRename?()
+        }
+        outline.canEdit = { [weak coordinator = context.coordinator] in
+            coordinator?.parent.canEdit ?? false
         }
         outline.openNestedAction = { [weak coordinator = context.coordinator] in
             guard let coordinator else { return }
@@ -588,11 +593,11 @@ struct ArchiveListView: NSViewRepresentable {
                 case #selector(contextOpen(_:)):
                     item.isEnabled = hasSelection && (isFile || isNested)
                 case #selector(contextExtract(_:)):
-                    item.isEnabled = hasSelection
+                    item.isEnabled = hasSelection && parent.canExtractSelected
                 case #selector(contextRename(_:)):
-                    item.isEnabled = hasSelection
+                    item.isEnabled = hasSelection && parent.canEdit
                 case #selector(contextDelete(_:)):
-                    item.isEnabled = hasSelection
+                    item.isEnabled = hasSelection && parent.canEdit
                 case #selector(contextCopyPath(_:)):
                     item.isEnabled = hasSelection
                 default:
@@ -655,23 +660,24 @@ private final class DeleteCapturingOutlineView: NSOutlineView {
     var renameAction: (() -> Void)?
     var openNestedAction: (() -> Void)?
     var canOpenNested: (() -> Bool)?
+    var canEdit: (() -> Bool)?
 
     override func keyDown(with event: NSEvent) {
         let characters = event.charactersIgnoringModifiers ?? ""
-        if event.modifierFlags.contains(.command), characters == "o" {
+        if event.modifierFlags.contains(.command), characters == "\u{F701}" {
             if selectedRow >= 0, canOpenNested?() == true {
                 openNestedAction?()
                 return
             }
         }
         if characters == "\u{7f}" || characters == "\u{f728}" {
-            if selectedRow >= 0 {
+            if selectedRow >= 0, canEdit?() == true {
                 deleteAction?()
                 return
             }
         }
         if characters == "\r" || characters == "\u{03}" {
-            if selectedRow >= 0 {
+            if selectedRow >= 0, canEdit?() == true {
                 renameAction?()
                 return
             }

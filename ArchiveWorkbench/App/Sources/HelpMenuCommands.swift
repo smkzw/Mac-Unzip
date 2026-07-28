@@ -7,7 +7,7 @@ import SwiftUI
 struct HelpMenuCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .help) {
-            Button("压缩包工作台帮助") {
+            Button("Mac解霸帮助") {
                 HelpWindowController.shared.showWindow()
             }
             .keyboardShortcut("?", modifiers: [.command, .shift])
@@ -18,7 +18,7 @@ struct HelpMenuCommands: Commands {
                 ComponentsLicensesWindowController.shared.showWindow()
             }
 
-            Button("Provider 状态") {
+            Button("格式支持状态") {
                 ProviderStatusWindowController.shared.showWindow()
             }
 
@@ -42,26 +42,27 @@ struct HelpContentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("压缩包工作台帮助")
+                Text("Mac解霸帮助")
                     .font(.title.weight(.semibold))
 
                 GroupBox("快速开始") {
                     VStack(alignment: .leading, spacing: 8) {
-                        helpRow(icon: "folder", title: "打开压缩包", detail: "使用 ⌘O 或点击「打开压缩包」按钮选择 ZIP 文件。")
+                        helpRow(icon: "folder", title: "打开压缩包", detail: "使用 ⌘O 或点击「打开压缩包」按钮，支持 ZIP、7z、RAR、TAR 等格式。")
                         helpRow(icon: "eye", title: "预览文件", detail: "在文件列表中单击条目即可预览内容。")
                         helpRow(icon: "arrow.down.doc", title: "解压", detail: "选择文件后点击工具栏「解压」按钮导出到指定目录。")
                         helpRow(icon: "plus.circle", title: "添加文件", detail: "打开压缩包后，使用「添加」按钮向归档中追加文件。")
-                        helpRow(icon: "archivebox", title: "创建归档", detail: "在欢迎界面点击「创建归档」，选择文件后生成新的 ZIP。")
+                        helpRow(icon: "archivebox", title: "创建归档", detail: "在欢迎界面点击「创建归档」，支持 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST。")
                     }
                     .padding(.vertical, 4)
                 }
 
                 GroupBox("支持的格式") {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("• ZIP（读写，内置 minizip-ng 引擎）")
-                        Text("• 7z（只读，需安装 7zz）")
-                        Text("• RAR（只读，需安装 7zz 或 rar）")
-                        Text("• tar / gz / xz（计划中）")
+                        Text("• ZIP（读写，内置 minizip-ng 引擎，支持 AES-256 加密）")
+                        Text("• 7z（读取 + 创建，需安装 7zz）")
+                        Text("• RAR（读取 + 创建，需安装 7zz 或 rar）")
+                        Text("• TAR.GZ / TAR.XZ / TAR.ZST（读取 + 创建）")
+                        Text("• DMG / ISO（只读）")
                     }
                     .font(.callout)
                     .padding(.vertical, 4)
@@ -80,10 +81,12 @@ struct HelpContentView: View {
                 GroupBox("快捷键") {
                     VStack(alignment: .leading, spacing: 6) {
                         shortcutRow("⌘O", "打开压缩包")
+                        shortcutRow("⇧⌘N", "新建归档")
                         shortcutRow("⌘S", "保存")
                         shortcutRow("⇧⌘S", "另存为")
                         shortcutRow("⌘Z", "撤销修改")
                         shortcutRow("⌘F", "搜索压缩包内容")
+                        shortcutRow("⌘E", "解压选中文件")
                     }
                     .padding(.vertical, 4)
                 }
@@ -92,7 +95,7 @@ struct HelpContentView: View {
         }
         .frame(width: 560, height: 520)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("压缩包工作台帮助")
+        .accessibilityLabel("Mac解霸帮助")
     }
 
     private func helpRow(icon: String, title: String, detail: String) -> some View {
@@ -145,7 +148,7 @@ final class HelpWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        newWindow.title = "压缩包工作台帮助"
+        newWindow.title = "Mac解霸帮助"
         newWindow.contentView = hostingView
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self

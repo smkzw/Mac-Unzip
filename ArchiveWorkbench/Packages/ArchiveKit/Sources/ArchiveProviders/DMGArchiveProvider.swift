@@ -29,6 +29,7 @@ public enum DMGProviderError: Error, Equatable, Sendable {
 
 public actor DMGArchiveProvider: ArchiveProvider {
     private let binaryPath: String
+    private let binarySHA256: String?
     private let listingTimeoutSeconds: Int
     private let extractionTimeoutSeconds: Int
     private let listingEntryLimit: Int
@@ -43,11 +44,13 @@ public actor DMGArchiveProvider: ArchiveProvider {
     ///   discover and validate the system binary first.
     public init(
         binaryPath: String,
+        binarySHA256: String? = nil,
         listingTimeoutSeconds: Int = 30,
         extractionTimeoutSeconds: Int = 600,
         listingEntryLimit: Int = 1_000_000
     ) {
         self.binaryPath = binaryPath
+        self.binarySHA256 = binarySHA256
         self.listingTimeoutSeconds = listingTimeoutSeconds
         self.extractionTimeoutSeconds = extractionTimeoutSeconds
         self.listingEntryLimit = listingEntryLimit
@@ -60,7 +63,7 @@ public actor DMGArchiveProvider: ArchiveProvider {
         guard let discovery = SevenZipBinaryDiscovery.discover() else {
             throw DMGProviderError.binaryNotFound
         }
-        return DMGArchiveProvider(binaryPath: discovery.resolvedPath)
+        return DMGArchiveProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
     }
 
     public func open(url: URL) throws -> ArchiveDocumentSnapshot {
@@ -134,7 +137,7 @@ public actor DMGArchiveProvider: ArchiveProvider {
                 archiveURL.path, snapshot.entry.displayPath,
             ],
             timeoutSeconds: extractionTimeoutSeconds,
-            maximumStdoutBytes: Int(maximumBytes) + 1
+            maximumStdoutBytes: Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result)
@@ -248,6 +251,13 @@ public actor DMGArchiveProvider: ArchiveProvider {
             throw mapError(result: result)
         }
         try Task.checkCancellation()
+        let stagingSize = FileManager.default
+            .enumerator(at: stagingURL, includingPropertiesForKeys: [.fileSizeKey])?
+            .compactMap { (try? ($0 as? URL)?.resourceValues(forKeys: [.fileSizeKey]))?.fileSize }
+            .reduce(0, +) ?? 0
+        guard UInt64(stagingSize) <= budget.maxExpandedBytes else {
+            throw ArchiveError.resourceLimit
+        }
         try verifyNoSymlinksAndContained(under: stagingURL)
         try Task.checkCancellation()
 
@@ -261,9 +271,29 @@ public actor DMGArchiveProvider: ArchiveProvider {
                 _ = try materializer.createDirectory(relativePath: path)
             } else {
                 let stagedFile = stagingURL.appending(path: path)
-                let data = try Data(contentsOf: stagedFile)
-                _ = try materializer.write(data, relativePath: path)
-                writtenBytes += UInt64(data.count)
+                var fileBytes: UInt64 = 0
+                _ = try materializer.write(relativePath: path) { writer in
+                    let fd = stagedFile.withUnsafeFileSystemRepresentation { p -> Int32 in
+                        guard let p else { return -1 }
+                        return Darwin.open(p, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+                    }
+                    guard fd >= 0 else {
+                        throw ArchiveError.helperFailed
+                    }
+                    let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+                    defer { try? handle.close() }
+                    while true {
+                        try Task.checkCancellation()
+                        let chunk = try handle.read(upToCount: 1 << 20) ?? Data()
+                        if chunk.isEmpty { break }
+                        try writer.write(chunk)
+                        fileBytes += UInt64(chunk.count)
+                    }
+                }
+                if snapshot.uncompressedSize > 0, fileBytes != snapshot.uncompressedSize {
+                    throw ArchiveError.corruptedArchive
+                }
+                writtenBytes += fileBytes
             }
             completedEntries += 1
             progress(SevenZipExtractionProgress(
@@ -273,8 +303,8 @@ public actor DMGArchiveProvider: ArchiveProvider {
                 totalBytes: expandedBytes
             ))
         }
-        try FileManager.default.removeItem(at: stagingURL)
         published = true
+        try? FileManager.default.removeItem(at: stagingURL)
         return SevenZipExtractionResult(
             completedEntries: completedEntries,
             expandedBytes: writtenBytes
@@ -293,7 +323,8 @@ public actor DMGArchiveProvider: ArchiveProvider {
                 executablePath: binaryPath,
                 arguments: arguments,
                 timeoutSeconds: timeoutSeconds,
-                maximumStdoutBytes: maximumStdoutBytes
+                maximumStdoutBytes: maximumStdoutBytes,
+                expectedSHA256: binarySHA256
             )
         } catch let error as SevenZipHelperError {
             switch error {
@@ -312,9 +343,9 @@ public actor DMGArchiveProvider: ArchiveProvider {
             + "\n"
             + String(decoding: result.stdout, as: UTF8.self)).lowercased()
         if text.contains("wrong password")
-            || text.contains("password")
             || text.contains("enter password")
-            || text.contains("encrypted") {
+            || text.contains("cannot open encrypted archive")
+            || text.contains("encrypted headers") {
             return .passwordRequired
         }
         if text.contains("cannot open archive")
@@ -348,7 +379,7 @@ public actor DMGArchiveProvider: ArchiveProvider {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else { return }
         for case let fileURL as URL in enumerator {
             let values = try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey])

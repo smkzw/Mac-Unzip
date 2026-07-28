@@ -36,6 +36,7 @@ public actor ZIPArchiveProvider: ArchiveProvider {
     private var entriesByID: [ArchiveEntryID: ArchiveEntrySnapshot] = [:]
     private var ordinalsByID: [ArchiveEntryID: UInt64] = [:]
     private var looksLikeMultipartVolume = false
+    private var hasPassword = false
     /// The URL passed to `open(url:)` or `openWithPassword(url:password:)`.
     private var openedURL: URL?
 
@@ -65,9 +66,14 @@ public actor ZIPArchiveProvider: ArchiveProvider {
     /// names. Raw bytes are never modified — only the display representation
     /// changes. Returns an updated snapshot with re-decoded names.
     public func setEncodingOverride(_ preference: LegacyEncodingPreference) -> ArchiveDocumentSnapshot? {
+        let previous = encodingOverride
         encodingOverride = preference
         guard reader != nil, !rawBridgeEntries.isEmpty else { return nil }
-        return rebuildSnapshotFromRawEntries()
+        guard let snapshot = rebuildSnapshotFromRawEntries() else {
+            encodingOverride = previous
+            return nil
+        }
+        return snapshot
     }
 
     public func open(url: URL) throws -> ArchiveDocumentSnapshot {
@@ -75,18 +81,21 @@ public actor ZIPArchiveProvider: ArchiveProvider {
         entriesByID = [:]
         ordinalsByID = [:]
         looksLikeMultipartVolume = false
+        hasPassword = false
         rawBridgeEntries = []
         openedURL = url
 
         // Detect and validate split volume sets before opening.
+        var effectiveURL = url
         if let resolution = splitResolver.resolve(url: url) {
             looksLikeMultipartVolume = true
             if resolution.hasMissingVolumes {
                 throw ArchiveError.missingVolume
             }
+            effectiveURL = resolution.primaryURL
         }
 
-        let openedReader = try ZIPBridgeReader(url: url)
+        let openedReader = try ZIPBridgeReader(url: effectiveURL)
         let bridgeEntries = try openedReader.allEntries(maximumCount: listingEntryLimit)
         rawBridgeEntries = bridgeEntries
 
@@ -106,9 +115,20 @@ public actor ZIPArchiveProvider: ArchiveProvider {
         entriesByID = [:]
         ordinalsByID = [:]
         rawBridgeEntries = []
+        looksLikeMultipartVolume = false
+        hasPassword = true
         openedURL = url
 
-        let openedReader = try ZIPBridgeReader(url: url, password: password)
+        var effectiveURL = url
+        if let resolution = splitResolver.resolve(url: url) {
+            looksLikeMultipartVolume = true
+            if resolution.hasMissingVolumes {
+                throw ArchiveError.missingVolume
+            }
+            effectiveURL = resolution.primaryURL
+        }
+
+        let openedReader = try ZIPBridgeReader(url: effectiveURL, password: password)
         let bridgeEntries = try openedReader.allEntries(maximumCount: listingEntryLimit)
         rawBridgeEntries = bridgeEntries
 
@@ -132,7 +152,7 @@ public actor ZIPArchiveProvider: ArchiveProvider {
         guard !snapshot.isDirectory, !snapshot.isSymbolicLink else {
             throw ArchiveError.unsafePath
         }
-        guard !snapshot.isEncrypted else {
+        if snapshot.isEncrypted && !hasPassword {
             throw ArchiveError.passwordRequired
         }
         guard snapshot.uncompressedSize <= maximumBytes,
@@ -162,12 +182,20 @@ public actor ZIPArchiveProvider: ArchiveProvider {
             depth: 1
         ))
         guard decision == .allow else { throw ArchiveError.resourceLimit }
-        let data = try readEntry(id: id, maximumBytes: budget.maxExpandedBytes)
-        try Task.checkCancellation()
+        guard let ordinal = ordinalsByID[id], let reader else {
+            throw ArchiveError.helperFailed
+        }
         let output = try SecureFileMaterializer(rootURL: rootURL).write(
-            data,
             relativePath: snapshot.entry.displayPath
-        )
+        ) { writer in
+            try reader.streamEntry(
+                ordinal: ordinal,
+                expectedSize: snapshot.uncompressedSize,
+                maximumBytes: budget.maxExpandedBytes,
+                writer: writer,
+                progress: { _ in }
+            )
+        }
         try Task.checkCancellation()
         return output
     }
@@ -188,7 +216,7 @@ public actor ZIPArchiveProvider: ArchiveProvider {
         guard !snapshots.contains(where: { $0.isSymbolicLink }) else {
             throw ArchiveError.unsafePath
         }
-        guard !snapshots.contains(where: { $0.isEncrypted }) else {
+        if snapshots.contains(where: { $0.isEncrypted }) && !hasPassword {
             throw ArchiveError.passwordRequired
         }
         try validateExtractionPaths(snapshots)

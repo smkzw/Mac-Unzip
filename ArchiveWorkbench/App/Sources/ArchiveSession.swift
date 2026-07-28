@@ -40,6 +40,8 @@ struct ArchiveSessionSnapshot {
     let canExtract: Bool
     let canTestIntegrity: Bool
     let pendingChanges: [PendingChange]
+    let archiveFormatName: String
+    let encryptedEntryIDs: Set<ArchiveEntryID>
     /// The materialized file URL for this session (nil for the root session
     /// opened directly from disk). Cleaned up when the session is discarded.
     let materializedURL: URL?

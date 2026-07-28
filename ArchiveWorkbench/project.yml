@@ -91,7 +91,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench
-        PRODUCT_NAME: ArchiveWorkbench
+        PRODUCT_NAME: MacUnzip
         INFOPLIST_KEY_CFBundleDisplayName: Mac解霸
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: App/Resources/Info.plist

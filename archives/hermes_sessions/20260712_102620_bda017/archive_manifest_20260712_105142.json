@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "dry_run": false,
+  "state_db": "/Users/smkzw/.hermes/state.db",
+  "export_dir": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/20260712_102620_bda017",
+  "sessions": [
+    {
+      "session_id": "20260712_102620_bda017",
+      "was_archived": false,
+      "changed": true,
+      "exported": true,
+      "export_path": "/Users/smkzw/Documents/AI Products/.worktrees/foundation/archives/hermes_sessions/20260712_102620_bda017/20260712_102620_bda017.jsonl",
+      "model": "mimo-v2.5",
+      "provider": "opencode-go",
+      "cwd": "/Users/smkzw/Documents/AI Products/.worktrees/foundation",
+      "title": null
+    }
+  ],
+  "errors": []
+}
