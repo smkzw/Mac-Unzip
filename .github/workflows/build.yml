@@ -1,0 +1,41 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main, release]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      working-directory: ArchiveWorkbench
+      run: xcodegen generate
+
+    - name: Build ArchiveWorkbench
+      working-directory: ArchiveWorkbench
+      run: |
+        xcodebuild \
+          -project ArchiveWorkbench.xcodeproj \
+          -scheme ArchiveWorkbench \
+          -configuration Release \
+          -destination 'platform=macOS' \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          build
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ArchiveWorkbench-${{ github.sha }}
+        path: ArchiveWorkbench/Build/Products/Release/ArchiveWorkbench.app
+        if-no-files-found: ignore
