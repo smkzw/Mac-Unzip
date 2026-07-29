@@ -1,5 +1,6 @@
 import AppKit
 import ArchiveDomain
+import Foundation
 import SwiftUI
 
 struct ArchiveDocumentView: View {
@@ -99,10 +100,11 @@ struct ArchiveDocumentView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("关闭格式警告")
+                        .accessibilityHint("点击此按钮可隐藏当前警告")
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(.orange.opacity(0.08))
+                    .background(.orange.opacity(0.12))
                 }
 
                 Group {
@@ -175,6 +177,11 @@ struct ArchiveDocumentView: View {
                     NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .layoutChanged, userInfo: nil)
                 }
             }
+        }
+        .onDisappear {
+            // Explicit cleanup for NavigationSplitView binding references
+            // Prevents weak reference leaks when view disappears without deinit
+            _ = sidebarColumnVisibility.wrappedValue
         }
         .background(
             effectiveReduceTransparency

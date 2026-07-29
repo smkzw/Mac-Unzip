@@ -23,7 +23,7 @@
 <p align="center">
   <a href="#-界面预览">📸 界面预览</a> &nbsp;•&nbsp;
   <a href="#-核心能力">🚀 核心能力</a> &nbsp;•&nbsp;
-  <a href="#️-安全架构">🛡️ 安全架构</a> &nbsp;•&nbsp;
+  <a href="#-安全架构">🛡️ 安全架构</a> &nbsp;•&nbsp;
   <a href="#-安装与构建">⬇️ 安装</a>
 </p>
 
@@ -119,23 +119,23 @@ Mac 解霸的解压管线，从第一行代码开始就按「对抗恶意压缩�
 
 拖入压缩包，直接开始。没有注册。没有引导页。没有废话。
 
-![欢迎页](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/welcome.png)
+![欢迎页](Assets/screenshots/welcome.png)
 
 ### 🌙 压缩包浏览（深色模式）
 
 媒体预览、文件详情、快捷操作——一屏搞定。
 
-![压缩包浏览 - 深色模式](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/media_dark.png)
+![压缩包浏览 - 深色模式](Assets/screenshots/media_dark.png)
 
 ### ☀️ 压缩包浏览（浅色模式）
 
-![压缩包浏览 - 浅色模式](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/media_fixture.png)
+![压缩包浏览 - 浅色模式](Assets/screenshots/media_fixture.png)
 
 ### 📦 创建压缩包
 
 选格式、设加密、加文件。跨平台兼容性自动检测。
 
-![创建压缩包](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/creation.png)
+![创建压缩包](Assets/screenshots/creation.png)
 
 ---
 
@@ -178,7 +178,7 @@ Mac 解霸的解压管线，从第一行代码开始就按「对抗恶意压缩�
 |------|-------------|-------------|
 | 运行时 | Electron / 打包 Python / Node | 纯原生 Swift + SwiftUI |
 | 内存（空载） | 200–400 MB 😱 | ~30–50 MB 😌 |
-| 解压安全 | 不做或仅做简单路径过滤 | FD 相对操作 + 路径策略 + 资源预算（四层防护） |
+| 解压安全 | 不做或仅做简单路径过滤 | FD 相对操作 + 路径策略 + 资源预算（八层防护） |
 | 符号链接 | 直接解压 → 任意文件覆盖 | 全量预扫描，发现即中止 |
 | 外部工具调用 | Shell 字符串拼接 | 显式 argv 数组。注入不可能。 |
 | 预览 | 先解压到磁盘，再打开 | 沙箱流式预览。不碰你的文件系统。 |
@@ -224,9 +224,12 @@ Xcode 26 中选 **App** scheme → 目标设备选你的 Mac → 按 **⌘R**。
 
 ## 📜 许可证
 
-🙋 **个人用户**：免费。永久。可自由分发。
+| 层级 | 功能范围 | 价格 |
+|------|----------|------|
+| 🆓 **免费版** | 解压 ZIP/TAR/GZ、打开和浏览压缩包、文件预览、格式检测 | $0 |
+| 👑 **专业版** | 解压、创建、加密、编辑、Finder 集成、崩溃恢复 | [¥9.99 →](https://gerymk.qd.je/) |
 
-🏢 **企业 / 商业用途**：需购买商业许可。详见 [LICENSE](LICENSE)。
+专业版为一次性买断。终身使用。单台设备。离线 Ed25519 验证。详见 [LICENSE](LICENSE)。
 
 ---
 

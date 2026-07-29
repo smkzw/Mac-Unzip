@@ -22,8 +22,8 @@
 
 <p align="center">
   <a href="https://gerymk.qd.je/"><strong>🌐 Official Website</strong></a> &nbsp;•&nbsp;
-  <a href="https://gerymk.qd.je/#buy"><strong>🛒 Buy Pro — $9.99 / ¥49</strong></a> &nbsp;•&nbsp;
-  <a href="https://gerymk.qd.je/#activate"><strong>🔑 Activate License</strong></a>
+  <a href="https://gerymk.qd.je/#pricing"><strong>🛒 Buy Pro — $1.99 / ¥9.99</strong></a> &nbsp;•&nbsp;
+  <a href="https://gerymk.qd.je/"><strong>🔑 Activate License</strong></a>
 </p>
 
 <p align="center">
@@ -121,23 +121,23 @@ Every layer of the extraction pipeline is designed to handle *hostile* archives.
 
 Drop an archive in and go. No onboarding. No account. No nonsense.
 
-![Welcome](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/welcome.png)
+![Welcome](Assets/screenshots/welcome.png)
 
 ### 🌙 Archive Browsing (Dark Mode)
 
 Full media preview, file details, quick actions — all in one view.
 
-![Archive Browsing - Dark](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/media_dark.png)
+![Archive Browsing - Dark](Assets/screenshots/media_dark.png)
 
 ### ☀️ Archive Browsing (Light Mode)
 
-![Archive Browsing - Light](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/media_fixture.png)
+![Archive Browsing - Light](Assets/screenshots/media_fixture.png)
 
 ### 📦 Create Archive
 
 Pick a format. Set encryption. Add files. Done. Cross-platform compatibility checked automatically.
 
-![Create Archive](https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/Assets/screenshots/creation.png)
+![Create Archive](Assets/screenshots/creation.png)
 
 ---
 
@@ -180,7 +180,7 @@ We're not here to trash other tools. These are different engineering choices wit
 |-----------|---------------------|--------------|
 | Runtime | Electron / bundled Python / Node | Pure native Swift + SwiftUI |
 | Memory (idle) | 200–400 MB 😱 | ~30–50 MB 😌 |
-| Extraction safety | Minimal or no path validation | FD-relative ops + path policy + resource budgets (4 layers) |
+| Extraction safety | Minimal or no path validation | FD-relative ops + path policy + resource budgets (8 layers) |
 | Symlinks | Extracted blindly → arbitrary overwrite | Full pre-scan; any symlink = full abort |
 | External tools | Shell string interpolation | Explicit argv arrays. Injection impossible. |
 | Preview | Extract to disk first, then open | Sandboxed streaming. Nothing touches your filesystem. |
@@ -194,7 +194,7 @@ We're not here to trash other tools. These are different engineering choices wit
 
 <p align="center">
   <a href="https://gerymk.qd.je/">
-    <img src="https://img.shields.io/badge/🛒_Buy_Now-$9.99-blue?style=for-the-badge" alt="Buy MacUnzip Pro">
+    <img src="https://img.shields.io/badge/🛒_Buy_Now-$1.99-blue?style=for-the-badge" alt="Buy MacUnzip Pro">
   </a>
   &nbsp;&nbsp;
   <a href="https://gerymk.qd.je/">
@@ -202,7 +202,7 @@ We're not here to trash other tools. These are different engineering choices wit
   </a>
 </p>
 
-**$9.99** one-time purchase. Lifetime license. No subscription. No upsell.
+**$1.99** one-time purchase (launch promo, normally $9.99). Lifetime license. No subscription. No upsell.
 
 After purchase you receive a license key (`MACUNZIP-XXXX-XXXX-XXXX-XXXXX`). Enter it in **Settings → Activate**. Verification is 100% offline via Ed25519 signature. Zero phone-home.
 
@@ -214,11 +214,11 @@ Free tools hit a ceiling. Paid tools charge too much. Here's the landscape:
 
 | | 🏆 MacUnzip | The Unarchiver | Keka | BetterZip | WinZip Mac |
 |---|---|---|---|---|---|
-| **Price** | **$9.99** once | Free | Free / $3.99 | $35 | $29.99 |
+| **Price** | **$1.99** once | Free | Free / $3.99 | $35 | $29.99 |
 | **In-app preview** | ✅ Full (video/PDF/code) | ❌ | ❌ | ⚠️ Limited | ⚠️ |
 | **Create archives** | ✅ 6 formats | ❌ | ✅ | ✅ | ✅ |
 | **AES-256 encrypt** | ✅ | ❌ | ✅ 7z only | ✅ | ✅ |
-| **Security hardening** | ✅ 3-layer | ❌ | ❌ | ❌ | ❌ |
+| **Security hardening** | ✅ 8-layer | ❌ | ❌ | ❌ | ❌ |
 | **Crash recovery** | ✅ Journal | ❌ | ❌ | ❌ | ❌ |
 | **CJK auto-detect** | ✅ | ⚠️ | ❌ | ❌ | ❌ |
 | **Finder integration** | ✅ Right-click | ⚠️ | ⚠️ | ✅ | ⚠️ |
@@ -226,7 +226,7 @@ Free tools hit a ceiling. Paid tools charge too much. Here's the landscape:
 | **Native SwiftUI** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Telemetry** | Zero | Zero | Zero | Unknown | Yes |
 
-> 💡 **The Unarchiver** can't create archives or preview files. **Keka**'s preview request has been "Future" on GitHub for 3+ years. **BetterZip** costs 3.5× more with no security hardening. **WinZip** brings subscription fatigue and Windows DNA to your Mac.
+> 💡 **The Unarchiver** can't create archives or preview files. **Keka**'s preview request has been "Future" on GitHub for 3+ years. **BetterZip** costs $35 with no security hardening. **WinZip** brings subscription fatigue and Windows DNA to your Mac.
 
 ---
 
@@ -268,8 +268,8 @@ Not installed? No problem. The format gracefully disables itself with a clear me
 
 | Tier | What you get | Price |
 |------|-------------|-------|
-| 🆓 **Free** | Open & browse archives, file preview, format detection | $0 |
-| 👑 **Pro** | Extract, create, encrypt, edit, Finder integration, crash recovery | [$9.99 →](https://gerymk.qd.je/) |
+| 🆓 **Free** | Extract ZIP/TAR/GZ, open & browse archives, file preview, format detection | $0 |
+| 👑 **Pro** | Extract, create, encrypt, edit, Finder integration, crash recovery | [$1.99 →](https://gerymk.qd.je/) |
 
 Pro is a one-time purchase. Lifetime. One device. Offline Ed25519 verification. See [LICENSE](LICENSE) for full terms.
 

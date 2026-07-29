@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacUnzip - 专业 macOS 解压工具 | ZIP RAR 7Z 快速解压软件</title>
+    <meta name="description" content="MacUnzip 是一款专业的 macOS 解压软件，支持 ZIP、RAR、7Z、TAR 等 40+ 种压缩格式。一键解压、批量处理、密码保护，让文件管理更轻松。立即下载体验！">
+    <meta name="keywords" content="macOS 解压工具，RAR 解压，压缩包软件，ZIP 解压缩，7Z 解压，Tar 解压，密码压缩，批量解压">
+    <meta name="author" content="MacUnzip">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="MacUnzip - 专业 macOS 解压工具">
+    <meta property="og:description" content="支持 40+ 种压缩格式，一键解压，极速体验。比 BetterZip 节省超过 ¥240">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gerymk.qd.je/">
+    <meta property="og:image" content="https://gerymk.qd.je/mockups/app-interface-light.svg">
+    
+    <!-- Preconnect to fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    
+    <!-- Google Fonts for Chinese -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ===== CSS Variables ===== */
+        :root {
+            /* Primary Colors - Chinese Market Red */
+            --primary-red: #E60012;
+            --primary-red-dark: #C4000F;
+            --primary-red-light: #FF1A2B;
+            
+            /* Accent Colors */
+            --gold: #D4AF37;
+            --gold-light: #F4D06F;
+            
+            /* Neutral Colors */
+            --text-primary: #1A1A1A;
+            --text-secondary: #666666;
+            --text-light: #767676;
+            --background-white: #FFFFFF;
+            --background-gray: #F8F9FA;
+            --border-color: #EEEEEE;
+            
+            /* Spacing System */
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+            --spacing-2xl: 4rem;
+            
+            /* Typography Scale */
+            --font-size-xs: 0.75rem;
+            --font-size-sm: 0.875rem;
+            --font-size-base: 1rem;
+            --font-size-lg: 1.125rem;
+            --font-size-xl: 1.25rem;
+            --font-size-2xl: 1.5rem;
+            --font-size-3xl: 1.875rem;
+            --font-size-4xl: 2.25rem;
+            --font-size-5xl: 3rem;
+            --font-size-6xl: 3.75rem;
+            
+            /* Font Stack - Optimized for Chinese */
+            --font-family-sans: 'PingFang SC', 'HarmonyOS Sans', 'Microsoft YaHei UI', 'Noto Sans SC', sans-serif;
+            --font-family-serif: 'Noto Serif SC', 'Songti SC', serif;
+            
+            /* Transitions */
+            --transition-fast: 200ms ease;
+            --transition-normal: 300ms ease;
+            --transition-slow: 500ms ease;
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.15);
+            
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+        }
+        
+        /* ===== Reset & Base ===== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+        
+        body {
+            font-family: var(--font-family-sans);
+            color: var(--text-primary);
+            background-color: var(--background-white);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* ===== Typography ===== */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        h1 { font-size: var(--font-size-5xl); letter-spacing: -0.02em; }
+        h2 { font-size: var(--font-size-4xl); letter-spacing: -0.015em; }
+        h3 { font-size: var(--font-size-3xl); letter-spacing: -0.01em; }
+        h4 { font-size: var(--font-size-2xl); }
+        h5 { font-size: var(--font-size-xl); }
+        h6 { font-size: var(--font-size-lg); }
+        
+        p {
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-secondary);
+        }
+        
+        a {
+            color: var(--primary-red);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+        
+        a:hover {
+            color: var(--primary-red-dark);
+            text-decoration: underline;
+        }
+        
+        ul {
+            list-style: none;
+        }
+        
+        /* ===== Layout Utilities ===== */
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-lg);
+        }
+        
+        .section {
+            padding: var(--spacing-2xl) 0;
+        }
+        
+        .section--light {
+            background-color: var(--background-gray);
+        }
+        
+        .grid {
+            display: grid;
+            gap: var(--spacing-lg);
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .flex--center {
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .flex--between {
+            justify-content: space-between;
+        }
+        
+        .text-center { text-align: center; }
+        .text-primary { color: var(--primary-red); }
+        .text-bold { font-weight: 700; }
+        
+        /* ===== Buttons ===== */
+        .btn {
+            display: inline-block;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            font-size: var(--font-size-base);
+            font-weight: 500;
+            text-align: center;
+            border-radius: var(--radius-full);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+        
+        .btn--primary {
+            background-color: var(--primary-red);
+            color: white;
+            border-color: var(--primary-red);
+        }
+        
+        .btn--primary:hover {
+            background-color: var(--primary-red-dark);
+            border-color: var(--primary-red-dark);
+            color: white;
+            text-decoration: none;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .btn--secondary {
+            background-color: white;
+            color: var(--text-primary);
+            border-color: var(--text-primary);
+        }
+        
+        .btn--secondary:hover {
+            background-color: var(--text-primary);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .btn--outline {
+            background-color: transparent;
+            color: var(--primary-red);
+            border-color: var(--primary-red);
+        }
+        
+        .btn--outline:hover {
+            background-color: var(--primary-red);
+            color: white;
+        }
+        
+        .btn--lg {
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-size: var(--font-size-lg);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+        
+        /* ===== Navigation ===== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            padding: var(--spacing-sm) 0;
+        }
+        
+        .nav__content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .nav__logo {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: var(--primary-red);
+        }
+        
+        .nav__menu {
+            display: flex;
+            gap: var(--spacing-lg);
+            align-items: center;
+        }
+        
+        .nav__link {
+            color: var(--text-primary);
+            font-weight: 500;
+            padding: var(--spacing-sm) 0;
+            transition: color var(--transition-fast);
+        }
+        
+        .nav__link:hover {
+            color: var(--primary-red);
+        }
+        
+        .nav__cta {
+            background-color: var(--primary-red);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-full);
+        }
+        
+        .nav__cta:hover {
+            background-color: var(--primary-red-dark);
+            color: white;
+            text-decoration: none;
+        }
+        
+        /* Mobile Menu Toggle */
+        .nav__toggle {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: var(--spacing-xs);
+        }
+        
+        .nav__toggle span {
+            width: 24px;
+            height: 2px;
+            background-color: var(--text-primary);
+            transition: all var(--transition-fast);
+        }
+        
+        /* ===== Hero Section ===== */
+        .hero {
+            padding: calc(var(--spacing-2xl) + 80px) 0 var(--spacing-2xl);
+            background: linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%);
+            min-height: 90vh;
+            display: flex;
+            align-items: center;
+        }
+        
+        .hero__content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-2xl);
+            align-items: center;
+        }
+        
+        .hero__text h1 {
+            font-size: var(--font-size-6xl);
+            margin-bottom: var(--spacing-md);
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-red) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero__subtitle {
+            font-size: var(--font-size-xl);
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.7;
+        }
+        
+        .hero__formats {
+            display: inline-block;
+            background-color: var(--primary-red);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .hero__features {
+            display: flex;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            flex-wrap: wrap;
+        }
+        
+        .hero__feature {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-size: var(--font-size-base);
+            color: var(--text-secondary);
+        }
+        
+        .hero__feature-icon {
+            width: 20px;
+            height: 20px;
+            background-color: #B2FAC8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-sm);
+        }
+        
+        .hero__cta {
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .hero__price {
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .hero__price span {
+            color: var(--primary-red);
+            font-weight: 700;
+            font-size: var(--font-size-xl);
+        }
+        
+        .hero__trust {
+            display: flex;
+            gap: var(--spacing-lg);
+            align-items: center;
+            flex-wrap: wrap;
+            font-size: var(--font-size-sm);
+            color: var(--text-light);
+        }
+        
+        .hero__trust-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        
+        .hero__rating {
+            color: var(--gold);
+        }
+        
+        .hero__image {
+            position: relative;
+        }
+        
+        .hero__screenshot {
+            width: 100%;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .hero__badge {
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            background-color: var(--primary-red);
+            color: white;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-lg);
+            font-weight: 700;
+            font-size: var(--font-size-lg);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        /* ===== Features Section ===== */
+        .features {
+            padding: var(--spacing-2xl) 0;
+        }
+        
+        .features__header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+        
+        .features__tag {
+            display: inline-block;
+            background-color: #FFE5E5;
+            color: var(--primary-red);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .features__title {
+            font-size: var(--font-size-4xl);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .features__subtitle {
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .features__grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-lg);
+        }
+        
+        .feature-card {
+            background: white;
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-normal);
+            border: 1px solid var(--border-color);
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+            border-color: var(--primary-red);
+        }
+        
+        .feature-card__icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-red) 0%, var(--primary-red-light) 100%);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-2xl);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .feature-card__title {
+            font-size: var(--font-size-xl);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .feature-card__desc {
+            color: var(--text-secondary);
+            font-size: var(--font-size-base);
+            margin-bottom: var(--spacing-md);
+            line-height: 1.6;
+        }
+        
+        .feature-card__proof {
+            display: inline-block;
+            background-color: #E8F5E9;
+            color: #2E7D32;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+        }
+        
+        /* ===== Comparison Section ===== */
+        .comparison {
+            padding: var(--spacing-2xl) 0;
+            background-color: var(--background-gray);
+        }
+        
+        .comparison__table {
+            background: white;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            margin-top: var(--spacing-xl);
+        }
+        
+        .comparison__header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr;
+            background-color: var(--primary-red);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            font-weight: 700;
+        }
+        
+        .comparison__row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+        }
+        
+        .comparison__row:last-child {
+            border-bottom: none;
+        }
+        
+        .comparison__row:nth-child(even) {
+            background-color: #FAFAFA;
+        }
+        
+        .comparison__feature {
+            font-weight: 500;
+        }
+        
+        .comparison__check {
+            color: #2E7D32;
+            font-size: var(--font-size-xl);
+            text-align: center;
+        }
+        
+        .comparison__cross {
+            color: var(--text-light);
+            font-size: var(--font-size-xl);
+            text-align: center;
+        }
+        
+        .comparison__highlight {
+            background-color: #FFF3E0;
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            color: var(--primary-red);
+        }
+        
+        .comparison__badge {
+            display: inline-block;
+            background-color: #E3F2FD;
+            color: #1976D2;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            margin-top: var(--spacing-xs);
+        }
+        
+        /* ===== Pricing Section ===== */
+        .pricing {
+            padding: var(--spacing-2xl) 0;
+        }
+        
+        .pricing__cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-xl);
+        }
+        
+        .pricing-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            box-shadow: var(--shadow-md);
+            border: 2px solid var(--border-color);
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow-xl);
+        }
+        
+        .pricing-card--popular {
+            border-color: var(--primary-red);
+            box-shadow: 0 0 0 4px rgba(230, 0, 18, 0.1);
+        }
+        
+        .pricing-card__badge {
+            position: absolute;
+            top: var(--spacing-sm);
+            right: -30px;
+            background: var(--primary-red);
+            color: white;
+            padding: var(--spacing-xs) 40px;
+            font-size: var(--font-size-sm);
+            font-weight: 700;
+            transform: rotate(45deg);
+        }
+        
+        .pricing-card__type {
+            font-size: var(--font-size-lg);
+            color: var(--text-light);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .pricing-card__price {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            color: var(--primary-red);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .pricing-card__original {
+            text-decoration: line-through;
+            color: var(--text-light);
+            font-size: var(--font-size-lg);
+        }
+        
+        .pricing-card__period {
+            color: var(--text-light);
+            font-size: var(--font-size-sm);
+        }
+        
+        .pricing-card__features {
+            margin: var(--spacing-lg) 0;
+            list-style: none;
+        }
+        
+        .pricing-card__feature {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) 0;
+            color: var(--text-secondary);
+            font-size: var(--font-size-base);
+        }
+        
+        .pricing-card__feature svg {
+            width: 20px;
+            height: 20px;
+            fill: #2E7D32;
+        }
+        
+        .pricing-card__feature.disabled {
+            color: var(--text-light);
+        }
+        
+        .pricing-card__feature.disabled svg {
+            fill: var(--text-light);
+        }
+        
+        .pricing-card__cta {
+            width: 100%;
+        }
+        
+        .pricing-card__installments {
+            margin-top: var(--spacing-md);
+            font-size: var(--font-size-sm);
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+        }
+        
+        .payment-methods {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-md);
+            opacity: 0.7;
+        }
+        
+        .payment-methods img {
+            height: 24px;
+        }
+        
+        /* ===== Trust Section ===== */
+        .trust {
+            padding: var(--spacing-2xl) 0;
+            background-color: var(--background-gray);
+        }
+        
+        .trust__badges {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xl);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-2xl);
+            opacity: 0.6;
+        }
+        
+        .trust__badge {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+            color: var(--text-light);
+        }
+        
+        .trust__stat-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-lg);
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+        
+        .trust__stat {
+            padding: var(--spacing-lg);
+        }
+        
+        .trust__stat-number {
+            font-size: var(--font-size-5xl);
+            font-weight: 700;
+            color: var(--primary-red);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .trust__stat-label {
+            font-size: var(--font-size-base);
+            color: var(--text-secondary);
+        }
+        
+        .trust__testimonials {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--spacing-lg);
+        }
+        
+        .testimonial-card {
+            background: white;
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .testimonial-card__rating {
+            color: var(--gold);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .testimonial-card__quote {
+            font-size: var(--font-size-base);
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+            line-height: 1.6;
+        }
+        
+        .testimonial-card__author {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .testimonial-card__avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-red), var(--primary-red-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+        }
+        
+        .testimonial-card__name {
+            font-weight: 600;
+            font-size: var(--font-size-base);
+        }
+        
+        .testimonial-card__location {
+            font-size: var(--font-size-sm);
+            color: var(--text-light);
+        }
+        
+        .testimonial-card__verified {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-size: var(--font-size-xs);
+            color: #2E7D32;
+            margin-left: auto;
+        }
+        
+        /* ===== FAQ Section ===== */
+        .faq {
+            padding: var(--spacing-2xl) 0;
+        }
+        
+        .faq__max-width {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .faq__accordion {
+            margin-top: var(--spacing-xl);
+        }
+        
+        .faq__item {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-sm);
+            overflow: hidden;
+        }
+        
+        .faq__question {
+            width: 100%;
+            padding: var(--spacing-md);
+            background: white;
+            border: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: var(--font-size-lg);
+            font-weight: 500;
+            text-align: left;
+            color: var(--text-primary);
+            transition: background-color var(--transition-fast);
+        }
+        
+        .faq__question:hover {
+            background-color: var(--background-gray);
+        }
+        
+        .faq__answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height var(--transition-slow);
+        }
+        
+        .faq__answer-content {
+            padding: 0 var(--spacing-md);
+            background-color: white;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        
+        .faq__question.active ~ .faq__answer {
+            max-height: 500px;
+        }
+        
+        .faq__icon {
+            transition: transform var(--transition-fast);
+        }
+        
+        .faq__question.active .faq__icon {
+            transform: rotate(180deg);
+        }
+        
+        .faq__community-link {
+            text-align: center;
+            margin-top: var(--spacing-lg);
+            padding-top: var(--spacing-lg);
+            border-top: 1px dashed var(--border-color);
+        }
+        
+        .faq__community-link a {
+            color: var(--primary-red);
+            font-weight: 500;
+        }
+        
+        /* ===== Footer ===== */
+        .footer {
+            background-color: #1A1A1A;
+            color: white;
+            padding: var(--spacing-2xl) 0 var(--spacing-xl);
+        }
+        
+        .footer__grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .footer__about h3 {
+            font-size: var(--font-size-xl);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .footer__about p {
+            color: #AAAAAA;
+            margin-bottom: var(--spacing-md);
+            line-height: 1.7;
+        }
+        
+        .footer__links h4 {
+            font-size: var(--font-size-lg);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .footer__links ul li {
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .footer__links a {
+            color: #AAAAAA;
+            transition: color var(--transition-fast);
+        }
+        
+        .footer__links a:hover {
+            color: white;
+        }
+        
+        .footer__contact {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+        
+        .footer__contact-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            color: #AAAAAA;
+        }
+        
+        .footer__compliance {
+            border-top: 1px solid #333;
+            padding-top: var(--spacing-lg);
+            text-align: center;
+        }
+        
+        .footer__compliance p {
+            color: #666;
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .footer__social {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .footer__social a {
+            width: 40px;
+            height: 40px;
+            background: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all var(--transition-fast);
+        }
+        
+        .footer__social a:hover {
+            background: var(--primary-red);
+            color: white;
+        }
+        
+        .footer__cs-btn {
+            background: var(--primary-red);
+            color: white;
+            border: none;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-base);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        
+        .footer__cs-btn:hover {
+            background: var(--primary-red-dark);
+            color: white;
+        }
+        
+        /* ===== Scroll Animations ===== */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Fallback: if JS fails, show content after brief delay */
+        .no-js .fade-in {
+            opacity: 1;
+            transform: none;
+        }
+        
+        /* ===== Responsive Design ===== */
+        @media (max-width: 1024px) {
+            .hero__content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            
+            .hero__formats {
+                justify-content: center;
+            }
+            
+            .hero__features {
+                justify-content: center;
+            }
+            
+            .hero__trust {
+                justify-content: center;
+            }
+            
+            .features__grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .pricing__cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .trust__stat-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .trust__testimonials {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .footer__grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .comparison__header,
+            .comparison__row {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-sm);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: var(--font-size-4xl); }
+            h2 { font-size: var(--font-size-3xl); }
+            
+            .nav__menu {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: white;
+                flex-direction: column;
+                padding: var(--spacing-md);
+                box-shadow: var(--shadow-lg);
+                gap: var(--spacing-sm);
+            }
+            
+            .nav__menu.active {
+                display: flex;
+            }
+            
+            .nav__toggle {
+                display: flex;
+            }
+            
+            .features__grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .pricing__cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .trust__stat-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .trust__testimonials {
+                grid-template-columns: 1fr;
+            }
+            
+            .footer__grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            
+            .hero__screenshot {
+                max-width: 400px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .hero__price {
+                font-size: var(--font-size-base);
+            }
+            
+            .hero__price span {
+                font-size: var(--font-size-lg);
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .hero__trust {
+                flex-direction: column;
+                gap: var(--spacing-sm);
+            }
+            
+            .features__subtitle {
+                font-size: var(--font-size-base);
+            }
+        }
+        
+        /* ===== Counter Animation ===== */
+        @keyframes countUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .counter-animation {
+            animation: countUp 1s ease forwards;
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+    <noscript><style>.fade-in { opacity: 1 !important; transform: none !important; }</style></noscript>
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "MacUnzip",
+        "operatingSystem": "macOS 26+",
+        "applicationCategory": "UtilitiesApplication",
+        "offers": {
+            "@type": "Offer",
+            "price": "9.99",
+            "priceCurrency": "CNY",
+            "availability": "https://schema.org/InStock"
+        },
+        "description": "专业的 macOS 解压工具，支持 ZIP、RAR、7Z、TAR 等 40+ 种压缩格式",
+        "featureList": "一键解压、批量处理、密码保护、媒体预览、嵌套浏览",
+        "areaServed": ["CN"],
+        "language": "zh-CN"
+    }
+    </script>
+</head>
+<body id="top">
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container nav__content">
+            <a href="#top" class="nav__logo" aria-label="MacUnzip 首页">MacUnzip</a>
+            <button class="nav__toggle" aria-label="切换菜单" aria-expanded="false">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav__menu" id="navMenu">
+                <li><a href="#features" class="nav__link">功能特性</a></li>
+                <li><a href="#comparison" class="nav__link">对比优势</a></li>
+                <li><a href="#pricing" class="nav__link">价格方案</a></li>
+                <li><a href="#faq" class="nav__link">常见问题</a></li>
+                <li><a href="index.html" class="nav__link">EN</a></li>
+                <li><a href="https://github.com/smkzw/MacUnzip-Lite" class="nav__link btn btn--primary nav__cta" target="_blank" rel="noopener">GitHub 开源版</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero__content">
+            <div class="hero__text fade-in">
+                <span class="hero__formats">支持 ZIP/RAR/7Z/TAR 等 40+ 格式</span>
+                <h1>一键解压，极速体验</h1>
+                <p class="hero__subtitle">专业级 macOS 解压工具，原生 Swift 构建、8 层安全防护、批量提取、密码保护。告别繁琐操作，让文件管理变得轻松高效。</p>
+                
+                <div class="hero__features">
+                    <div class="hero__feature">
+                        <span class="hero__feature-icon">✓</span>
+                        <span>秒速解压</span>
+                    </div>
+                    <div class="hero__feature">
+                        <span class="hero__feature-icon">✓</span>
+                        <span>批量处理</span>
+                    </div>
+                    <div class="hero__feature">
+                        <span class="hero__feature-icon">✓</span>
+                        <span>密码安全</span>
+                    </div>
+                    <div class="hero__feature">
+                        <span class="hero__feature-icon">✓</span>
+                        <span>离线验证</span>
+                    </div>
+                </div>
+                
+                <div class="hero__cta">
+                    <a href="#pricing" class="btn btn--primary btn--lg">¥9.99 限时特惠</a>
+                    <a href="https://github.com/smkzw/MacUnzip-Lite/releases" class="btn btn--secondary btn--lg">免费下载试用</a>
+                </div>
+                
+                <div class="hero__price">
+                    促销价格：<span style="color: var(--primary-red); font-size: var(--font-size-xl); font-weight: 700;">¥9.99</span> · 原价 ¥79 · 立省 87%
+                </div>
+                
+                <div class="hero__trust">
+                    <div class="hero__trust-item">
+                        <span>🔒</span>
+                        <span>Ed25519 离线验证</span>
+                    </div>
+                    <div class="hero__trust-item">
+                        <span>📦</span>
+                        <span>40+ 格式支持</span>
+                    </div>
+                    <div class="hero__trust-item">
+                        <span>🛡️</span>
+                        <span>零数据追踪</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hero__image fade-in">
+                <!-- Light Mode Mockup for Chinese Version -->
+                <a href="mockups/app-interface-light.svg" class="lightbox-image">
+                    <img src="mockups/app-interface-light.svg" alt="MacUnzip Pro - 界面展示" class="hero__screenshot">
+                </a>
+                <div class="hero__badge">全新升级</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features section" id="features">
+        <div class="container">
+            <div class="features__header fade-in">
+                <span class="features__tag">核心优势</span>
+                <h2 class="features__title">为什么选择 MacUnzip？</h2>
+                <p class="features__subtitle">原生 Swift 构建，专为 Apple Silicon 优化</p>
+            </div>
+            
+            <div class="features__grid">
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">⚡</div>
+                    <h3 class="feature-card__title">原生极速解压</h3>
+                    <p class="feature-card__desc">纯 Swift 原生引擎，充分利用 Apple Silicon 多核性能。无 Electron 开销，无运行时瓶颈，大文件处理流畅不卡顿。</p>
+                    <span class="feature-card__proof">原生 ARM64</span>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">📦</div>
+                    <h3 class="feature-card__title">40+ 格式全覆盖</h3>
+                    <p class="feature-card__desc">ZIP、RAR、7Z、TAR、GZIP、BZIP2...主流压缩格式统统支持，再也不用为不同格式装多个软件。</p>
+                    <span class="feature-card__proof">40+ 格式</span>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">🔐</div>
+                    <h3 class="feature-card__title">密码保护</h3>
+                    <p class="feature-card__desc">完整支持加密压缩包打开与创建，AES-256 位加密标准，让您的文件数据安全无忧。</p>
+                    <span class="feature-card__proof">AES-256</span>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">🖼️</div>
+                    <h3 class="feature-card__title">媒体文件预览</h3>
+                    <p class="feature-card__desc">无需完全解压即可查看压缩包内的图片、视频、音频文件，快速定位所需内容。</p>
+                    <span class="feature-card__proof">即时预览</span>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">📂</div>
+                    <h3 class="feature-card__title">嵌套文件夹浏览</h3>
+                    <p class="feature-card__desc">多层嵌套压缩包层层展开，清晰的文件树结构，一目了然查找需要的文件。</p>
+                    <span class="feature-card__proof">深度嵌套</span>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-card__icon">🛡️</div>
+                    <h3 class="feature-card__title">零数据追踪</h3>
+                    <p class="feature-card__desc">我们尊重您的隐私。绝不收集任何个人数据，所有操作在本地完成，安全可靠。</p>
+                    <span class="feature-card__proof">隐私保护</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="comparison section" id="comparison">
+        <div class="container">
+            <div class="text-center fade-in">
+                <span class="features__tag">价值之选</span>
+                <h2 class="features__title">Lite 版 vs Pro 版</h2>
+                <p class="features__subtitle">根据您的需求选择合适的版本</p>
+            </div>
+            
+            <table class="comparison__table fade-in">
+                <thead>
+                    <tr class="comparison__header">
+                        <th>功能特性</th>
+                        <th>Lite（免费版）</th>
+                        <th>Pro（专业版）</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">解压 ZIP / TAR / GZ</td>
+                        <td class="comparison__check">✓</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">解压 RAR / 7Z / DMG / ISO</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">批量解压处理</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">密码解压支持</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">创建压缩文件</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">加密压缩包创建</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">媒体文件预览</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">嵌套文件夹浏览</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">高级压缩选项</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                    <tr class="comparison__row">
+                        <td class="comparison__feature">优先技术支持</td>
+                        <td class="comparison__cross">×</td>
+                        <td class="comparison__check">✓</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="text-center" style="margin-top: var(--spacing-xl);">
+                <span class="comparison__highlight">比 BetterZip 节省超过 ¥240</span>
+                <br>
+                <p style="color: var(--text-secondary); margin-top: var(--spacing-sm);">永久授权 · 持续免费升级 · 无隐藏费用</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing section" id="pricing">
+        <div class="container">
+            <div class="features__header fade-in">
+                <span class="features__tag">简单定价</span>
+                <h2 class="features__title">选择适合您的方案</h2>
+                <p class="features__subtitle">一次付费，终身受益。无任何隐藏费用。</p>
+            </div>
+            
+            <div class="pricing__cards">
+                <!-- Personal Plan -->
+                <div class="pricing-card fade-in">
+                    <div class="pricing-card__type">Lite 免费版</div>
+                    <div class="pricing-card__price">
+                        ¥0 <span class="pricing-card__period">永久免费</span>
+                    </div>
+                    <p style="color: var(--text-light); font-size: var(--font-size-sm);">开源 · 社区驱动</p>
+                    
+                    <ul class="pricing-card__features">
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            解压 ZIP / TAR / GZ 格式
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            基础文件浏览
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            完全开源 · GitHub 可审计
+                        </li>
+                        <li class="pricing-card__feature disabled">
+                            <svg viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.447.894L11 11V8.343L9.555 7.168z"/></svg>
+                            RAR / 7Z / DMG / ISO（需 Pro）
+                        </li>
+                    </ul>
+                    
+                    <a href="https://github.com/smkzw/MacUnzip-Lite/releases" class="btn btn--primary btn--lg pricing-card__cta">免费下载</a>
+                    <div class="pricing-card__installments">
+                        <span>🎁</span>
+                        <span>开源免费 · 社区支持</span>
+                    </div>
+                </div>
+                
+                <!-- Professional Plan -->
+                <div class="pricing-card pricing-card--popular fade-in">
+                    <div class="pricing-card__badge">热销推荐</div>
+                    <div class="pricing-card__type">专业版</div>
+                    <div class="pricing-card__price">
+                        <span style="color: var(--primary-red); font-size: var(--font-size-4xl);">¥9.99</span>
+                        <span style="text-decoration: line-through; color: var(--text-light); font-size: var(--font-size-lg); margin-left: 0.5rem;">¥79</span>
+                    </div>
+                    <p style="color: var(--text-secondary);">全功能解锁 · 限时特惠</p>
+                    
+                    <ul class="pricing-card__features">
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            解压 ZIP/RAR/7Z 等 40+ 格式
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            批量解压处理
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            密码解压支持
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            创建压缩文件（含加密）
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            媒体文件预览
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            高级压缩选项
+                        </li>
+                        <li class="pricing-card__feature">
+                            <svg viewBox="0 0 20 20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            优先技术支持
+                        </li>
+                    </ul>
+                    
+                    <a href="mailto:support@gerymk.qd.je?subject=MacUnzip%20Pro%20购买" class="btn btn--primary btn--lg pricing-card__cta">立即获取 · 限时¥9.99</a>
+                    
+                    <div class="pricing-card__installments">
+                        <span>💳</span>
+                        <span>邮件购买 · 30 天无理由退款</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Section -->
+    <section class="trust section">
+        <div class="container">
+            <!-- Trust badges - Only show verifiable claims -->
+            <div class="trust__badges fade-in">
+                <div class="trust__badge">
+                    <span>🔒</span>
+                    <span>Ed25519 离线验证</span>
+                </div>
+                <div class="trust__badge">
+                    <span>🛡️</span>
+                    <span>8 层安全防护</span>
+                </div>
+                <div class="trust__badge">
+                    <span>📦</span>
+                    <span>开源 Lite 版可审计</span>
+                </div>
+            </div>
+            
+            <!-- Stats - Honest metrics only -->
+            <div class="trust__stat-row fade-in">
+                <div class="trust__stat">
+                    <div class="trust__stat-number">40+</div>
+                    <div class="trust__stat-label">支持压缩格式</div>
+                </div>
+                <div class="trust__stat">
+                    <div class="trust__stat-number">8 层</div>
+                    <div class="trust__stat-label">安全防护体系</div>
+                </div>
+                <div class="trust__stat">
+                    <div class="trust__stat-number">0</div>
+                    <div class="trust__stat-label">数据收集 / 遥测</div>
+                </div>
+            </div>
+            
+            <!-- Testimonials - Honest placeholder until real reviews collected -->
+            <div class="trust__testimonials">
+                <div class="testimonial-card fade-in" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <p class="testimonial-card__quote" style="font-size: 1.1rem; max-width: 500px; margin: 0 auto;">
+                        "我们相信信任靠赢得，而非靠编造。<br>公开测试后将展示真实用户评价。"
+                    </p>
+                    <p style="color: var(--text-light); margin-top: 1rem; font-size: 0.85rem;">
+                        欢迎先试用 GitHub 上的免费开源版，形成您自己的判断。
+                    </p>
+                    <a href="https://github.com/smkzw/MacUnzip-Lite" target="_blank" rel="noopener" style="display: inline-block; margin-top: 1rem; color: var(--primary-red); font-weight: 600;">
+                        → 前往 MacUnzip-Lite GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq section" id="faq">
+        <div class="container">
+            <div class="faq__max-width">
+                <div class="features__header fade-in">
+                    <span class="features__tag">常见问题</span>
+                    <h2 class="features__title">您可能关心的问题</h2>
+                </div>
+                
+                <div class="faq__accordion">
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>MacUnzip 支持哪些 macOS 版本？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                MacUnzip 需要 macOS 26 或更高版本，仅支持 Apple Silicon (M1/M2/M3/M4) 原生 ARM64 构建。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>有免费试用期吗？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                是的！您可以先下载 Lite 免费版进行体验，享受完整的解压功能。如需使用创建压缩文件、加密等高级功能，可升级为专业版。首次购买享 30 天无理由退款保证。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>可以开发票吗？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                支持。购买成功后，请通过邮件（support@gerymk.qd.je）申请开票，通常 1-2 个工作日内即可收到 PDF 格式的电子发票。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>一次付费可以使用多久？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                MacUnzip Pro 采用一次性买断制。支付 ¥9.99 即可永久使用，所有未来更新免费包含。无订阅、无隐藏费用、无需注册账号。相比 BetterZip（$35）等国际竞品，MacUnzip 更加实惠。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>如何在多台设备上使用？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                一个许可证可在一台 Mac 上激活使用。许可证通过 Ed25519 加密验证，存储在本地 Keychain 中，完全离线工作，无需联网。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>退款政策是怎样的？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                我们提供 30 天无理由退款保证。如果您对 MacUnzip 不满意，可以在购买后 30 天内联系客服申请全额退款，无需任何理由。超过 30 天的订单，如有质量问题也可联系客服处理。
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="faq__item fade-in">
+                        <button class="faq__question" aria-expanded="false">
+                            <span>如何获得技术支持？</span>
+                            <span class="faq__icon">▼</span>
+                        </button>
+                        <div class="faq__answer">
+                            <div class="faq__answer-content">
+                                Lite 版用户可通过 GitHub Issues 获取社区支持。Pro 版用户享有优先邮件技术支持（support@gerymk.qd.je），通常 1-2 个工作日内回复。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="faq__community-link fade-in">
+                    <p>想要体验免费版？立即访问 GitHub 开源版</p>
+                    <a href="https://github.com/smkzw/MacUnzip-Lite" target="_blank" rel="noopener">👉 前往 MacUnzip-Lite →</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="download">
+        <div class="container">
+            <div class="footer__grid">
+                <div class="footer__about">
+                    <h3>MacUnzip Pro</h3>
+                    <p>专业的 macOS 解压工具。原生 Swift 构建，8 层安全防护，40+ 格式支持。简洁高效，安全可靠，是您日常办公的得力助手。</p>
+                    <div class="footer__social">
+                        <a href="https://github.com/smkzw/MacUnzip-Lite" target="_blank" rel="noopener" title="GitHub">GitHub</a>
+                    </div>
+                    <p style="color: #888; font-size: var(--font-size-sm); margin-top: var(--spacing-md);">开源版在 GitHub · Pro 版立即获取</p>
+                </div>
+                
+                <div class="footer__links">
+                    <h4>产品功能</h4>
+                    <ul>
+                        <li><a href="#features">功能特性</a></li>
+                        <li><a href="#pricing">价格方案</a></li>
+                        <li><a href="#comparison">对比优势</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer__links">
+                    <h4>社区支持</h4>
+                    <ul>
+                        <li><a href="#faq">常见问题</a></li>
+                        <li><a href="https://github.com/smkzw/MacUnzip-Lite" target="_blank">GitHub 开源版</a></li>
+                        <li><a href="https://github.com/smkzw/MacUnzip-Lite/releases" target="_blank" rel="noopener">更新日志</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer__contact">
+                    <h4>联系我们</h4>
+                    <div class="footer__contact-item">
+                        <span>✉️</span>
+                        <span>support@gerymk.qd.je</span>
+                    </div>
+                    <div class="footer__contact-item">
+                        <span>📍</span>
+                        <span>上海 · 中国</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer__compliance">
+                <p>© 2025 MacUnzip. All rights reserved.</p>
+                <p style="font-size: var(--font-size-xs); color: #666; margin-top: var(--spacing-sm);">开源版 GitHub：github.com/smkzw/MacUnzip-Lite · 联系：support@gerymk.qd.je</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+    (function() {
+        'use strict';
+
+        // Scroll animations - IntersectionObserver for .fade-in elements
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(function(el) {
+            observer.observe(el);
+        });
+
+        // FAQ Accordion
+        document.querySelectorAll('.faq__question').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var isActive = this.classList.contains('active');
+                document.querySelectorAll('.faq__question.active').forEach(function(q) {
+                    q.classList.remove('active');
+                    q.setAttribute('aria-expanded', 'false');
+                });
+                if (!isActive) {
+                    this.classList.add('active');
+                    this.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        // Mobile menu toggle
+        var navToggle = document.querySelector('.nav__toggle');
+        var navMenu = document.getElementById('navMenu');
+        if (navToggle && navMenu) {
+            navToggle.addEventListener('click', function() {
+                var isOpen = navMenu.classList.toggle('active');
+                navToggle.setAttribute('aria-expanded', String(isOpen));
+            });
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                var targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                var target = document.querySelector(targetId);
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    })();
+    </script>
+</body>
+</html>

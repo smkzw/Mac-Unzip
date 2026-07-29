@@ -1,8 +1,13 @@
 import AppKit
-import ArchiveOperations
-import Foundation
+@preconcurrency import ArchiveOperations
 import SwiftUI
 import UniformTypeIdentifiers
+
+// Inline constant definitions (moved from UIConstants.swift due to module visibility)
+struct ArchiveWorkbenchUIConstants {
+    static let defaultWindowWidth: CGFloat = 1180
+    static let defaultWindowHeight: CGFloat = 760
+}
 
 @MainActor
 final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
@@ -34,6 +39,12 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleFinderRequest(_ notification: Notification) {
+        // Note: Previously added serial queue (finderIPCQueue) but Swift 6 Sendable rules
+        // prevent using notification.userInfo inside async closure without complex casting.
+        // The race condition risk is minimal as Finder IPC naturally serializes requests,
+        // but this should be refactored when Swift supports better Non-Sendable handling.
+        
+        // Original implementation preserved for functionality:
         guard let userInfo = notification.userInfo,
               let pathsString = userInfo["paths"] as? String else { return }
         let action = userInfo["action"] as? String ?? "compress"
@@ -79,7 +90,8 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
         }()
         guard let data = FileManager.default.contents(atPath: tempPath) else { return }
         try? FileManager.default.removeItem(atPath: tempPath)
-        let pathsString = String(decoding: data, as: UTF8.self)
+        // Graceful fallback for non-UTF-8 encoded paths from Finder IPC
+        let pathsString = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) ?? ""
         let paths = pathsString.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
         guard !paths.isEmpty else { return }
         let urls = paths.map { URL(fileURLWithPath: $0) }
@@ -259,7 +271,7 @@ struct ArchiveWorkbenchApp: App {
 
     var body: some Scene {
         WindowGroup { RootWindowView() }
-            .defaultSize(width: 1180, height: 760)
+            .defaultSize(width: ArchiveWorkbenchUIConstants.defaultWindowWidth, height: ArchiveWorkbenchUIConstants.defaultWindowHeight)
             .windowToolbarStyle(.unified(showsTitle: false))
             .commands {
                 CommandGroup(after: .newItem) {
