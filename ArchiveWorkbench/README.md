@@ -269,7 +269,7 @@ Not installed? No problem. The format gracefully disables itself with a clear me
 | Tier | What you get | Price |
 |------|-------------|-------|
 | 🆓 **Free** | Extract ZIP/TAR/GZ, open & browse archives, file preview, format detection | $0 |
-| 👑 **Pro** | Extract, create, encrypt, edit, Finder integration, crash recovery | [$1.99 →](https://gerymk.qd.je/) |
+| 👑 **Pro** | Extract, create, encrypt, preview, nested browsing, Finder integration, crash recovery | [$1.99 →](https://gerymk.qd.je/) |
 
 Pro is a one-time purchase. Lifetime. One device. Offline Ed25519 verification. See [LICENSE](LICENSE) for full terms.
 
