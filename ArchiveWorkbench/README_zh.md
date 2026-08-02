@@ -195,7 +195,8 @@ Mac 解霸的解压管线，从第一行代码开始就按「对抗恶意压缩�
 ```bash
 git clone https://github.com/smkzw/Mac-Unzip.git
 cd Mac-Unzip/ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 Xcode 26 中选 **App** scheme → 目标设备选你的 Mac → 按 **⌘R**。搞定。

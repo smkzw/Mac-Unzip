@@ -33,9 +33,9 @@ struct AboutPanelView: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: 4) {
-                Text("Mac Unzip")
+                Text("MacUnzip")
                     .font(.title.weight(.semibold))
-                Text("Mac解霸")
+                Text("专业归档工具 · 解压 · 创建 · 预览")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -49,7 +49,7 @@ struct AboutPanelView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("© 2025 Mac Unzip. 保留所有权利。")
+            Text("© 2026 MacUnzip. 保留所有权利。")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
@@ -64,7 +64,7 @@ struct AboutPanelView: View {
         }
         .frame(width: 320, height: 340)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("关于 Mac解霸")
+        .accessibilityLabel("关于 MacUnzip")
     }
 }
 
@@ -90,7 +90,7 @@ final class AboutWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        newWindow.title = "关于 Mac解霸"
+        newWindow.title = AppLocalization().string("关于 MacUnzip")
         newWindow.contentView = hostingView
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self

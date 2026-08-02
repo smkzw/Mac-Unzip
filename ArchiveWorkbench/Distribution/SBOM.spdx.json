@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "ArchiveWorkbench-SBOM",
-  "documentNamespace": "https://smkzw.com/archiveworkbench/sbom",
+  "name": "MacUnzip-SBOM",
+  "documentNamespace": "https://smkzw.com/macunzip/sbom",
   "creationInfo": {
     "created": "2026-07-27T00:00:00Z",
     "creators": [
@@ -12,20 +12,20 @@
     ],
     "licenseListVersion": "3.21"
   },
-  "documentDescribes": ["SPDXRef-Package-ArchiveWorkbench"],
+  "documentDescribes": ["SPDXRef-Package-MacUnzip"],
   "packages": [
     {
-      "SPDXID": "SPDXRef-Package-ArchiveWorkbench",
-      "name": "ArchiveWorkbench",
+      "SPDXID": "SPDXRef-Package-MacUnzip",
+      "name": "MacUnzip",
       "versionInfo": "1.0.0",
-      "downloadLocation": "https://smkzw.com/archiveworkbench",
+      "downloadLocation": "https://smkzw.com/macunzip",
       "filesAnalyzed": false,
       "supplier": "Organization: smkzw",
       "primaryPackagePurpose": "APPLICATION",
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
       "copyrightText": "Copyright (c) 2026 smkzw. All rights reserved.",
-      "description": "ArchiveWorkbench - macOS archive management application supporting ZIP, 7z, RAR, TAR, DMG, and ISO formats.",
+      "description": "MacUnzip - macOS archive management application supporting ZIP, 7z, RAR, TAR, DMG, and ISO formats.",
       "checksums": [
         {
           "algorithm": "SHA256",
@@ -36,7 +36,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:generic/com.smkzw.ArchiveWorkbench@1.0.0"
+          "referenceLocator": "pkg:generic/com.smkzw.MacUnzip@1.0.0"
         }
       ]
     },
@@ -109,7 +109,7 @@
       "licenseDeclared": "LGPL-2.1-or-later",
       "licenseInfoFromFiles": ["LGPL-2.1-or-later"],
       "copyrightText": "Copyright (C) 1999-2026 Igor Pavlov",
-      "description": "7-Zip command-line archiver. External dependency - NOT bundled with ArchiveWorkbench. Invoked via Process() only if user has installed it separately.",
+      "description": "7-Zip command-line archiver. External dependency - NOT bundled with MacUnzip. Invoked via Process() only if user has installed it separately.",
       "checksums": [
         {
           "algorithm": "SHA256",
@@ -148,39 +148,39 @@
   ],
   "relationships": [
     {
-      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "spdxElementId": "SPDXRef-Package-MacUnzip",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-minizip-ng"
     },
     {
-      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "spdxElementId": "SPDXRef-Package-MacUnzip",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-libarchive"
     },
     {
-      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "spdxElementId": "SPDXRef-Package-MacUnzip",
       "relationshipType": "DEPENDS_ON",
       "relatedSpdxElement": "SPDXRef-Package-Apple-libcompression"
     },
     {
-      "spdxElementId": "SPDXRef-Package-ArchiveWorkbench",
+      "spdxElementId": "SPDXRef-Package-MacUnzip",
       "relationshipType": "OPTIONAL_DEPENDENCY_OF",
       "relatedSpdxElement": "SPDXRef-Package-7zz"
     },
     {
       "spdxElementId": "SPDXRef-Package-minizip-ng",
       "relationshipType": "BUILD_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+      "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
     },
     {
       "spdxElementId": "SPDXRef-Package-libarchive",
       "relationshipType": "BUILD_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+      "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
     },
     {
       "spdxElementId": "SPDXRef-Package-Apple-libcompression",
       "relationshipType": "BUILD_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-ArchiveWorkbench"
+      "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
     }
   ],
   "hasExtractedLicensingInfos": [

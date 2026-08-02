@@ -12,6 +12,8 @@ struct ThirdPartyComponent: Identifiable, Hashable {
     let copyright: String
     let url: String
     let licenseText: String
+
+    var localizedVersion: String { AppLocalization().string(version) }
 }
 
 enum ComponentRegistry {
@@ -68,6 +70,82 @@ enum ComponentRegistry {
             redistribute this Apple software.
             """
         ),
+        ThirdPartyComponent(
+            id: "7-zip",
+            name: "7-Zip (7zz)",
+            version: "24.x",
+            licenseName: "LGPL-2.1+",
+            copyright: "Copyright (C) 1999-2024 Igor Pavlov",
+            url: "https://7-zip.org",
+            licenseText: """
+            7-Zip Copyright (C) 1999-2024 Igor Pavlov.
+
+            The licenses for files are:
+              1) 7z.dll: GNU LGPL + unRAR restriction
+              2) All other files: GNU LGPL
+
+            The GNU LGPL + unRAR restriction means that you must follow both
+            GNU LGPL rules and unRAR restriction rules.
+
+            GNU LGPL information:
+            This library is free software; you can redistribute it and/or
+            modify it under the terms of the GNU Lesser General Public
+            License as published by the Free Software Foundation; either
+            version 2.1 of the License, or (at your option) any later version.
+
+            This library is distributed in the hope that it will be useful,
+            but WITHOUT ANY WARRANTY; without even the implied warranty of
+            MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+            Lesser General Public License for more details.
+
+            You can receive a copy of the GNU Lesser General Public License from
+            http://www.gnu.org/
+
+            unRAR restriction:
+            The decompression engine for RAR archives was developed using source
+            code of unRAR program. All copyrights to original unRAR code are
+            owned by Alexander Roshal. The license for original unRAR code has
+            the following restriction: The unRAR sources cannot be used to
+            re-create the RAR compression algorithm, which is proprietary.
+            """
+        ),
+        ThirdPartyComponent(
+            id: "libarchive",
+            name: "libarchive",
+            version: "3.8.x",
+            licenseName: "BSD-2-Clause",
+            copyright: "Copyright (C) 2003-2024 Tim Kientzle",
+            url: "https://www.libarchive.org",
+            licenseText: """
+            The libarchive distribution as a whole is Copyright by Tim Kientzle
+            and is subject to the copyright notice reproduced at the bottom of
+            this file.
+
+            Redistribution and use in source and binary forms, with or without
+            modification, are permitted provided that the following conditions
+            are met:
+
+            1. Redistributions of source code must retain the above copyright
+               notice, this list of conditions and the following disclaimer.
+
+            2. Redistributions in binary form must reproduce the above copyright
+               notice, this list of conditions and the following disclaimer in
+               the documentation and/or other materials provided with the
+               distribution.
+
+            THIS SOFTWARE IS PROVIDED BY THE AUTHOR(S) ``AS IS'' AND ANY EXPRESS
+            OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+            WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+            ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY
+            DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+            DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+            GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+            INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+            IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+            OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+            IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+            """
+        ),
     ]
 }
 
@@ -99,7 +177,7 @@ struct ComponentsLicensesView: View {
                     Text(component.name)
                         .fontWeight(.medium)
                     Spacer()
-                    Text(component.version)
+                    Text(component.localizedVersion)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
@@ -113,7 +191,7 @@ struct ComponentsLicensesView: View {
             .padding(.vertical, 4)
             .tag(component.id)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(component.name) \(component.version)，\(component.licenseName)")
+            .accessibilityLabel("\(component.name) \(component.localizedVersion)，\(component.licenseName)")
         }
         .listStyle(.sidebar)
     }
@@ -127,7 +205,7 @@ struct ComponentsLicensesView: View {
                         Text(component.name)
                             .font(.title2.weight(.semibold))
                         HStack(spacing: 12) {
-                            Label(component.version, systemImage: "tag")
+                            Label(component.localizedVersion, systemImage: "tag")
                             Label(component.licenseName, systemImage: "doc.text")
                         }
                         .font(.callout)
@@ -200,7 +278,7 @@ final class ComponentsLicensesWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        newWindow.title = "组件与许可证"
+        newWindow.title = AppLocalization().string("组件与许可证")
         newWindow.contentView = hostingView
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self

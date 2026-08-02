@@ -1,0 +1,4 @@
+/* Localized values for Info.plist keys (system display name + Services menu). */
+"CFBundleDisplayName" = "MacUnzip";
+"CFBundleName" = "MacUnzip";
+"NSServices.0.NSMenuItem.default" = "Open with MacUnzip";

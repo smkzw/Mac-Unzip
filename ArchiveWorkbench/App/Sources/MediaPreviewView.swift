@@ -15,9 +15,17 @@ struct MediaPreviewView: View {
     var reduceMotion: Bool = false
     var reduceTransparency: Bool = false
     var increaseContrast: Bool = false
+    var isSearching: Bool = false
 
     private var displayedEntry: ArchiveEntry? {
-        entries.first(where: { $0.id == selection }) ?? entries.first
+        let selected = entries.first(where: { $0.id == selection })
+        if let selected, !selected.displayPath.hasSuffix("/") { return selected }
+        return mediaStripEntries.first
+    }
+
+    /// Folders (trailing "/") cannot be previewed, so exclude them from the strip.
+    private var mediaStripEntries: [ArchiveEntry] {
+        entries.filter { !$0.displayPath.hasSuffix("/") }
     }
 
     var body: some View {
@@ -38,8 +46,18 @@ struct MediaPreviewView: View {
 
                 Divider()
                 mediaStrip
+            } else if isSearching {
+                ContentUnavailableView(
+                    AppLocalization().string("未找到匹配的文件"),
+                    systemImage: "magnifyingglass",
+                    description: Text(AppLocalization().string("没有符合搜索条件的文件。"))
+                )
             } else {
-                ContentUnavailableView.search(text: "")
+                ContentUnavailableView(
+                    AppLocalization().string("没有可预览的文件"),
+                    systemImage: "photo.on.rectangle.angled",
+                    description: Text(AppLocalization().string("此压缩包中没有可在媒体视图中显示的文件。"))
+                )
             }
         }
     }
@@ -100,7 +118,7 @@ struct MediaPreviewView: View {
         AccessibleGroupHost(identifier: "媒体条带") {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 8) {
-                    ForEach(entries, id: \.id) { entry in
+                    ForEach(mediaStripEntries, id: \.id) { entry in
                         VStack(spacing: 2) {
                             Button {
                                 selection = entry.id
@@ -130,7 +148,7 @@ struct MediaPreviewView: View {
                                 .truncationMode(.middle)
                                 .help(entry.displayPath)
                                 .accessibilityIdentifier("文件名：\(entry.displayPath)")
-                                .accessibilityLabel(AppLocalization().string("文件名称"))
+                                .accessibilityLabel(displayName(for: entry))
                                 .accessibilityValue(entry.displayPath)
                             .frame(height: 18)
                             Text(size(for: entry))

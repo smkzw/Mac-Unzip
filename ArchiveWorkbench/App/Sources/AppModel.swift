@@ -2,24 +2,50 @@ import AppKit
 import ArchiveDomain
 import ArchiveOperations
 import ArchiveProviders
+import ArchiveSecurity
 import Foundation
 import Observation
 import SwiftUI
 
-extension Notification.Name {
-    /// Posted when unfinished crash-recovery journals are found at launch.
-    /// The `object` is `[(journalURL: URL, journal: CrashRecoveryJournal)]`.
-    static let crashRecoveryJournalsFound = Notification.Name("AWBCrashRecoveryJournalsFound")
+/// Records the hidden ``.<name>.copy-<UUID>`` temp files that ``saveArchiveAs``
+/// creates next to the chosen destination. A crash between copy and rename
+/// would otherwise orphan them in the user's folder; the next launch sweeps
+/// any recorded path that still exists.
+enum StaleCopyTempStore {
+    private static let key = "AWPendingCopyTempPaths"
+
+    static func track(_ url: URL) {
+        var paths = UserDefaults.standard.stringArray(forKey: key) ?? []
+        paths.append(url.path)
+        UserDefaults.standard.set(paths, forKey: key)
+    }
+
+    static func untrack(_ url: URL) {
+        let paths = (UserDefaults.standard.stringArray(forKey: key) ?? [])
+            .filter { $0 != url.path }
+        UserDefaults.standard.set(paths, forKey: key)
+    }
+
+    static func sweep() {
+        let paths = UserDefaults.standard.stringArray(forKey: key) ?? []
+        for path in paths {
+            let name = (path as NSString).lastPathComponent
+            guard name.hasPrefix("."), name.contains(".copy-") else { continue }
+            try? FileManager.default.removeItem(atPath: path)
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+    }
 }
 
 enum AppearanceMode: String, CaseIterable, Sendable {
     case system, light, dark
 
     var displayName: String {
+        let localization = AppLocalization()
         switch self {
-        case .system: return "跟随系统"
-        case .light: return "浅色"
-        case .dark: return "深色"
+        case .system: return localization.string("跟随系统")
+        case .light: return localization.string("浅色")
+        case .dark: return localization.string("深色")
         }
     }
 
@@ -43,6 +69,8 @@ struct ArchiveEntryMetadata: Equatable, Sendable {
     let compressedSize: String
     let modifiedDate: String
     let path: String
+    var sizeBytes: Int64 = 0
+    var modifiedTimestamp: Double = 0
 
     var statusMessage: String {
         statusMessage(localization: AppLocalization())
@@ -63,6 +91,15 @@ struct ArchiveFolderSummary: Equatable, Sendable, Identifiable {
     func countText(localization: AppLocalization) -> String {
         localization.format("%ld 项", itemCount)
     }
+}
+
+/// Describes a selected inferred folder (one with no explicit directory entry,
+/// so it has no entry ID). Lets the status bar and inspector agree that a
+/// folder is selected instead of both falling back to "no selection".
+struct FolderSelectionInfo: Equatable, Sendable {
+    let name: String
+    let path: String
+    let itemCount: Int
 }
 
 // MARK: - Creation Options
@@ -87,11 +124,14 @@ enum CreationFormat: String, CaseIterable, Sendable {
     }
 
     var capabilityText: String {
+        let localization = AppLocalization()
         switch self {
-        case .zip: return "支持加密"
-        case .sevenZip: return "支持 AES-256 加密"
-        case .rar: return "支持加密（需安装 RARLAB rar）"
-        case .tarGz, .tarXz, .tarZst: return "支持压缩级别"
+        case .zip: return localization.string("支持加密")
+        case .sevenZip: return localization.string("支持 AES-256 加密")
+        case .rar: return localization.string("需安装 RARLAB rar（不支持加密）")
+        case .tarGz: return localization.string("gzip 压缩")
+        case .tarXz: return localization.string("xz 压缩")
+        case .tarZst: return localization.string("zstd 压缩")
         }
     }
 
@@ -108,8 +148,8 @@ enum CreationFormat: String, CaseIterable, Sendable {
 
     var supportsEncryption: Bool {
         switch self {
-        case .zip, .sevenZip, .rar: return true
-        case .tarGz, .tarXz, .tarZst: return false
+        case .zip, .sevenZip: return true
+        case .rar, .tarGz, .tarXz, .tarZst: return false
         }
     }
 
@@ -126,9 +166,10 @@ enum EncryptionMethod: String, CaseIterable, Sendable {
     case zipCrypto
 
     var displayName: String {
+        let localization = AppLocalization()
         switch self {
-        case .aes256: return "AES-256（推荐）"
-        case .zipCrypto: return "ZipCrypto（旧版兼容）"
+        case .aes256: return localization.string("AES-256（推荐）")
+        case .zipCrypto: return localization.string("ZipCrypto（旧版兼容）")
         }
     }
 }
@@ -139,10 +180,11 @@ enum ZIPCompressionLevel: String, CaseIterable, Sendable {
     case maximum
 
     var displayName: String {
+        let localization = AppLocalization()
         switch self {
-        case .store: return "最快（Store）"
-        case .deflate: return "默认（Deflate）"
-        case .maximum: return "最小（Maximum）"
+        case .store: return localization.string("最快（Store）")
+        case .deflate: return localization.string("默认（Deflate）")
+        case .maximum: return localization.string("最小（Maximum）")
         }
     }
 }
@@ -191,15 +233,20 @@ struct ArchiveCreationDraft: Equatable, Sendable {
         guard inputs.count == 1, !inputs[0].lastPathComponent.isEmpty else {
             return defaultFilename(for: format)
         }
-        let name = inputs[0].lastPathComponent
+        return Self.retaggedFilename(inputs[0].lastPathComponent, for: format)
+    }
+
+    /// Replaces the archive extension of `filename` (stripping compound
+    /// extensions like ".tar.gz" as a unit) with the given format's extension.
+    static func retaggedFilename(_ filename: String, for format: CreationFormat) -> String {
         let compoundExtensions = [".tar.gz", ".tar.xz", ".tar.zst", ".tar.bz2", ".tar.z", ".tar.lz4"]
-        let lower = name.lowercased()
+        let lower = filename.lowercased()
         for ext in compoundExtensions {
             if lower.hasSuffix(ext) {
-                return String(name.dropLast(ext.count)) + "." + format.fileExtension
+                return String(filename.dropLast(ext.count)) + "." + format.fileExtension
             }
         }
-        return inputs[0].deletingPathExtension().lastPathComponent + "." + format.fileExtension
+        return (filename as NSString).deletingPathExtension + "." + format.fileExtension
     }
 
     private func defaultFilename(for format: CreationFormat) -> String {
@@ -350,6 +397,10 @@ enum ArchiveShellCopy {
         localization.string("已撤销上一步修改")
     }
 
+    static func changeRedone(localization: AppLocalization = AppLocalization()) -> String {
+        localization.string("已重做上一步修改")
+    }
+
     static func archiveSaved(localization: AppLocalization = AppLocalization()) -> String {
         localization.string("已保存修改")
     }
@@ -379,42 +430,37 @@ struct MediaRecommendationPolicy: Sendable {
 }
 
 /// A prebuilt search index for large archives (>1000 entries).
-/// Maps lowercased path components and file names to entry IDs for fast lookup.
+/// Maps case-/diacritic-folded full paths to entry IDs for fast lookup.
 struct ArchiveSearchIndex: Sendable {
-    /// Precomputed lowercased full paths keyed by entry ID.
-    private let lowercasedPaths: [ArchiveEntryID: String]
-    /// Precomputed lowercased file names (last path component) keyed by entry ID.
-    private let lowercasedNames: [ArchiveEntryID: String]
+    /// Precomputed case-/diacritic-folded full paths keyed by entry ID.
+    private let foldedPaths: [ArchiveEntryID: String]
     /// All entry IDs in insertion order.
     let entryIDs: [ArchiveEntryID]
 
     init(entries: [ArchiveEntry]) {
         var paths: [ArchiveEntryID: String] = [:]
-        var names: [ArchiveEntryID: String] = [:]
         var ids: [ArchiveEntryID] = []
         ids.reserveCapacity(entries.count)
         for entry in entries {
             ids.append(entry.id)
-            paths[entry.id] = entry.displayPath.lowercased()
-            let name = entry.displayPath.split(separator: "/").last.map(String.init) ?? entry.displayPath
-            names[entry.id] = name.lowercased()
+            paths[entry.id] = entry.displayPath.folding(
+                options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         }
-        lowercasedPaths = paths
-        lowercasedNames = names
+        foldedPaths = paths
         entryIDs = ids
     }
 
-    /// Returns entry IDs whose full path or file name contains the query (case-insensitive).
+    /// Returns entry IDs whose full path contains the query (case- and
+    /// diacritic-insensitive). Approximates localizedStandardContains for
+    /// practical CJK/ASCII use; the file name is always a substring of the
+    /// path, so matching on the path alone is sufficient.
     func search(query: String) -> Set<ArchiveEntryID> {
-        let normalizedQuery = query.lowercased()
+        let normalizedQuery = query.folding(
+            options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         guard !normalizedQuery.isEmpty else { return [] }
         var results = Set<ArchiveEntryID>()
         for id in entryIDs {
-            if let path = lowercasedPaths[id], path.contains(normalizedQuery) {
-                results.insert(id)
-                continue
-            }
-            if let name = lowercasedNames[id], name.contains(normalizedQuery) {
+            if let path = foldedPaths[id], path.contains(normalizedQuery) {
                 results.insert(id)
             }
         }
@@ -431,6 +477,7 @@ final class AppModel {
     @ObservationIgnored private var activeRegistry = ArchiveCapabilityRegistry.productionBaseline
     var hasDocument = false
     var isLoading = false
+    @ObservationIgnored private var pendingOpen: (url: URL, password: String?)?
     var presentedError: String?
     var formatMismatchWarning: String?
     var documentTitle = ""
@@ -439,14 +486,18 @@ final class AppModel {
     var canAdd = false
     var canRemoveSelectedEntry: Bool { hasDocument && selectedEntryID != nil && !isNestedSession && canAdd }
     var canRenameSelectedEntry: Bool { hasDocument && selectedEntryID != nil && !isNestedSession && canAdd }
-    var canReplaceSelectedEntry: Bool { hasDocument && selectedEntryID != nil && !isNestedSession && canAdd }
+    var canReplaceSelectedEntry: Bool {
+        guard hasDocument, let selectedEntryID, !isNestedSession, canAdd else { return false }
+        guard let entry = entries.first(where: { $0.id == selectedEntryID }) else { return false }
+        return !entry.displayPath.hasSuffix("/")
+    }
     var canExtract = false
     var canTestIntegrity = false
     var viewMode: ArchiveViewMode = .list
     var appearanceMode: AppearanceMode = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: "appearanceMode") ?? "") ?? .system {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
-    var inspectorVisible = true
+    var inspectorVisible = false
     /// Sidebar column visibility, driven by Cmd+0 and the View menu.
     var sidebarVisible = true
     var compactToolbar = true
@@ -458,8 +509,12 @@ final class AppModel {
     /// Number of results from the last search (nil when search is empty).
     var searchResultCount: Int?
     var selectedEntryID: ArchiveEntryID? {
-        didSet { transientStatusMessage = nil }
+        didSet {
+            transientStatusMessage = nil
+            lastExtractionURL = nil
+        }
     }
+    var selectedFolderPath: String?
     var entries: [ArchiveEntry] = [] {
         didSet { cachedHasHierarchy = entries.contains { $0.displayPath.contains("/") } }
     }
@@ -468,20 +523,41 @@ final class AppModel {
     var folderSummaries: [ArchiveFolderSummary] = []
     var scrollAnchor: ArchiveEntryID?
     var pendingChanges: [PendingChange] = []
-    var hasUnsavedChanges: Bool { !pendingChanges.isEmpty }
+    /// Changes removed by undo, kept so an accidental ⌘Z can be reversed with
+    /// ⌘⇧Z. Cleared whenever a new edit is staged or the document is reloaded.
+    private var redoStack: [PendingChange] = []
+    var canRedo: Bool { hasDocument && !isNestedSession && !redoStack.isEmpty }
+    var hasUnsavedChanges: Bool {
+        !pendingChanges.isEmpty || sessionStack.contains { !$0.pendingChanges.isEmpty }
+    }
     var transientStatusMessage: String?
     var metadataByEntryID: [ArchiveEntryID: ArchiveEntryMetadata] = [:]
     var selectedMetadata: ArchiveEntryMetadata? {
         selectedEntryID.flatMap { metadataByEntryID[$0] }
     }
+    /// Summary of the selected inferred folder, or nil when a file entry or
+    /// nothing is selected.
+    var selectedFolderInfo: FolderSelectionInfo? {
+        guard selectedEntryID == nil, let path = selectedFolderPath else { return nil }
+        let name = path.split(separator: "/").last.map(String.init) ?? path
+        let prefix = path + "/"
+        let count = entries.filter { $0.displayPath.hasPrefix(prefix) }.count
+        return FolderSelectionInfo(name: name, path: path, itemCount: count)
+    }
     var statusMessage: String {
         get {
+            guard hasDocument else { return transientStatusMessage ?? "" }
             if !activeSearchText.isEmpty {
                 return localization.format("找到 %ld 个项目", visibleEntries.count)
             }
-            return transientStatusMessage
-                ?? selectedMetadata?.statusMessage(localization: localization)
-                ?? localization.string("未选择项目")
+            if let transient = transientStatusMessage { return transient }
+            if let entryStatus = selectedMetadata?.statusMessage(localization: localization) {
+                return entryStatus
+            }
+            if let folder = selectedFolderInfo {
+                return localization.format("已选择文件夹 %@ · %ld 项", folder.name, folder.itemCount)
+            }
+            return localization.string("未选择项目")
         }
         set { transientStatusMessage = newValue }
     }
@@ -506,15 +582,21 @@ final class AppModel {
             }
         }
     }
-    var operationMessage = "当前没有进行中的操作"
+    var operationMessage = AppLocalization().string("当前没有进行中的操作")
     var isCreating = false
     var creationProgress = 0.0
     var lastCreatedURL: URL?
     var creationErrorMessage: String?
+    /// Set while creation is paused asking whether an existing file at the
+    /// output path may be replaced; drives the confirmation alert.
+    var pendingOverwriteURL: URL?
+    @ObservationIgnored private var overwriteConfirmationContinuation: CheckedContinuation<Bool, Never>?
     // MARK: - Creation Panel Options
     var creationFormat: CreationFormat = .zip
     var creationEncryptionEnabled = false {
         didSet {
+            // Defense-in-depth for the Pro-only encryption gate: unreachable today
+            // (creation sheet is already Pro-gated), but keep it if gating changes.
             if creationEncryptionEnabled && !oldValue && !LicenseGate.isProLicensed {
                 creationEncryptionEnabled = false
                 DispatchQueue.main.async {
@@ -529,23 +611,21 @@ final class AppModel {
     var creationSplitEnabled = false
     var creationVolumeSize: SplitVolumeSize = .mb4
     var creationCompressionLevel: ZIPCompressionLevel = .deflate
-    var creationTARCompressionLevel: Double = 6
     var preflightIssues: [PreflightIssue] = []
+    var isRunningPreflight = false
+    /// Bumped whenever a preflight run is started or invalidated (format switch),
+    /// so an in-flight check whose results are no longer relevant is discarded.
+    @ObservationIgnored private var preflightGeneration = 0
     var isExtracting = false
     var extractionProgress = 0.0
     var lastExtractionURL: URL?
-    var extractionErrorMessage: String?
     /// Structured error presentation for the inline banner.
     var activeErrorPresentation: ArchiveErrorPresentation?
     /// Password retry state for wrong-password errors.
     var passwordRetryText = ""
     var passwordAttemptCount = 0
-    /// Conflict resolution state during extraction.
-    var activeConflict: ExtractionConflictInfo?
     /// Whether "extract selected" is available (requires a selection).
-    var canExtractSelected: Bool { hasDocument && selectedEntryID != nil && canExtract && !isExtracting }
-    @ObservationIgnored private var conflictContinuation: CheckedContinuation<ExtractionConflictResolution, Never>?
-    @ObservationIgnored private var conflictBatchResolution: ExtractionConflictResolution?
+    var canExtractSelected: Bool { hasDocument && (selectedEntryID != nil || selectedFolderPath != nil) && canExtract && !isExtracting }
     @ObservationIgnored private var errorAutoDismissTask: Task<Void, Never>?
     var previewCacheURL: ValidatedPreviewCacheURL?
     var previewCacheEntryID: ArchiveEntryID?
@@ -564,7 +644,6 @@ final class AppModel {
     @ObservationIgnored private var searchIndex: ArchiveSearchIndex?
     /// Debounce task for search input.
     @ObservationIgnored private var searchDebounceTask: Task<Void, Never>?
-    @ObservationIgnored nonisolated(unsafe) private var crashRecoveryObserver: (any NSObjectProtocol)?
     @ObservationIgnored private var preflightStagingDir: URL?
     var selectedPreviewCacheURL: ValidatedPreviewCacheURL? {
         previewCacheEntryID == selectedEntryID ? previewCacheURL : nil
@@ -585,6 +664,13 @@ final class AppModel {
     @ObservationIgnored private var nestedMaterializedURLs: [URL] = []
     /// Whether the current session is a nested sub-session (read-only).
     var isNestedSession = false
+    /// Password used to open the current top-level archive (for re-open after nested navigation).
+    @ObservationIgnored private var currentArchivePassword: SecurePassword?
+    /// Temp directories created for "open in external app", in creation order.
+    /// Bounded so repeated external opens do not accumulate unbounded temp data
+    /// within a session; the newest entries are kept (they may still be open in
+    /// the external app) and the rest are removed.
+    @ObservationIgnored private var externalOpenRoots: [URL] = []
     /// Current nesting depth (0 = root archive).
     var nestedDepth: Int { sessionStack.count }
     /// Whether back navigation is available.
@@ -604,7 +690,8 @@ final class AppModel {
 
     // MARK: - Crash Recovery
 
-    /// Journals found at launch that need user decision (recover or discard).
+    /// Unfinished journals surfaced when an archive is opened, awaiting a user
+    /// decision (recover or discard).
     var pendingRecoveryJournals: [CrashRecoveryJournal] = []
     /// Whether the recovery alert should be presented.
     var isRecoveryAlertPresented = false
@@ -616,17 +703,27 @@ final class AppModel {
         self.loader = loader
         self.localization = localization
         operationMessage = localization.string("当前没有进行中的操作")
-        observeCrashRecoveryJournals()
-    }
-
-    deinit {
-        if let observer = crashRecoveryObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
     }
 
     func openArchive(url: URL, password: String? = nil) async {
-        guard !isLoading else { return }
+        if isLoading {
+            // A load is already in flight; remember the latest request so it is
+            // serviced right after the current one instead of being dropped.
+            pendingOpen = (url, password)
+            return
+        }
+        var queued: (url: URL, password: String?)? = (url, password)
+        while let current = queued {
+            queued = nil
+            await performOpen(url: current.url, password: current.password)
+            if let next = pendingOpen {
+                pendingOpen = nil
+                queued = next
+            }
+        }
+    }
+
+    private func performOpen(url: URL, password: String?) async {
         isLoading = true
         presentedError = nil
         defer { isLoading = false }
@@ -637,17 +734,19 @@ final class AppModel {
         }
         resetCreationState()
         if let extractionTask {
-            conflictContinuation?.resume(returning: .skip)
-            conflictContinuation = nil
-            activeConflict = nil
             extractionTask.cancel()
             await extractionTask.value
             self.extractionTask = nil
         }
         resetExtractionState()
-        // Reset nested session stack when opening a new top-level archive
-        navigationReopenTask?.cancel()
-        navigationReopenTask = nil
+        // Reset nested session stack when opening a new top-level archive.
+        // Await the cancelled reopen so a stale nested-reopen cannot interleave
+        // its loader.open/stageChange/apply with this open.
+        if let navigationReopenTask {
+            navigationReopenTask.cancel()
+            await navigationReopenTask.value
+            self.navigationReopenTask = nil
+        }
         sessionStack.removeAll()
         for nestedURL in nestedMaterializedURLs {
             try? FileManager.default.removeItem(at: nestedURL)
@@ -659,12 +758,15 @@ final class AppModel {
             let snapshot: ArchiveDocumentSnapshot
             if let password, !password.isEmpty {
                 snapshot = try await loader.openWithPassword(url: url, password: password)
+                currentArchivePassword = SecurePassword(password)
             } else {
                 snapshot = try await loader.open(url: url)
+                currentArchivePassword = nil
             }
             try Task.checkCancellation()
             activeRegistry = await loader.capabilityRegistry
             apply(snapshot)
+            checkForCrashRecoveryJournal(for: url)
             // Surface format mismatch warning
             let detection = await loader.lastDetectionResult
             if let detection, detection.hasMismatch,
@@ -687,7 +789,8 @@ final class AppModel {
                archiveError == .passwordRequired || archiveError == .wrongPassword {
                 currentSourceURL = url
                 passwordAttemptCount = 0
-                presentError(.wrongPassword)
+                let suppliedPassword = !(password?.isEmpty ?? true)
+                presentError(suppliedPassword ? .wrongPassword : .passwordRequired)
             } else {
                 presentedError = userMessage(for: error)
             }
@@ -699,9 +802,12 @@ final class AppModel {
         presentedError = nil
         do {
             try await loader.stageChange(change)
+            redoStack.removeAll()
             pendingChanges = await loader.currentPendingChanges()
             transientStatusMessage = ArchiveShellCopy.changeStaged()
         } catch {
+            redoStack.removeAll()
+            pendingChanges = await loader.currentPendingChanges()
             presentedError = userMessage(for: error)
         }
     }
@@ -714,10 +820,16 @@ final class AppModel {
     /// (`<folderName>/<subpath>`). Security-scoped access for every chosen
     /// source URL is held until the next save so the editor can still read the
     /// bytes when it publishes the archive.
-    func stageAdditions(from urls: [URL]) async {
+    func stageAdditions(from urls: [URL], toFolder folderPath: String? = nil) async {
         guard LicenseGate.requirePro(for: .edit) else { return }
-        guard hasDocument, canAdd, !urls.isEmpty else { return }
+        guard hasDocument, canAdd, !isNestedSession, !urls.isEmpty else { return }
         presentedError = nil
+        let prefix: String
+        if let folderPath, !folderPath.isEmpty {
+            prefix = folderPath.hasSuffix("/") ? folderPath : folderPath + "/"
+        } else {
+            prefix = ""
+        }
         var changes: [PendingChange] = []
         var scopesToHold: [URL] = []
         for url in urls {
@@ -727,9 +839,9 @@ final class AppModel {
             let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
             guard exists else { continue }
             if isDirectory.boolValue {
-                appendFolderAdditions(for: url, to: &changes)
+                appendFolderAdditions(for: url, prefix: prefix, to: &changes)
             } else {
-                changes.append(.add(sourceURL: url, destinationPath: url.lastPathComponent))
+                changes.append(.add(sourceURL: url, destinationPath: prefix + url.lastPathComponent))
             }
         }
         guard !changes.isEmpty else {
@@ -739,6 +851,55 @@ final class AppModel {
         }
         heldAddSourceScopes.append(contentsOf: scopesToHold)
         await stageChanges(changes)
+    }
+
+    /// Validates and stages a move of an entry to a new path (drag between folders).
+    func moveEntry(from sourcePath: String, to destinationPath: String) async {
+        guard LicenseGate.requirePro(for: .edit) else { return }
+        guard hasDocument, !isNestedSession, canAdd else { return }
+        let source = sourcePath.hasSuffix("/") ? String(sourcePath.dropLast()) : sourcePath
+        let destination = destinationPath.hasSuffix("/") ? String(destinationPath.dropLast()) : destinationPath
+        guard !source.isEmpty, !destination.isEmpty, source != destination else { return }
+        let collides = entries.contains { other in
+            let otherPath = other.displayPath.hasSuffix("/")
+                ? String(other.displayPath.dropLast())
+                : other.displayPath
+            return otherPath.caseInsensitiveCompare(destination) == .orderedSame
+        }
+        guard !collides else {
+            transientStatusMessage = localization.string("已存在同名项目，无法移动。")
+            return
+        }
+        await stageChange(.rename(from: source, to: destination))
+    }
+
+    /// Materializes an entry to a temporary location for a drag-out promise.
+    /// The completion delivers the materialized file plus the staging root dir;
+    /// the caller is responsible for the copy and for removing the staging root.
+    func materializeEntryForDrag(entryID: ArchiveEntryID, completion: @escaping @Sendable (Result<(file: URL, stagingRoot: URL), Error>) -> Void) {
+        Task { [weak self] in
+            guard let self else {
+                completion(.failure(NSError(domain: "MacUnzip", code: 3)))
+                return
+            }
+            let stagingDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacUnzip_drag_\(UUID().uuidString)", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(
+                    at: stagingDir,
+                    withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700]
+                )
+                let materializedURL = try await loader.materializeEntryForExtraction(
+                    entryID: entryID,
+                    under: stagingDir
+                )
+                completion(.success((file: materializedURL, stagingRoot: stagingDir)))
+            } catch {
+                try? FileManager.default.removeItem(at: stagingDir)
+                completion(.failure(error))
+            }
+        }
     }
 
     /// Stages a removal for the currently selected entry.
@@ -776,6 +937,7 @@ final class AppModel {
         let newPath = parentPrefix + trimmed
         guard newPath != currentPath else { return }
         let collides = entries.contains { other in
+            guard other.id != selectedEntryID else { return false }
             let otherPath = other.displayPath.hasSuffix("/")
                 ? String(other.displayPath.dropLast())
                 : other.displayPath
@@ -791,7 +953,7 @@ final class AppModel {
     /// Validates and stages a replacement for the currently selected entry.
     func replaceSelectedEntry(with sourceURL: URL) async {
         guard LicenseGate.requirePro(for: .edit) else { return }
-        guard hasDocument, let selectedEntryID,
+        guard hasDocument, !isNestedSession, let selectedEntryID,
               let entry = entries.first(where: { $0.id == selectedEntryID }) else { return }
         let entryPath = entry.displayPath.hasSuffix("/")
             ? String(entry.displayPath.dropLast())
@@ -818,28 +980,33 @@ final class AppModel {
             for change in changes {
                 try await loader.stageChange(change)
             }
+            redoStack.removeAll()
             pendingChanges = await loader.currentPendingChanges()
             transientStatusMessage = ArchiveShellCopy.changeStaged()
         } catch {
+            redoStack.removeAll()
             pendingChanges = await loader.currentPendingChanges()
             presentedError = userMessage(for: error)
         }
     }
 
-    private func appendFolderAdditions(for folderURL: URL, to changes: inout [PendingChange]) {
+    private func appendFolderAdditions(for folderURL: URL, prefix: String = "", to changes: inout [PendingChange]) {
         let folderName = folderURL.lastPathComponent
         guard let enumerator = FileManager.default.enumerator(
             at: folderURL,
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
             options: [.skipsHiddenFiles]
         ) else { return }
+        // The enumerator yields URLs rooted at the unresolved folderURL, so count
+        // components of the unresolved path (resolving symlinks could change the
+        // depth and make dropFirst strip the wrong number of components).
         let baseComponentCount = folderURL.pathComponents.count
         for case let fileURL as URL in enumerator {
             let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
             guard values?.isRegularFile == true, values?.isSymbolicLink != true else { continue }
             let relativeComponents = fileURL.pathComponents.dropFirst(baseComponentCount)
             guard !relativeComponents.isEmpty else { continue }
-            let destinationPath = (folderName + "/" + relativeComponents.joined(separator: "/"))
+            let destinationPath = prefix + (folderName + "/" + relativeComponents.joined(separator: "/"))
             changes.append(.add(sourceURL: fileURL, destinationPath: destinationPath))
         }
     }
@@ -854,17 +1021,41 @@ final class AppModel {
         let undone = await loader.undoChange(id: last.id)
         pendingChanges = await loader.currentPendingChanges()
         if undone {
+            redoStack.append(last)
             transientStatusMessage = ArchiveShellCopy.changeUndone()
         } else {
             transientStatusMessage = localization.string("撤销失败，修改仍然存在。")
         }
     }
 
+    func redoLastChange() async {
+        guard let change = redoStack.last else { return }
+        presentedError = nil
+        do {
+            try await loader.stageChange(change)
+            redoStack.removeLast()
+            pendingChanges = await loader.currentPendingChanges()
+            transientStatusMessage = ArchiveShellCopy.changeRedone()
+        } catch {
+            pendingChanges = await loader.currentPendingChanges()
+            presentedError = userMessage(for: error)
+        }
+    }
+
     @discardableResult
     func saveArchive() async -> Bool {
         presentedError = nil
+        guard !isNestedSession else {
+            transientStatusMessage = localization.string("请先返回上级压缩包再保存")
+            return false
+        }
+        guard !isLoading else {
+            presentedError = localization.string("正在读取压缩包，请稍候再保存。")
+            return false
+        }
         guard hasUnsavedChanges else { return true }
         do {
+            try await ensureLoaderStagedChanges()
             let snapshot = try await loader.saveArchive()
             apply(snapshot)
             transientStatusMessage = ArchiveShellCopy.archiveSaved()
@@ -875,11 +1066,57 @@ final class AppModel {
         }
     }
 
+    /// Re-stages any UI-tracked pending change that the loader's editor is
+    /// missing. After nested-session navigation the UI ``pendingChanges`` is
+    /// restored synchronously while the loader is re-opened and re-staged
+    /// asynchronously; if that re-stage is cancelled or superseded, saving would
+    /// otherwise publish without the user's edits. Comparing the two sources of
+    /// truth and filling the gap keeps saves faithful.
+    private func ensureLoaderStagedChanges() async throws {
+        guard !pendingChanges.isEmpty else { return }
+        let staged = await loader.currentPendingChanges()
+        let stagedIDs = Set(staged.map(\.id))
+        for change in pendingChanges where !stagedIDs.contains(change.id) {
+            try await loader.stageChange(change)
+        }
+    }
+
+    /// Saves the archive, first unwinding any nested session back to the root so
+    /// staged parent changes are persisted. Used by shutdown/close paths where a
+    /// silent nested-guard failure would strand the user's edits.
+    @discardableResult
+    func saveArchiveResolvingNested() async -> Bool {
+        if isNestedSession {
+            if isLoading {
+                await navigationReopenTask?.value
+            }
+            if isNestedSession {
+                navigateToBreadcrumb(index: 0)
+                await navigationReopenTask?.value
+            }
+        }
+        guard !isNestedSession, !isLoading else {
+            presentedError = localization.string("正在读取压缩包，请稍候再保存。")
+            return false
+        }
+        return await saveArchive()
+    }
+
     func saveArchiveAs(to targetURL: URL) async {
         presentedError = nil
+        guard !isNestedSession else {
+            transientStatusMessage = localization.string("请先返回上级压缩包再保存")
+            return
+        }
+        guard !isLoading else {
+            presentedError = localization.string("正在读取压缩包，请稍候再保存。")
+            return
+        }
         guard hasDocument, let sourceURL = currentSourceURL else { return }
+        var copyTempURL: URL?
         do {
             if hasUnsavedChanges {
+                try await ensureLoaderStagedChanges()
                 let snapshot = try await loader.saveArchiveAs(to: targetURL)
                 apply(snapshot)
             } else {
@@ -887,6 +1124,8 @@ final class AppModel {
                 let tempURL = directory.appending(
                     path: "." + targetURL.lastPathComponent + ".copy-" + UUID().uuidString
                 )
+                StaleCopyTempStore.track(tempURL)
+                copyTempURL = tempURL
                 try FileManager.default.copyItem(at: sourceURL, to: tempURL)
                 let syncFD = tempURL.withUnsafeFileSystemRepresentation { path -> Int32 in
                     guard let path else { return -1 }
@@ -903,9 +1142,12 @@ final class AppModel {
                     }
                 }
                 guard renameResult == 0 else {
+                    let posixCode = Int(errno)
                     try? FileManager.default.removeItem(at: tempURL)
-                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+                    throw NSError(domain: NSPOSIXErrorDomain, code: posixCode)
                 }
+                StaleCopyTempStore.untrack(tempURL)
+                copyTempURL = nil
                 let dirFD = directory.withUnsafeFileSystemRepresentation { path -> Int32 in
                     guard let path else { return -1 }
                     return Darwin.open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
@@ -914,11 +1156,56 @@ final class AppModel {
                     Darwin.fsync(dirFD)
                     Darwin.close(dirFD)
                 }
+                // Reopen at the new location so the loader and editor retarget to
+                // the copy; otherwise a later save would publish edits to the stale
+                // original path while the title bar shows the new filename.
+                let snapshot: ArchiveDocumentSnapshot
+                if let securePassword = currentArchivePassword, !securePassword.isEmpty {
+                    let password = securePassword.withBytes { String(decoding: $0, as: UTF8.self) }
+                    snapshot = try await loader.openWithPassword(url: targetURL, password: password)
+                } else {
+                    snapshot = try await loader.open(url: targetURL)
+                }
+                apply(snapshot)
             }
             transientStatusMessage = ArchiveShellCopy.archiveSaved()
         } catch {
+            if let copyTempURL {
+                StaleCopyTempStore.untrack(copyTempURL)
+                try? FileManager.default.removeItem(at: copyTempURL)
+            }
             presentedError = userMessage(for: error)
         }
+    }
+
+    /// True when the entry path denotes a root-level item (a single path
+    /// component, ignoring any trailing slash) — i.e. visible at the top of the
+    /// hierarchy without expanding any folder.
+    private func isRootLevelPath(_ path: String) -> Bool {
+        var trimmed = path
+        if trimmed.hasSuffix("/") { trimmed.removeLast() }
+        return !trimmed.isEmpty && !trimmed.contains("/")
+    }
+
+    /// Selects the first previewable, non-encrypted *visible* entry when nothing
+    /// is selected or the current selection is hidden by the active search
+    /// filter, so the media view's displayed entry and the loaded preview agree.
+    func selectFirstPreviewableEntry() {
+        let policy = PreviewRoutingPolicy()
+        if let selectedEntryID,
+           let current = visibleEntries.first(where: { $0.id == selectedEntryID }),
+           !current.displayPath.hasSuffix("/"),
+           policy.kind(forFilename: current.displayPath) != .unsupported {
+            return
+        }
+        let previewable = visibleEntries.filter {
+            !$0.displayPath.hasSuffix("/") && policy.kind(forFilename: $0.displayPath) != .unsupported
+        }
+        // Prefer a non-encrypted entry; when every previewable entry is
+        // encrypted, select one anyway so the password-required message shows
+        // instead of a generic load failure.
+        selectedEntryID = previewable.first { !encryptedEntryIDs.contains($0.id) }?.id
+            ?? previewable.first?.id
     }
 
     func loadSelectedPreview() async {
@@ -964,9 +1251,24 @@ final class AppModel {
 
     func extractAll(to destinationDirectoryURL: URL) async {
         guard hasDocument, !isExtracting else { return }
+        // APFS destinations are case-insensitive: two entries differing only by
+        // case would make the second copy throw and abort the whole extraction.
+        // Detect this up front and report a clear error.
+        var canonicalPaths = Set<String>()
+        for entry in entries where !entry.displayPath.hasSuffix("/") {
+            let canonical = entry.displayPath.decomposedStringWithCanonicalMapping.folding(
+                options: [.caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            guard canonicalPaths.insert(canonical).inserted else {
+                presentError(.generic(localization.string(
+                    "压缩包内存在仅大小写不同的同名文件，无法解压到当前磁盘格式。"
+                )))
+                return
+            }
+        }
         isExtracting = true
         extractionProgress = 0
-        extractionErrorMessage = nil
         lastExtractionURL = nil
         operationMessage = localization.string("正在准备解压缩…")
         defer { isExtracting = false }
@@ -1015,11 +1317,6 @@ final class AppModel {
     }
 
     func cancelExtraction() {
-        if let continuation = conflictContinuation {
-            continuation.resume(returning: .skip)
-            conflictContinuation = nil
-            activeConflict = nil
-        }
         extractionTask?.cancel()
     }
 
@@ -1062,8 +1359,7 @@ final class AppModel {
     func retryWithPassword(_ password: String) {
         passwordAttemptCount += 1
         let attempt = passwordAttemptCount
-        guard attempt < 3 else {
-            // After 3 failures, the banner shows "密码错误次数过多"
+        guard attempt <= 3 else {
             return
         }
         guard let sourceURL = currentSourceURL else { return }
@@ -1079,58 +1375,6 @@ final class AppModel {
         }
     }
 
-    // MARK: - Conflict Resolution
-
-    /// Reads the user's conflict strategy from Settings.
-    var conflictStrategy: String {
-        UserDefaults.standard.string(forKey: "settings.extraction.conflictStrategy") ?? "ask"
-    }
-
-    /// Resolves a file conflict. Called by the conflict dialog UI.
-    func resolveConflict(_ resolution: ExtractionConflictResolution) {
-        activeConflict = nil
-        switch resolution {
-        case .replaceAll:
-            conflictBatchResolution = .replace
-        case .skipAll:
-            conflictBatchResolution = .skip
-        default:
-            break
-        }
-        conflictContinuation?.resume(returning: resolution)
-        conflictContinuation = nil
-    }
-
-    /// Checks whether a file at the destination conflicts and handles according to strategy.
-    /// Returns true if the file should be written (replaced), false if skipped.
-    func shouldOverwriteFile(at destinationURL: URL, entryPath: String) async -> Bool {
-        guard FileManager.default.fileExists(atPath: destinationURL.path) else {
-            return true
-        }
-        // If a batch resolution is active, use it
-        if let batch = conflictBatchResolution {
-            return batch == .replace
-        }
-        switch conflictStrategy {
-        case "overwrite":
-            return true
-        case "skip":
-            return false
-        default:
-            // "ask" - pause and show conflict dialog
-            activeConflict = ExtractionConflictInfo(filePath: entryPath)
-            let resolution: ExtractionConflictResolution = await withCheckedContinuation { continuation in
-                conflictContinuation = continuation
-            }
-            switch resolution {
-            case .replace, .replaceAll:
-                return true
-            case .skip, .skipAll:
-                return false
-            }
-        }
-    }
-
     // MARK: - Extract Selected
 
     /// Extracts only the currently selected entry (file or folder) to a destination.
@@ -1140,7 +1384,6 @@ final class AppModel {
               !isExtracting else { return }
         isExtracting = true
         extractionProgress = 0
-        extractionErrorMessage = nil
         activeErrorPresentation = nil
         lastExtractionURL = nil
         operationMessage = localization.string("正在准备解压缩…")
@@ -1187,10 +1430,116 @@ final class AppModel {
         }
     }
 
+    func extractFolder(_ folderPath: String, to destinationDirectoryURL: URL) async {
+        guard hasDocument, !isExtracting else { return }
+        let prefix = folderPath.hasSuffix("/") ? folderPath : folderPath + "/"
+        let childEntries = entries.filter { $0.displayPath.hasPrefix(prefix) && !$0.displayPath.hasSuffix("/") }
+        guard !childEntries.isEmpty else {
+            transientStatusMessage = localization.string("此文件夹为空。")
+            return
+        }
+        // APFS destinations are case-insensitive: two entries differing only by
+        // case would make the second copy throw and abort the whole folder.
+        // Detect this up front and report a clear error.
+        var canonicalPaths = Set<String>()
+        for entry in childEntries {
+            let relativePath = String(entry.displayPath.dropFirst(prefix.count))
+            let canonical = relativePath.decomposedStringWithCanonicalMapping.folding(
+                options: [.caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            guard canonicalPaths.insert(canonical).inserted else {
+                presentError(.generic(localization.string(
+                    "文件夹内存在仅大小写不同的同名文件，无法解压到当前磁盘格式。"
+                )))
+                return
+            }
+        }
+        isExtracting = true
+        extractionProgress = 0
+        lastExtractionURL = nil
+        operationMessage = localization.string("正在准备解压缩…")
+        defer { isExtracting = false }
+        do {
+            let stagingDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacUnzip_folder_\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: stagingDir) }
+
+            let folderName = URL(fileURLWithPath: folderPath).lastPathComponent
+            let folderDir = stagingDir.appendingPathComponent(folderName, isDirectory: true)
+            try FileManager.default.createDirectory(at: folderDir, withIntermediateDirectories: true)
+
+            operationMessage = localization.string("正在解压缩…")
+            for (index, entry) in childEntries.enumerated() {
+                try Task.checkCancellation()
+                let relativePath = String(entry.displayPath.dropFirst(prefix.count))
+                let destFile = folderDir.appendingPathComponent(relativePath)
+                try FileManager.default.createDirectory(
+                    at: destFile.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                let workDir = stagingDir.appendingPathComponent("work_\(index)", isDirectory: true)
+                try FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+                let materializedURL = try await loader.materializeEntryForExtraction(
+                    entryID: entry.id,
+                    under: workDir
+                )
+                try FileManager.default.copyItem(at: materializedURL, to: destFile)
+                try? FileManager.default.removeItem(at: workDir)
+                extractionProgress = Double(index + 1) / Double(childEntries.count)
+                operationMessage = localization.format("正在解压缩 · %ld/%ld 项", index + 1, childEntries.count)
+            }
+            let dirEntries = entries.filter { $0.displayPath.hasPrefix(prefix) && $0.displayPath.hasSuffix("/") }
+            for dirEntry in dirEntries {
+                let relativePath = String(dirEntry.displayPath.dropFirst(prefix.count).dropLast())
+                guard !relativePath.isEmpty else { continue }
+                try FileManager.default.createDirectory(
+                    at: folderDir.appendingPathComponent(relativePath),
+                    withIntermediateDirectories: true
+                )
+            }
+            try Task.checkCancellation()
+
+            var destURL = destinationDirectoryURL.appendingPathComponent(folderName)
+            if FileManager.default.fileExists(atPath: destURL.path) {
+                var counter = 2
+                while FileManager.default.fileExists(atPath: destURL.path) {
+                    destURL = destinationDirectoryURL.appendingPathComponent("\(folderName) \(counter)")
+                    counter += 1
+                }
+            }
+            try FileManager.default.copyItem(at: folderDir, to: destURL)
+            Self.setQuarantineRecursively(on: destURL)
+
+            extractionProgress = 1
+            lastExtractionURL = destURL
+            statusMessage = localization.format("解压缩完成：%@", destURL.lastPathComponent)
+            operationMessage = localization.string("解压缩完成")
+        } catch is CancellationError {
+            presentError(.cancelled)
+            statusMessage = localization.string("已取消解压缩")
+            operationMessage = localization.string("当前没有进行中的操作")
+        } catch {
+            let presentation = errorPresentation(for: error)
+            presentError(presentation)
+            operationMessage = localization.string("解压缩失败")
+        }
+    }
+
     /// Starts extraction of the selected entry in a background task.
     func startExtractSelected(to destinationDirectoryURL: URL) {
         guard LicenseGate.requirePro(for: .extract) else { return }
-        guard extractionTask == nil, hasDocument, selectedEntryID != nil else { return }
+        guard extractionTask == nil, hasDocument else { return }
+        if let folderPath = selectedFolderPath {
+            extractionTask = Task { [weak self] in
+                guard let self else { return }
+                await self.extractFolder(folderPath, to: destinationDirectoryURL)
+                self.extractionTask = nil
+            }
+            return
+        }
+        guard selectedEntryID != nil else { return }
         extractionTask = Task { [weak self] in
             guard let self else { return }
             await self.extractSelected(to: destinationDirectoryURL)
@@ -1200,20 +1549,35 @@ final class AppModel {
 
     /// Maps an error to a structured ArchiveErrorPresentation.
     private func errorPresentation(for error: Error) -> ArchiveErrorPresentation {
+        if let posix = Self.posixPresentation(for: error) { return posix }
         guard let archiveError = error as? ArchiveError else {
             return .generic(localization.string("无法完成解压缩，未生成任何文件。"))
         }
         switch archiveError {
         case .missingVolume:
             return .missingVolume(needed: localization.string("其他分卷"))
-        case .wrongPassword, .passwordRequired:
+        case .wrongPassword:
             return .wrongPassword
+        case .passwordRequired:
+            return .passwordRequired
         case .unsupportedEncryption:
             return .unsupportedEncryption
         case .corruptedArchive:
             return .corruptedArchive
+        case .ioError:
+            return .generic(extractionMessage(for: error))
         default:
             return .generic(extractionMessage(for: error))
+        }
+    }
+
+    private static func posixPresentation(for error: Error) -> ArchiveErrorPresentation? {
+        let nsError = error as NSError
+        guard nsError.domain == NSPOSIXErrorDomain else { return nil }
+        switch nsError.code {
+        case Int(ENOSPC): return .diskFull(required: 0)
+        case Int(EACCES), Int(EPERM): return .permissionDenied
+        default: return nil
         }
     }
 
@@ -1282,6 +1646,21 @@ final class AppModel {
         }
     }
 
+    @ObservationIgnored private var engineAvailabilityCache: [CreationFormat: Bool]?
+
+    /// Whether the external engine a creation format needs is installed.
+    /// ZIP/TAR variants are built in and always available; 7z needs a validated
+    /// 7zz binary and RAR needs a validated RARLAB rar binary.
+    func engineInstalled(for format: CreationFormat) -> Bool {
+        if engineAvailabilityCache == nil {
+            engineAvailabilityCache = [
+                .sevenZip: SevenZipBinaryDiscovery.discover() != nil,
+                .rar: RARBinaryDiscovery.discover() != nil,
+            ]
+        }
+        return engineAvailabilityCache?[format] ?? true
+    }
+
     func startCreation(at outputURL: URL, inputs: [URL]) {
         guard LicenseGate.requirePro(for: .create) else { return }
         guard creationTask == nil, !inputs.isEmpty else { return }
@@ -1291,9 +1670,6 @@ final class AppModel {
         let splitEnabled = creationSplitEnabled && format.supportsSplit
         let volumeSize = splitEnabled ? creationVolumeSize : nil
         let zipLevel = creationCompressionLevel
-        let tarLevel = Int(creationTARCompressionLevel)
-        creationPassword = ""
-        creationPasswordConfirm = ""
         creationTask = Task { [weak self] in
             guard let self else { return }
             await self.createArchiveWithOptions(
@@ -1303,11 +1679,25 @@ final class AppModel {
                 password: password,
                 encryptionMethod: encryptionMethod,
                 splitVolumeSize: volumeSize,
-                zipCompressionLevel: zipLevel,
-                tarCompressionLevel: tarLevel
+                zipCompressionLevel: zipLevel
             )
             self.creationTask = nil
         }
+    }
+
+    /// Suspends creation until the user confirms or declines replacing the
+    /// existing file at ``url``. Returns true only on an explicit 替换.
+    private func confirmOverwriteExistingFile(at url: URL) async -> Bool {
+        await withCheckedContinuation { continuation in
+            overwriteConfirmationContinuation = continuation
+            pendingOverwriteURL = url
+        }
+    }
+
+    func resolveOverwriteConfirmation(replace: Bool) {
+        pendingOverwriteURL = nil
+        overwriteConfirmationContinuation?.resume(returning: replace)
+        overwriteConfirmationContinuation = nil
     }
 
     /// Computes total size of all input files/folders for split estimation.
@@ -1338,6 +1728,10 @@ final class AppModel {
 
     /// Runs Windows filename preflight checks and populates preflightIssues.
     func runPreflight(inputs: [URL]) async {
+        preflightGeneration += 1
+        let generation = preflightGeneration
+        isRunningPreflight = true
+        defer { if generation == preflightGeneration { isRunningPreflight = false } }
         // Collect all relative paths on MainActor (DirectoryEnumerator is not Sendable)
         var pathsToCheck: [String] = []
         for url in inputs {
@@ -1350,10 +1744,10 @@ final class AppModel {
                     includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
                     options: [.skipsHiddenFiles]
                 ) else { continue }
-                let prefix = url.standardizedFileURL.path + "/"
+                let prefix = url.resolvingSymlinksInPath().path + "/"
                 for item in enumerator.allObjects {
                     guard let fileURL = item as? URL else { continue }
-                    pathsToCheck.append(String(fileURL.standardizedFileURL.path.dropFirst(prefix.count)))
+                    pathsToCheck.append(String(fileURL.resolvingSymlinksInPath().path.dropFirst(prefix.count)))
                 }
             } else {
                 pathsToCheck.append(url.lastPathComponent)
@@ -1364,6 +1758,7 @@ final class AppModel {
             let forbidden = CharacterSet(charactersIn: "<>:\"|?*")
             let reserved = Set(["CON", "PRN", "AUX", "NUL"])
             let reservedDevicePrefixes = ["COM", "LPT"]
+            let localization = AppLocalization()
 
             for path in pathsToCheck {
                 let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
@@ -1371,7 +1766,7 @@ final class AppModel {
                     let upperStem = component.split(separator: ".", maxSplits: 1).first
                         .map(String.init)?.uppercased() ?? ""
                     if reserved.contains(upperStem) {
-                        found.append(PreflightIssue(filename: component, issue: "Windows 保留名称", suggestion: "重命名为其他名称"))
+                        found.append(PreflightIssue(filename: component, issue: localization.string("Windows 保留名称"), suggestion: localization.string("重命名为其他名称")))
                         continue
                     }
                     let isNumberedDevice = reservedDevicePrefixes.contains { prefix in
@@ -1379,25 +1774,34 @@ final class AppModel {
                             && upperStem.last?.isNumber == true
                     }
                     if isNumberedDevice {
-                        found.append(PreflightIssue(filename: component, issue: "Windows 设备名称", suggestion: "重命名为其他名称"))
+                        found.append(PreflightIssue(filename: component, issue: localization.string("Windows 设备名称"), suggestion: localization.string("重命名为其他名称")))
                         continue
                     }
                     if component.unicodeScalars.contains(where: { forbidden.contains($0) || $0.value < 0x20 }) {
-                        found.append(PreflightIssue(filename: component, issue: "包含非法字符", suggestion: "移除 < > : \" | ? * 等字符"))
+                        found.append(PreflightIssue(filename: component, issue: localization.string("包含非法字符"), suggestion: localization.string("移除 < > : \" | ? * 等字符")))
                         continue
                     }
                     if component.hasSuffix(".") || component.hasSuffix(" ") {
-                        found.append(PreflightIssue(filename: component, issue: "不能以点或空格结尾", suggestion: "移除末尾的点或空格"))
+                        found.append(PreflightIssue(filename: component, issue: localization.string("不能以点或空格结尾"), suggestion: localization.string("移除末尾的点或空格")))
                         continue
                     }
                     if component.utf16.count > 255 {
-                        found.append(PreflightIssue(filename: String(component.prefix(30)) + "…", issue: "文件名过长", suggestion: "缩短文件名至 255 字符以内"))
+                        found.append(PreflightIssue(filename: String(component.prefix(30)) + "…", issue: localization.string("文件名过长"), suggestion: localization.string("缩短文件名至 255 字符以内")))
                     }
                 }
             }
             return found
         }.value
+        guard generation == preflightGeneration else { return }
         preflightIssues = issues
+    }
+
+    /// Invalidates any in-flight preflight and clears its results (e.g. when
+    /// the creation format switches away from ZIP, where the check no longer
+    /// applies).
+    func resetPreflight() {
+        preflightGeneration += 1
+        preflightIssues = []
     }
 
     func fixPreflightIssues(inputs: [URL]) async -> [URL] {
@@ -1416,13 +1820,29 @@ final class AppModel {
                     result = String(result.dropLast())
                 }
                 let stem = result.split(separator: ".", maxSplits: 1).first.map(String.init)?.uppercased() ?? ""
-                if reserved.contains(stem) || reservedDevicePrefixes.contains(where: { stem.hasPrefix($0) && stem.count == 4 }) {
+                let isNumberedDevice = reservedDevicePrefixes.contains { prefix in
+                    stem.hasPrefix(prefix) && stem.count == 4 && stem.last?.isNumber == true
+                }
+                if reserved.contains(stem) || isNumberedDevice {
                     result = "_" + result
                 }
                 if result.utf16.count > 255 {
                     let ext = URL(fileURLWithPath: result).pathExtension
-                    let base = String(result.prefix(255 - ext.count - 1))
-                    result = ext.isEmpty ? base : "\(base).\(ext)"
+                    let suffix = ext.isEmpty ? "" : "." + ext
+                    let budget = max(0, 255 - suffix.utf16.count)
+                    var base = result
+                    if !suffix.isEmpty, base.hasSuffix(suffix) {
+                        base = String(base.dropLast(suffix.count))
+                    }
+                    if base.utf16.count > budget {
+                        let endIndex = base.utf16.index(base.utf16.startIndex, offsetBy: budget)
+                        var cut = base.utf16[..<endIndex]
+                        if let lastUnit = cut.last, UTF16.isLeadSurrogate(lastUnit) {
+                            cut = cut.dropLast()
+                        }
+                        base = String(decoding: cut, as: UTF16.self)
+                    }
+                    result = base + suffix
                 }
                 return result == name ? nil : result
             }
@@ -1441,7 +1861,9 @@ final class AppModel {
                     let dest = fileURL.deletingLastPathComponent().appendingPathComponent(fixed)
                     renames.append((fileURL, dest))
                 }
-                for (src, dst) in renames.reversed() {
+                // Rename deepest paths first so children move before their parents.
+                renames.sort { $0.0.path.count > $1.0.path.count }
+                for (src, dst) in renames {
                     try? FileManager.default.moveItem(at: src, to: dst)
                 }
             }
@@ -1482,6 +1904,9 @@ final class AppModel {
             }
             return results
         }.value
+        if let previousStagingDir = preflightStagingDir {
+            try? FileManager.default.removeItem(at: previousStagingDir)
+        }
         preflightStagingDir = stagingDir
         preflightIssues = []
         return sanitizedURLs
@@ -1494,8 +1919,7 @@ final class AppModel {
         password: String?,
         encryptionMethod: EncryptionMethod?,
         splitVolumeSize: SplitVolumeSize?,
-        zipCompressionLevel: ZIPCompressionLevel,
-        tarCompressionLevel: Int
+        zipCompressionLevel: ZIPCompressionLevel
     ) async {
         guard LicenseGate.requirePro(for: .create) else { return }
         guard !inputs.isEmpty, !isCreating, !isExtracting else { return }
@@ -1513,13 +1937,17 @@ final class AppModel {
         switch format {
         case .sevenZip:
             if !registry.snapshot(format: .sevenZip).actions.contains(.create) {
-                creationErrorMessage = localization.string("7z 创建需要安装 7zz。请运行 brew install 7zip 后重试。")
+                creationErrorMessage = localization.string("创建 7z 需要免费的 7zz 工具。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载，安装后在「设置 → 引擎」确认已检测到。")
                 operationMessage = localization.string("创建失败")
                 return
             }
         case .rar:
             if !registry.snapshot(format: .rar).actions.contains(.create) {
-                creationErrorMessage = localization.string("RAR 创建需要安装 rar 工具。请从 RARLAB 官网下载后重试。")
+                if RARBinaryDiscovery.discover() != nil && !RARLicenseConfirmation().isConfirmed {
+                    creationErrorMessage = localization.string("创建 RAR 前需要确认 RARLAB 许可。请重新选择 RAR 格式并确认后重试。")
+                } else {
+                    creationErrorMessage = localization.string("创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。")
+                }
                 operationMessage = localization.string("创建失败")
                 return
             }
@@ -1527,6 +1955,21 @@ final class AppModel {
             break
         }
 
+        let fileExists = FileManager.default.fileExists(atPath: outputURL.path)
+        if fileExists {
+            guard await confirmOverwriteExistingFile(at: outputURL) else {
+                statusMessage = localization.string("已取消创建，未覆盖原有文件。")
+                operationMessage = localization.string("当前没有进行中的操作")
+                return
+            }
+        }
+        let creationURL: URL
+        if fileExists {
+            creationURL = outputURL.deletingLastPathComponent()
+                .appendingPathComponent(".MacUnzip_tmp_\(UUID().uuidString).\(outputURL.pathExtension)")
+        } else {
+            creationURL = outputURL
+        }
         isCreating = true
         creationProgress = 0
         creationErrorMessage = nil
@@ -1556,6 +1999,11 @@ final class AppModel {
             }
         }
         defer { isCreating = false }
+        // Tracks whether the created archive has been renamed onto outputURL.
+        // After that point, failure cleanup must remove outputURL (the temp
+        // creationURL no longer exists), otherwise a failed verification would
+        // leak the just-created archive while reporting "创建失败".
+        var publishedToOutput = false
         do {
             let snapshot: ArchiveDocumentSnapshot
             switch format {
@@ -1576,7 +2024,7 @@ final class AppModel {
                     encrypt = 0
                 }
                 snapshot = try await loader.createWindowsZIP(
-                    at: outputURL,
+                    at: creationURL,
                     inputs: inputs,
                     compressLevel: level,
                     password: password,
@@ -1599,7 +2047,7 @@ final class AppModel {
                 default: tarCompression = .gzip
                 }
                 snapshot = try await loader.createTARArchive(
-                    at: outputURL,
+                    at: creationURL,
                     inputs: inputs,
                     compression: tarCompression
                 )
@@ -1611,7 +2059,7 @@ final class AppModel {
                     totalBytes: 0
                 ))
                 snapshot = try await loader.createSevenZip(
-                    at: outputURL,
+                    at: creationURL,
                     inputs: inputs,
                     password: password
                 )
@@ -1623,7 +2071,7 @@ final class AppModel {
                     totalBytes: 0
                 ))
                 snapshot = try await loader.createRAR(
-                    at: outputURL,
+                    at: creationURL,
                     inputs: inputs,
                     password: password
                 )
@@ -1631,7 +2079,39 @@ final class AppModel {
             continuation.finish()
             await progressTask.value
             try Task.checkCancellation()
-            apply(snapshot)
+            if creationURL != outputURL {
+                guard rename(creationURL.path, outputURL.path) == 0 else {
+                    let posixCode = errno
+                    try? FileManager.default.removeItem(at: creationURL)
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(posixCode))
+                }
+                publishedToOutput = true
+            }
+            let finalSnapshot: ArchiveDocumentSnapshot
+            if creationURL != outputURL {
+                if let password, !password.isEmpty {
+                    finalSnapshot = try await loader.openWithPassword(url: outputURL, password: password)
+                } else {
+                    finalSnapshot = try await loader.open(url: outputURL)
+                }
+            } else {
+                finalSnapshot = snapshot
+            }
+            // Await the cancelled reopen so a stale nested-reopen cannot
+            // interleave its loader.open/stageChange/apply with this open.
+            if let navigationReopenTask {
+                navigationReopenTask.cancel()
+                await navigationReopenTask.value
+                self.navigationReopenTask = nil
+            }
+            sessionStack.removeAll()
+            for nestedURL in nestedMaterializedURLs {
+                try? FileManager.default.removeItem(at: nestedURL)
+            }
+            nestedMaterializedURLs.removeAll()
+            isNestedSession = false
+            currentArchivePassword = password.map { SecurePassword($0) }
+            apply(finalSnapshot)
             creationProgress = 1
             lastCreatedURL = outputURL
             statusMessage = localization.format("创建完成：%@", outputURL.lastPathComponent)
@@ -1640,12 +2120,18 @@ final class AppModel {
             continuation.finish()
             progressTask.cancel()
             await progressTask.value
+            if creationURL != outputURL {
+                try? FileManager.default.removeItem(at: publishedToOutput ? outputURL : creationURL)
+            }
             statusMessage = localization.string("已取消创建归档")
             operationMessage = localization.string("当前没有进行中的操作")
         } catch {
             continuation.finish()
             progressTask.cancel()
             await progressTask.value
+            if creationURL != outputURL {
+                try? FileManager.default.removeItem(at: publishedToOutput ? outputURL : creationURL)
+            }
             creationErrorMessage = creationMessage(for: error)
             operationMessage = localization.string("创建失败")
         }
@@ -1658,19 +2144,44 @@ final class AppModel {
     // MARK: - Open File Externally
 
     func openFileExternally(entryID: ArchiveEntryID) async {
-        guard LicenseGate.requirePro(for: .extract) else { return }
+        guard LicenseGate.requirePro(for: .openExternal) else { return }
         guard hasDocument else { return }
+        var externalRoot: URL?
         do {
-            let url = try await loader.materializePreview(entryID: entryID)
-            guard Self.setQuarantineAttribute(on: url) else {
+            let previewURL = try await loader.materializePreview(entryID: entryID)
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacUnzipExternal", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            externalRoot = root
+            let stableURL = root.appendingPathComponent(previewURL.lastPathComponent)
+            try FileManager.default.copyItem(at: previewURL, to: stableURL)
+            guard Self.setQuarantineAttribute(on: stableURL) else {
+                try? FileManager.default.removeItem(at: root)
                 presentedError = AppLocalization().string("无法设置安全隔离属性，已阻止打开。")
                 return
             }
-            if !NSWorkspace.shared.open(url) {
+            if !NSWorkspace.shared.open(stableURL) {
+                try? FileManager.default.removeItem(at: root)
                 presentedError = AppLocalization().string("没有可用的应用程序打开此文件。")
+            } else {
+                pruneExternalOpenRoots(keeping: root)
             }
         } catch {
-            presentedError = AppLocalization().format("无法打开文件：%@", error.localizedDescription)
+            if let externalRoot { try? FileManager.default.removeItem(at: externalRoot) }
+            presentedError = previewMessage(for: error)
+        }
+    }
+
+    /// Tracks a freshly used external-open directory and removes the oldest
+    /// tracked directories beyond ``externalOpenKeepCount``, bounding temp
+    /// accumulation within a session.
+    private let externalOpenKeepCount = 3
+    private func pruneExternalOpenRoots(keeping root: URL) {
+        externalOpenRoots.append(root)
+        while externalOpenRoots.count > externalOpenKeepCount {
+            let stale = externalOpenRoots.removeFirst()
+            try? FileManager.default.removeItem(at: stale)
         }
     }
 
@@ -1700,7 +2211,7 @@ final class AppModel {
 
     /// Opens a nested archive entry as a sub-session. Materializes the entry
     /// through the secure preview cache, then opens it as a new read-only session.
-    /// Requires explicit user action (double-click or Cmd+O). Never auto-recurses.
+    /// Requires explicit user action (double-click or Cmd+Down Arrow). Never auto-recurses.
     func openNestedArchive(entryID: ArchiveEntryID) async {
         guard hasDocument, !isLoading else { return }
         guard nestedDepth < maximumNestedArchiveDepth else {
@@ -1709,11 +2220,10 @@ final class AppModel {
         }
         guard let entry = entries.first(where: { $0.id == entryID }) else { return }
         let filename = entry.displayPath.split(separator: "/").last.map(String.init) ?? entry.displayPath
-        guard ArchiveFileTypes.isNestedArchive(filename) else { return }
+        guard isNestedArchiveFileName(filename) else { return }
 
         isLoading = true
         presentedError = nil
-        defer { isLoading = false }
 
         var nestedDir: URL?
         do {
@@ -1751,8 +2261,7 @@ final class AppModel {
                 canTestIntegrity: canTestIntegrity,
                 pendingChanges: pendingChanges,
                 archiveFormatName: archiveFormatName,
-                encryptedEntryIDs: encryptedEntryIDs,
-                materializedURL: isNestedSession ? currentSourceURL : nil
+                encryptedEntryIDs: encryptedEntryIDs
             )
 
             // Open the materialized archive as a new session.
@@ -1776,13 +2285,45 @@ final class AppModel {
             )
         } catch is CancellationError {
             if let nestedDir { try? FileManager.default.removeItem(at: nestedDir) }
+            isLoading = false
             return
         } catch let error as ArchiveError where error == .passwordRequired || error == .wrongPassword {
             if let nestedDir { try? FileManager.default.removeItem(at: nestedDir) }
+            await restoreLoaderForParentSession()
             presentedError = localization.string("此嵌套压缩包需要密码，请先解压后再单独打开。")
         } catch {
             if let nestedDir { try? FileManager.default.removeItem(at: nestedDir) }
+            await restoreLoaderForParentSession()
             presentedError = userMessage(for: error)
+        }
+        isLoading = false
+        // An open request that arrived while this nested open was in flight was
+        // queued in pendingOpen; service it now so it is not silently dropped.
+        if let next = pendingOpen {
+            pendingOpen = nil
+            await openArchive(url: next.url, password: next.password)
+        }
+    }
+
+    /// Reopens the parent archive in the loader after a failed nested open.
+    /// `loader.open()` clears its internal archive state before attempting the
+    /// open, so a failure leaves the parent session's loader unable to extract
+    /// or materialize; reopening the parent restores it.
+    private func restoreLoaderForParentSession() async {
+        guard let parentURL = currentSourceURL else { return }
+        do {
+            if let securePassword = currentArchivePassword, !securePassword.isEmpty {
+                let password = securePassword.withBytes { String(decoding: $0, as: UTF8.self) }
+                _ = try await loader.openWithPassword(url: parentURL, password: password)
+            } else {
+                _ = try await loader.open(url: parentURL)
+            }
+            for change in pendingChanges {
+                try await loader.stageChange(change)
+            }
+            activeRegistry = await loader.capabilityRegistry
+        } catch {
+            operationMessage = localization.string("无法恢复上级压缩包，请重新打开文件。")
         }
     }
 
@@ -1824,6 +2365,7 @@ final class AppModel {
         canExtract = parentSnapshot.canExtract
         canTestIntegrity = parentSnapshot.canTestIntegrity
         pendingChanges = parentSnapshot.pendingChanges
+        redoStack.removeAll()
         archiveFormatName = parentSnapshot.archiveFormatName
         encryptedEntryIDs = parentSnapshot.encryptedEntryIDs
         scrollAnchor = selectedEntryID
@@ -1844,19 +2386,36 @@ final class AppModel {
         let changesToRestore = pendingChanges
         navigationReopenTask = Task { [weak self] in
             guard let self else { return }
-            defer { isLoading = false }
+            var superseded = false
             do {
                 try Task.checkCancellation()
-                _ = try await loader.open(url: parentURL)
+                if let securePassword = self.currentArchivePassword, !securePassword.isEmpty {
+                    let password = securePassword.withBytes { String(decoding: $0, as: UTF8.self) }
+                    _ = try await loader.openWithPassword(url: parentURL, password: password)
+                } else {
+                    _ = try await loader.open(url: parentURL)
+                }
                 try Task.checkCancellation()
                 for change in changesToRestore {
                     try await loader.stageChange(change)
                 }
                 activeRegistry = await loader.capabilityRegistry
             } catch is CancellationError {
-                // Superseded by newer navigation; ignore.
+                // Superseded by a newer navigation/open; that owner drains the
+                // pending-open queue, so leave it alone here.
+                superseded = true
             } catch {
                 self.operationMessage = localization.string("无法重新打开上级压缩包，请重新打开文件。")
+                self.presentedError = localization.string("无法重新打开上级压缩包，请重新打开文件。")
+            }
+            // Only this task's owner may clear the flag; a superseding
+            // operation keeps isLoading true until it finishes.
+            if !superseded { isLoading = false }
+            // An open request that arrived while this reopen was in flight was
+            // queued in pendingOpen; service it now so it is not silently dropped.
+            if !superseded, let next = pendingOpen {
+                pendingOpen = nil
+                await openArchive(url: next.url, password: next.password)
             }
         }
     }
@@ -1868,7 +2427,7 @@ final class AppModel {
             let path = entry.displayPath
             guard !path.hasSuffix("/") else { continue }
             let filename = path.split(separator: "/").last.map(String.init) ?? path
-            if ArchiveFileTypes.isNestedArchive(filename) {
+            if isNestedArchiveFileName(filename) {
                 ids.insert(entry.id)
             }
         }
@@ -1914,6 +2473,7 @@ final class AppModel {
         model.usesFixturePreview = true
         model.documentTitle = "品牌素材与文档.zip"
         model.documentItemCount = 84
+        model.archiveFormatName = "ZIP"
         model.canAdd = true
         model.canExtract = true
         model.canTestIntegrity = false
@@ -1965,6 +2525,10 @@ final class AppModel {
         }
         let snapshot = entries
         let fingerprint = "\(snapshot.count)-\(snapshot.first?.displayPath ?? "")-\(snapshot.last?.displayPath ?? "")"
+        // Drop the previous archive's index immediately so searches run the
+        // linear fallback (correct results) until the new index is built,
+        // instead of filtering new entries with stale IDs.
+        searchIndex = nil
         Task { [weak self] in
             let index = await Task.detached(priority: .utility) {
                 ArchiveSearchIndex(entries: snapshot)
@@ -1978,27 +2542,23 @@ final class AppModel {
 
     // MARK: - Crash Recovery Actions
 
-    /// Registers a listener for crash-recovery journals discovered at launch.
-    func observeCrashRecoveryJournals() {
-        let pending = ArchiveWorkbenchAppDelegate.pendingRecoveryJournals
-        if !pending.isEmpty {
-            pendingRecoveryJournals = pending.map(\.journal)
-            isRecoveryAlertPresented = true
-            ArchiveWorkbenchAppDelegate.pendingRecoveryJournals = []
+    /// Surfaces an unfinished crash-recovery journal left next to the archive
+    /// being opened. Checking at open time — rather than scanning broad user
+    /// directories at launch — only touches the folder the user already granted
+    /// access to by opening the archive, so it never triggers a TCC prompt.
+    func checkForCrashRecoveryJournal(for url: URL) {
+        let journalURL = CrashRecoveryJournalStore.journalURL(forArchiveAt: url)
+        guard let journal = CrashRecoveryJournalStore.read(at: journalURL),
+              journal.state == .inProgress,
+              CrashRecoveryJournalStore.stagingFileExists(for: journal),
+              CrashRecoveryJournalStore.journal(journal, matchesArchiveAt: url)
+        else { return }
+        if !pendingRecoveryJournals.contains(where: { $0.stagingFile == journal.stagingFile }) {
+            pendingRecoveryJournals.append(journal)
         }
-        crashRecoveryObserver = NotificationCenter.default.addObserver(
-            forName: .crashRecoveryJournalsFound,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let journals = notification.object
-                as? [(journalURL: URL, journal: CrashRecoveryJournal)]
-            else { return }
-            MainActor.assumeIsolated {
-                self?.pendingRecoveryJournals = journals.map(\.journal)
-                self?.isRecoveryAlertPresented = !journals.isEmpty
-            }
-        }
+        // Always (re-)surface: a journal queued earlier whose alert was dismissed
+        // would otherwise stay hidden for the rest of the session.
+        isRecoveryAlertPresented = true
     }
 
     /// Completes the interrupted save for the given journal (user chose 恢复).
@@ -2008,15 +2568,52 @@ final class AppModel {
             pendingRecoveryJournals.removeAll { $0.stagingFile == journal.stagingFile }
         } catch {
             presentedError = userMessage(for: error)
+            advanceRecoveryAlert()
+            return
         }
-        isRecoveryAlertPresented = !pendingRecoveryJournals.isEmpty
+        advanceRecoveryAlert()
+        // Recovery renamed the staging file over the on-disk archive, but
+        // performOpen applied the pre-recovery snapshot before the alert
+        // appeared. Reload from disk so the list/inspector/preview reflect the
+        // recovered content and a later edit+save does not trip
+        // sourceArchiveChanged. The journal is gone now, so the reload's own
+        // open-time check will not re-surface an alert.
+        let url = URL(fileURLWithPath: journal.sourceArchive)
+        let password = currentArchivePassword.flatMap { secure in
+            secure.isEmpty ? nil : secure.withBytes { String(decoding: $0, as: UTF8.self) }
+        }
+        Task { @MainActor in
+            await self.openArchive(url: url, password: password)
+        }
     }
 
     /// Discards the staging file for the given journal (user chose 删除).
     func discardJournal(_ journal: CrashRecoveryJournal) {
         CrashRecoveryJournalStore.discard(journal)
         pendingRecoveryJournals.removeAll { $0.stagingFile == journal.stagingFile }
-        isRecoveryAlertPresented = !pendingRecoveryJournals.isEmpty
+        advanceRecoveryAlert()
+    }
+
+    /// Defers the recovery decision (user chose 稍后). Removes the journal from
+    /// the pending queue without touching disk, so re-opening the archive
+    /// re-surfaces the prompt instead of leaving it suppressed for the session.
+    func deferJournal(_ journal: CrashRecoveryJournal) {
+        pendingRecoveryJournals.removeAll { $0.stagingFile == journal.stagingFile }
+        advanceRecoveryAlert()
+    }
+
+    /// Presents the next queued recovery journal, if any. SwiftUI writes `false`
+    /// to the alert binding immediately after a button action, so when journals
+    /// remain we re-present on the next runloop tick rather than dropping the
+    /// next one.
+    private func advanceRecoveryAlert() {
+        guard !pendingRecoveryJournals.isEmpty else {
+            isRecoveryAlertPresented = false
+            return
+        }
+        Task { @MainActor in
+            isRecoveryAlertPresented = true
+        }
     }
 
     private func apply(_ snapshot: ArchiveDocumentSnapshot) {
@@ -2035,57 +2632,88 @@ final class AppModel {
                 fromByteCount: Int64(clamping: item.compressedSize),
                 countStyle: .file
             )
-            let modifiedDate = item.modifiedAt.map(Self.dateFormatter.string(from:)) ?? "—"
+            let modifiedDate = item.modifiedAt.map { date -> String in
+                guard date.timeIntervalSince1970 >= 315_532_800 else { return "—" }
+                return Self.dateFormatter.string(from: date)
+            } ?? "—"
             return (item.entry.id, ArchiveEntryMetadata(
                 type: type,
                 size: size,
                 compressedSize: compressedSize,
                 modifiedDate: modifiedDate,
-                path: path
+                path: path,
+                sizeBytes: Int64(clamping: item.uncompressedSize),
+                modifiedTimestamp: item.modifiedAt?.timeIntervalSinceReferenceDate ?? 0
             ))
         })
         documentTitle = snapshot.sourceURL.lastPathComponent
         documentItemCount = snapshot.entries.count
         archiveFormatName = snapshot.format.rawValue.uppercased()
-        selectedEntryID = snapshot.entries.first(where: { !$0.isDirectory })?.entry.id
-            ?? snapshot.entries.first?.entry.id
-        scrollAnchor = selectedEntryID
-        folderSummaries = folderSummaries(from: snapshot.entries)
-        let selectedPath = snapshot.entries.first { $0.entry.id == selectedEntryID }?
-            .entry.displayPath
-        currentDirectory = selectedPath.map(topLevelCategory(for:))
-            ?? folderSummaries.first?.name
-            ?? ""
         let mediaExtensions = Set(["png", "jpg", "jpeg", "heic", "gif", "webp", "svg", "mp4", "mov", "m4v"])
         let safeMediaCount = snapshot.entries.filter { item in
             !item.isDirectory && !item.isSymbolicLink
                 && mediaExtensions.contains(item.entry.displayPath.split(separator: ".").last?.lowercased() ?? "")
         }.count
-        viewMode = MediaRecommendationPolicy().shouldRecommend(
+        let recommendsMedia = MediaRecommendationPolicy().shouldRecommend(
             totalFiles: snapshot.entries.filter { !$0.isDirectory }.count,
             safeMediaFiles: safeMediaCount,
             userSelectedMode: false
-        ) ? .media : .list
+        )
+        let defaultSelection = snapshot.entries.first(where: { !$0.isDirectory })?.entry.id
+            ?? snapshot.entries.first?.entry.id
+        if recommendsMedia {
+            let policy = PreviewRoutingPolicy()
+            selectedEntryID = snapshot.entries.first { item in
+                !item.isDirectory
+                    && policy.kind(forFilename: item.entry.displayPath) != .unsupported
+                    && !encryptedEntryIDs.contains(item.entry.id)
+            }?.entry.id ?? defaultSelection
+        } else {
+            // List view renders the hierarchy with collapsed folders, so pick a
+            // root-level entry (prefer a file, else a folder) to keep the
+            // inspector and status bar in sync with the rows actually visible.
+            // Nested-only archives have no root-level entry; fall back to the
+            // first file — the list view expands its ancestors so the selected
+            // row is visible rather than leaving the inspector empty on open.
+            selectedEntryID = snapshot.entries.first(where: {
+                isRootLevelPath($0.entry.displayPath) && !$0.isDirectory
+            })?.entry.id
+                ?? snapshot.entries.first(where: { isRootLevelPath($0.entry.displayPath) })?.entry.id
+                ?? defaultSelection
+        }
+        scrollAnchor = selectedEntryID
+        selectedFolderPath = nil
+        folderSummaries = folderSummaries(from: snapshot.entries)
+        currentDirectory = ""
+        viewMode = recommendsMedia ? .media : .list
         capabilitySnapshot = activeRegistry.snapshot(format: snapshot.format)
         pendingChanges = []
-        canAdd = capabilitySnapshot.actions.contains(.update)
+        redoStack.removeAll()
+        // The editor cannot round-trip encrypted entries (buildPlan throws for
+        // each one), so treat an archive with any encrypted entry as read-only.
+        canAdd = capabilitySnapshot.actions.contains(.update) && encryptedEntryIDs.isEmpty
         canExtract = capabilitySnapshot.actions.contains(.read)
         canTestIntegrity = false
         previewCacheURL = nil
         previewCacheEntryID = nil
         previewErrorMessage = nil
-        isPreviewLoading = false
+        // Media mode loads a preview asynchronously right after apply; mark it
+        // loading now so the first frame shows the spinner instead of flashing
+        // the routed views' failure state for a nil cache URL.
+        isPreviewLoading = viewMode == .media && selectedEntryID != nil
         resetCreationState()
         resetExtractionState()
         hasDocument = true
         currentSourceURL = snapshot.sourceURL
         computeNestedArchiveEntryIDs()
+        clearSearch()
         buildSearchIndex(for: entries)
     }
 
     private func clearDocument() {
         releaseHeldAddSourceScopes()
         sessionStack.removeAll()
+        currentArchivePassword = nil
         for url in nestedMaterializedURLs {
             try? FileManager.default.removeItem(at: url)
         }
@@ -2104,12 +2732,14 @@ final class AppModel {
         encryptedEntryIDs = []
         metadataByEntryID = [:]
         selectedEntryID = nil
+        selectedFolderPath = nil
         documentTitle = ""
         documentItemCount = 0
         currentDirectory = ""
         folderSummaries = []
         scrollAnchor = nil
         pendingChanges = []
+        redoStack.removeAll()
         canAdd = false
         canExtract = false
         canTestIntegrity = false
@@ -2125,14 +2755,9 @@ final class AppModel {
         isExtracting = false
         extractionProgress = 0
         lastExtractionURL = nil
-        extractionErrorMessage = nil
         activeErrorPresentation = nil
-        conflictContinuation?.resume(returning: .skip)
-        conflictContinuation = nil
-        activeConflict = nil
         passwordRetryText = ""
         passwordAttemptCount = 0
-        conflictBatchResolution = nil
         errorAutoDismissTask?.cancel()
         operationMessage = localization.string("当前没有进行中的操作")
     }
@@ -2142,8 +2767,12 @@ final class AppModel {
         creationProgress = 0
         lastCreatedURL = nil
         creationErrorMessage = nil
+        resolveOverwriteConfirmation(replace: false)
+        creationFormat = .zip
+        creationEncryptionEnabled = false
         creationPassword = ""
         creationPasswordConfirm = ""
+        engineAvailabilityCache = nil
         if let stagingDir = preflightStagingDir {
             try? FileManager.default.removeItem(at: stagingDir)
             preflightStagingDir = nil
@@ -2174,14 +2803,29 @@ final class AppModel {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    private func topLevelCategory(for path: String) -> String {
-        let components = path.split(separator: "/", omittingEmptySubsequences: true)
-        return components.count > 1
-            ? String(components[0])
-            : localization.string("压缩包根目录")
-    }
-
     private func userMessage(for error: Error) -> String {
+        if let editorError = error as? ArchiveEditorError {
+            switch editorError {
+            case .unsupportedEntry(let name):
+                return localization.format("“%@”使用了当前版本无法编辑的加密或压缩方式，保存已取消。", name)
+            case .sourceArchiveChanged:
+                return localization.string("压缩包在编辑期间发生了变化，请重新打开后再保存。")
+            case .pathCollision(let first, let second):
+                return localization.format("“%@”与“%@”在压缩包中会发生名称冲突。", first, second)
+            case .invalidPath(let name):
+                return localization.format("“%@”包含无效的文件路径，无法加入压缩包。", name)
+            case .sourceUnreadable(let name):
+                return localization.format("无法读取“%@”，请确认文件仍然可访问。", name)
+            case .sourceNotAFile(let name):
+                return localization.format("“%@”不是可加入的普通文件。", name)
+            case .missingEntry(let name):
+                return localization.format("压缩包中找不到“%@”。", name)
+            case .noSourceArchive:
+                return localization.string("缺少原始压缩包，无法保存修改。")
+            case .io:
+                return localization.string("文件写入失败，请确认磁盘空间充足且目标位置可写。")
+            }
+        }
         guard let archiveError = error as? ArchiveError else {
             return localization.string("无法打开这个压缩包。请确认文件仍然可访问后再试。")
         }
@@ -2209,7 +2853,9 @@ final class AppModel {
         case .corruptedArchive:
             return localization.string("无法打开这个压缩包。文件可能已损坏或不是受支持的格式。")
         case .providerNotInstalled:
-            return localization.string("此格式需要 7zz 命令行工具，但未找到。请在设置中检查工具路径。")
+            return localization.string("此格式需要免费的 7zz 工具，但未检测到。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载后重试。")
+        case .ioError:
+            return localization.string("文件写入失败，请确认磁盘空间充足且目标位置可写。")
         }
     }
 
@@ -2266,6 +2912,18 @@ final class AppModel {
         }
         if error is ArchiveError {
             return localization.string("创建后的校验未通过，未生成压缩包。")
+        }
+        if let rarError = error as? RARCreateProviderError {
+            switch rarError {
+            case .binaryNotFound:
+                return localization.string("创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。")
+            case .licenseNotConfirmed:
+                return localization.string("创建 RAR 前需要确认 RARLAB 许可。请重新选择 RAR 格式并确认后重试。")
+            case .rarFailed(_, let message):
+                return localization.format("RAR 创建失败：%@", message)
+            default:
+                break
+            }
         }
         return localization.string("无法创建压缩包，未生成任何文件。")
     }

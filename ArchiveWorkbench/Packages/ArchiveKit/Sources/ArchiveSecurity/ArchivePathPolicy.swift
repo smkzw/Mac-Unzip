@@ -1,11 +1,12 @@
-import ArchiveDomain
-
 public enum ArchiveSecurityError: Error, Equatable, Sendable {
     case absolutePath
     case parentTraversal
     case emptyComponent
     case controlCharacter
     case componentTooLong
+    /// Path begins with "-" and could be misinterpreted as a command-line option
+    /// when handed to external tools (option-injection guard).
+    case leadingDash
 }
 
 /// Validates only the structural form of an archive member path.
@@ -31,7 +32,7 @@ public struct ArchivePathPolicy: Sendable {
             throw ArchiveSecurityError.parentTraversal
         }
         if path.hasPrefix("-") {
-            throw ArchiveSecurityError.controlCharacter
+            throw ArchiveSecurityError.leadingDash
         }
         if components.contains(".") {
             throw ArchiveSecurityError.emptyComponent
@@ -39,27 +40,5 @@ public struct ArchivePathPolicy: Sendable {
         if components.contains(where: { $0.utf8.count > 255 }) {
             throw ArchiveSecurityError.componentTooLong
         }
-    }
-}
-
-public struct WindowsNameProposal: Equatable, Sendable {
-    public let outputPath: String
-    public let sourceRawPath: ArchivePathBytes
-
-    public init(outputPath: String, sourceRawPath: ArchivePathBytes) {
-        self.outputPath = outputPath
-        self.sourceRawPath = sourceRawPath
-    }
-}
-
-/// Produces optional output-name suggestions while retaining the source bytes.
-public struct WindowsNamePolicy: Sendable {
-    public init() {}
-
-    public func proposal(displayPath: String, rawPath: ArchivePathBytes) -> WindowsNameProposal {
-        WindowsNameProposal(
-            outputPath: displayPath == "CON" ? "CON_文件" : displayPath,
-            sourceRawPath: rawPath
-        )
     }
 }

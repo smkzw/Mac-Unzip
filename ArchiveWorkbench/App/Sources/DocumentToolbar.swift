@@ -13,6 +13,43 @@ struct DocumentToolbar: ToolbarContent {
     let onRename: () -> Void
     let onReplace: () -> Void
 
+    private var editDisabledHelp: String {
+        if model.isNestedSession {
+            return AppLocalization().string("嵌套压缩包为只读，请返回上级编辑")
+        }
+        return model.canAdd
+            ? AppLocalization().string("需要先选中文件")
+            : AppLocalization().string("此格式为只读，不支持编辑")
+    }
+
+    private func editHelp(enabled: Bool, _ enabledText: String) -> String {
+        enabled ? AppLocalization().string(enabledText) : editDisabledHelp
+    }
+
+    private func proLabel(_ text: String) -> String {
+        LicenseManager.shared.isProLicensed
+            ? AppLocalization().string(text)
+            : AppLocalization().string(text) + " · Pro"
+    }
+
+    private var saveHelp: String {
+        if model.isNestedSession {
+            return AppLocalization().string("请先返回上级压缩包再保存")
+        }
+        return model.hasUnsavedChanges
+            ? AppLocalization().string("保存修改")
+            : AppLocalization().string("没有需要保存的更改")
+    }
+
+    private var extractHelp: String {
+        if model.isExtracting {
+            return AppLocalization().string("正在解压缩…")
+        }
+        return model.canExtract
+            ? AppLocalization().string("解压缩全部内容")
+            : AppLocalization().string("此格式不支持解压缩")
+    }
+
     var body: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             HStack(spacing: 8) {
@@ -22,27 +59,39 @@ struct DocumentToolbar: ToolbarContent {
                     breadcrumbBar
                 }
             }
+            .padding(.leading, 4)
             .accessibilityElement(children: .contain)
             .accessibilityLabel(AppLocalization().string("归档工具栏"))
         }
 
-        ToolbarItemGroup(placement: .primaryAction) {
-            toolbarButton("添加", symbol: "plus", help: "向压缩包添加文件", enabled: model.canAdd) {
+        ToolbarItem(placement: .primaryAction) {
+            toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
+                Task { await model.saveArchive() }
+            }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
                 onAdd()
             }
-            toolbarButton("解压缩", symbol: "arrow.down.to.line", help: "解压缩全部内容", enabled: model.canExtract && !model.isExtracting) {
+        }
+        ToolbarItem(placement: .primaryAction) {
+            toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
                 onExtract()
             }
-
+        }
+        ToolbarItem(placement: .primaryAction) {
             viewToggle
-
+        }
+        ToolbarItem(placement: .primaryAction) {
             operationMenu
-
+        }
+        ToolbarItem(placement: .primaryAction) {
             ToolbarSearchField(
                 text: $model.searchText,
                 placeholder: "搜索"
             )
-            .frame(minWidth: 120, maxWidth: 220)
+            .frame(minWidth: 100, maxWidth: 180)
+            .padding(.trailing, 4)
         }
     }
 
@@ -62,10 +111,14 @@ struct DocumentToolbar: ToolbarContent {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: 200, alignment: .leading)
+        .frame(maxWidth: 160, alignment: .leading)
         .help(model.documentTitle)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(AppLocalization().format("%@，%ld 项", model.documentTitle, model.visibleEntries.count))
+        .accessibilityLabel(
+            model.hasUnsavedChanges
+                ? AppLocalization().format("%@，%ld 项，尚未保存", model.documentTitle, model.visibleEntries.count)
+                : AppLocalization().format("%@，%ld 项", model.documentTitle, model.visibleEntries.count)
+        )
         .accessibilityIdentifier("归档标题")
     }
 
@@ -108,25 +161,36 @@ struct DocumentToolbar: ToolbarContent {
                 }
             }
         }
-        .frame(maxWidth: 200)
+        .frame(maxWidth: 160)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("嵌套路径")
     }
 
     private var viewToggle: some View {
-        Picker("视图", selection: $model.viewMode) {
-            Image(systemName: "list.bullet")
-                .tag(ArchiveViewMode.list)
-                .accessibilityLabel(AppLocalization().string("列表视图"))
-            Image(systemName: "square.grid.2x2")
-                .tag(ArchiveViewMode.media)
-                .accessibilityLabel(AppLocalization().string("媒体预览"))
+        HStack(spacing: 8) {
+            viewToggleButton(mode: .list, symbol: "list.bullet", label: "列表视图")
+            viewToggleButton(mode: .media, symbol: "square.grid.2x2", label: "媒体预览")
         }
-        .pickerStyle(.segmented)
-        .frame(width: 68)
-        .labelsHidden()
         .help(AppLocalization().string("切换列表/媒体视图"))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("视图切换")
+    }
+
+    private func viewToggleButton(mode: ArchiveViewMode, symbol: String, label: String) -> some View {
+        let isActive = model.viewMode == mode
+        return Button {
+            model.viewMode = mode
+        } label: {
+            Label(AppLocalization().string(label), systemImage: symbol)
+                .labelStyle(.iconOnly)
+                .font(.callout.weight(isActive ? .semibold : .medium))
+                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(AppLocalization().string(label))
+        .accessibilityIdentifier(label)
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+        .help(AppLocalization().string(label))
     }
 
     private var operationMenu: some View {
@@ -134,36 +198,36 @@ struct DocumentToolbar: ToolbarContent {
             Button {
                 NotificationCenter.default.post(name: .createArchiveRequest, object: nil)
             } label: {
-                Label(AppLocalization().string("新建压缩包"), systemImage: "archivebox.badge.plus")
+                Label(proLabel("新建压缩包"), systemImage: "archivebox.badge.plus")
             }
 
             Divider()
 
             Button { onExtractSelected() } label: {
-                Label(AppLocalization().string("解压选中"), systemImage: "arrow.down.doc")
+                Label(proLabel("解压选中"), systemImage: "arrow.down.doc")
             }
             .disabled(!model.canExtractSelected)
-            .help(AppLocalization().string("需要先选中文件"))
+            .help(model.canExtractSelected ? AppLocalization().string("解压选中的文件") : AppLocalization().string("需要先选中文件"))
 
             Divider()
 
             Button { onRemove() } label: {
-                Label(AppLocalization().string("移除"), systemImage: "minus")
+                Label(proLabel("移除"), systemImage: "minus")
             }
             .disabled(!model.canRemoveSelectedEntry)
-            .help(AppLocalization().string("需要先选中文件"))
+            .help(editHelp(enabled: model.canRemoveSelectedEntry, "移除选中文件"))
 
             Button { onRename() } label: {
-                Label(AppLocalization().string("重命名"), systemImage: "pencil")
+                Label(proLabel("重命名…"), systemImage: "pencil")
             }
             .disabled(!model.canRenameSelectedEntry)
-            .help(AppLocalization().string("需要先选中文件"))
+            .help(editHelp(enabled: model.canRenameSelectedEntry, "重命名选中文件"))
 
             Button { onReplace() } label: {
-                Label(AppLocalization().string("替换"), systemImage: "arrow.triangle.2.circlepath")
+                Label(proLabel("替换"), systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(!model.canReplaceSelectedEntry)
-            .help(AppLocalization().string("需要先选中文件"))
+            .help(editHelp(enabled: model.canReplaceSelectedEntry, "替换选中文件"))
 
             Divider()
 
@@ -204,18 +268,32 @@ struct DocumentToolbar: ToolbarContent {
         .menuStyle(.borderlessButton)
         .frame(width: 30)
         .help(AppLocalization().string("更多操作"))
-        .accessibilityLabel(AppLocalization().string("操作"))
+        .accessibilityLabel(AppLocalization().string("更多操作"))
         .accessibilityIdentifier("操作")
     }
 
-    private func toolbarButton(_ label: String, symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+    private func toolbarButton(_ label: String, symbol: String, help: String, enabled: Bool, pro: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(label, systemImage: symbol)
-                .font(.callout.weight(.medium))
+            HStack(spacing: 4) {
+                Label(AppLocalization().string(label), systemImage: symbol)
+                    .font(.callout.weight(.medium))
+                if pro && !LicenseManager.shared.isProLicensed {
+                    Text("Pro")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(.purple.opacity(0.15))
+                        .foregroundStyle(.purple)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+            }
+            .padding(.trailing, 12)
         }
         .buttonStyle(.borderless)
         .labelStyle(.titleAndIcon)
-        .accessibilityLabel(AppLocalization().string(label))
+        .accessibilityLabel(pro && !LicenseManager.shared.isProLicensed
+            ? AppLocalization().string(label) + " Pro"
+            : AppLocalization().string(label))
         .accessibilityHint(AppLocalization().string(help))
         .accessibilityIdentifier(label)
         .help(AppLocalization().string(help))
@@ -235,6 +313,11 @@ private struct ToolbarSearchField: NSViewRepresentable {
         field.identifier = NSUserInterfaceItemIdentifier("搜索框")
         field.setAccessibilityIdentifier("搜索框")
         field.setAccessibilityLabel(AppLocalization().string("搜索压缩包内容"))
+        field.cell?.isBordered = false
+        field.drawsBackground = false
+        field.isEditable = true
+        field.isSelectable = true
+        field.refusesFirstResponder = false
         field.delegate = context.coordinator
         context.coordinator.field = field
         NotificationCenter.default.addObserver(
@@ -275,7 +358,7 @@ private struct ToolbarSearchField: NSViewRepresentable {
         }
 
         @MainActor @objc func focusSearch() {
-            guard let field else { return }
+            guard let field, field.window?.isKeyWindow == true else { return }
             field.window?.makeFirstResponder(field)
         }
     }

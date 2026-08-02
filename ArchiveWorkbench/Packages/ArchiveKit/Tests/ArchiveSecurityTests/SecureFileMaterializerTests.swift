@@ -39,7 +39,7 @@ final class SecureFileMaterializerTests: XCTestCase {
         let root = try TemporaryDirectory()
         let outside = try TemporaryDirectory()
         let moved = root.url.deletingLastPathComponent().appending(
-            path: "ArchiveWorkbenchMoved-" + UUID().uuidString,
+            path: "MacUnzipMoved-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         let session = try SecureMaterializationSession(rootURL: root.url)
@@ -108,7 +108,7 @@ private final class TemporaryDirectory {
 
     init() throws {
         url = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchMaterializer-" + UUID().uuidString,
+            path: "MacUnzipMaterializer-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

@@ -13,7 +13,9 @@ import Foundation
 // - 不允许 mutation 静默 fallback 到不同引擎：this provider is strictly
 //   read-only (.list/.read/.preview). RAR creation requires RARLAB's proprietary
 //   rar binary and is intentionally not implemented here.
-// - Do NOT pass password via argv (design for future stdin-based password).
+// - Password is passed to 7zz as a -p<password> argv token. 7zz provides no
+//   stdin-based password channel, so this is unavoidable; the token is briefly
+//   visible to same-user process listings (ps) for the lifetime of the process.
 
 // MARK: - RAR-specific errors
 
@@ -383,7 +385,7 @@ public actor RARArchiveProvider: ArchiveProvider {
             }
             let entry = ArchiveEntry(
                 id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                rawPath: ArchivePathBytes(Array(parsed.path.utf8)),
                 displayPath: validationPath
             )
             snapshots.append(ArchiveEntrySnapshot(
@@ -419,6 +421,7 @@ public actor RARArchiveProvider: ArchiveProvider {
 
         let targetPath = detected.firstVolumePath
 
+        // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
         let result = try invoke(
             arguments: ["l", "-slt", "-p\(password)", targetPath],
             timeoutSeconds: listingTimeoutSeconds,
@@ -460,7 +463,7 @@ public actor RARArchiveProvider: ArchiveProvider {
             }
             let entry = ArchiveEntry(
                 id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                rawPath: ArchivePathBytes(Array(parsed.path.utf8)),
                 displayPath: validationPath
             )
             snapshots.append(ArchiveEntrySnapshot(
@@ -494,12 +497,13 @@ public actor RARArchiveProvider: ArchiveProvider {
         let targetPath = volumeSet?.firstVolumePath ?? archiveURL.path
         var arguments = ["x", "-so", "-y", "-spd", "-bso0", "-bsp0"]
         if let password = currentPassword {
+            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
             password.withCString { ptr in
                 arguments.append("-p" + String(cString: ptr))
             }
         }
         arguments.append(targetPath)
-        arguments.append("!" + snapshot.entry.displayPath + "!")
+        arguments.append("-i!" + String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self))
         let result = try invoke(
             arguments: arguments,
             timeoutSeconds: extractionTimeoutSeconds,
@@ -720,6 +724,13 @@ public actor RARArchiveProvider: ArchiveProvider {
             || text.contains("cannot open encrypted archive")
             || text.contains("encrypted headers") {
             return .passwordRequired
+        }
+        // Compression/encryption 7zz cannot handle (e.g. RAR5 AES decryption)
+        if text.contains("unsupported encryption") {
+            return .unsupportedEncryption
+        }
+        if text.contains("unsupported method") {
+            return .unsupportedMethod
         }
         // Missing volumes in a multipart set
         if text.contains("cannot open archive")

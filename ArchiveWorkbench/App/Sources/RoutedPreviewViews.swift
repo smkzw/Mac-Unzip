@@ -222,13 +222,13 @@ private final class FixturePDFPageView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.textBackgroundColor.setFill()
+        NSColor.white.setFill()
         bounds.fill()
         let title = NSAttributedString(
             string: "品牌指南",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 34, weight: .semibold),
-                .foregroundColor: NSColor.labelColor
+                .foregroundColor: NSColor.black
             ]
         )
         title.draw(at: NSPoint(x: 72, y: 650))
@@ -236,7 +236,7 @@ private final class FixturePDFPageView: NSView {
             string: "Mac Unzip 安全预览缓存示例\nPDFKit 已加载真实的第 \(pageNumber) 页。",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 18),
-                .foregroundColor: NSColor.secondaryLabelColor
+                .foregroundColor: NSColor.black
             ]
         )
         body.draw(in: NSRect(x: 72, y: 520, width: 468, height: 100))
@@ -447,7 +447,7 @@ struct UnsupportedPreviewStateView: View {
 
     var body: some View {
         ContentUnavailableView(
-            "无法安全预览",
+            "此文件类型暂不支持预览",
             systemImage: "doc.questionmark",
             description: Text(filename)
         )

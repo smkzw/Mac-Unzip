@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ArchiveWorkbench incorporates the following third-party components.
+MacUnzip incorporates the following third-party components.
 Each component is listed with its name, version, license, copyright notice, and full license text.
 
 ---
@@ -529,11 +529,11 @@ END OF TERMS AND CONDITIONS
 ### Note on 7zz Usage
 
 7zz is an **external, optional dependency**. It is NOT bundled with or
-distributed as part of ArchiveWorkbench. The application invokes the `7zz`
+distributed as part of MacUnzip. The application invokes the `7zz`
 binary via `Process()` only if the user has independently installed it
 (e.g., via Homebrew: `brew install p7zip`). Because 7zz is not linked,
 bundled, or distributed, the LGPL obligations for combined works do not
-apply to ArchiveWorkbench itself.
+apply to MacUnzip itself.
 
 ---
 
@@ -561,4 +561,4 @@ No separate distribution is required or permitted.
 
 ---
 
-*Generated: 2026-07-27 | ArchiveWorkbench Distribution Preparation (Phase G)*
+*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*

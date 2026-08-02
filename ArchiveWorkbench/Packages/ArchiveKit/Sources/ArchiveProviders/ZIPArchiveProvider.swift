@@ -95,7 +95,12 @@ public actor ZIPArchiveProvider: ArchiveProvider {
             effectiveURL = resolution.primaryURL
         }
 
-        let openedReader = try ZIPBridgeReader(url: effectiveURL)
+        let openedReader: ZIPBridgeReader
+        do {
+            openedReader = try ZIPBridgeReader(url: effectiveURL)
+        } catch ArchiveError.missingVolume where !looksLikeMultipartVolume {
+            throw ArchiveError.corruptedArchive
+        }
         let bridgeEntries = try openedReader.allEntries(maximumCount: listingEntryLimit)
         rawBridgeEntries = bridgeEntries
 
@@ -128,7 +133,12 @@ public actor ZIPArchiveProvider: ArchiveProvider {
             effectiveURL = resolution.primaryURL
         }
 
-        let openedReader = try ZIPBridgeReader(url: effectiveURL, password: password)
+        let openedReader: ZIPBridgeReader
+        do {
+            openedReader = try ZIPBridgeReader(url: effectiveURL, password: password)
+        } catch ArchiveError.missingVolume where !looksLikeMultipartVolume {
+            throw ArchiveError.corruptedArchive
+        }
         let bridgeEntries = try openedReader.allEntries(maximumCount: listingEntryLimit)
         rawBridgeEntries = bridgeEntries
 
@@ -341,14 +351,14 @@ public actor ZIPArchiveProvider: ArchiveProvider {
     /// Called when the user changes the per-archive encoding preference.
     /// Raw bytes are never modified.
     private func rebuildSnapshotFromRawEntries() -> ArchiveDocumentSnapshot? {
-        guard reader != nil else { return nil }
+        guard reader != nil, let openedURL else { return nil }
         guard let snapshots = try? buildSnapshots(from: rawBridgeEntries) else { return nil }
         entriesByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.entry.id, $0) })
         ordinalsByID = Dictionary(uniqueKeysWithValues: snapshots.enumerated().map {
             ($0.element.entry.id, UInt64($0.offset))
         })
         return ArchiveDocumentSnapshot(
-            sourceURL: openedURL ?? URL(fileURLWithPath: "/dev/null"),
+            sourceURL: openedURL,
             format: .zip,
             entries: snapshots
         )
@@ -667,14 +677,22 @@ final class ZIPBridgeReader {
             nameBytes: name,
             compressedSize: info.compressed_size,
             uncompressedSize: info.uncompressed_size,
-            modifiedAt: info.modified_unix_time > 0
-                ? Date(timeIntervalSince1970: TimeInterval(info.modified_unix_time))
-                : nil,
+            modifiedAt: sanitizedModifiedDate(unixTime: info.modified_unix_time),
             modifiedUnixTime: info.modified_unix_time,
             isDirectory: info.is_directory != 0,
             isSymbolicLink: info.is_symlink != 0,
             isEncrypted: info.is_encrypted != 0,
             usesUTF8FileName: info.uses_utf8_file_name != 0
         )
+    }
+
+    /// Returns nil for absent or DOS-epoch-bogus timestamps. minizip-ng rolls a
+    /// zero/invalid DOS date (day=0, month=0) back to 1979-11-30 via mktime; its
+    /// unix time is still > 0, so a plain `> 0` guard lets a bogus "1979/11/30"
+    /// reach the UI. The earliest legal DOS date is 1980-01-01.
+    private func sanitizedModifiedDate(unixTime: Int64) -> Date? {
+        guard unixTime > 0 else { return nil }
+        let date = Date(timeIntervalSince1970: TimeInterval(unixTime))
+        return date.timeIntervalSince1970 >= 315_532_800 ? date : nil
     }
 }

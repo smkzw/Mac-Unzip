@@ -45,6 +45,28 @@
         }
       }
     },
+    "%@，%@，%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "%@，%ld 项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %ld items"
+          }
+        }
+      }
+    },
     "%@，当前显示 %ld 项": {
       "extractionState": "manual",
       "localizations": {
@@ -56,6 +78,17 @@
         }
       }
     },
+    "%@，解压缩进度 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, extraction progress %2$@"
+          }
+        }
+      }
+    },
     "%ld 项": {
       "extractionState": "manual",
       "localizations": {
@@ -63,6 +96,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "%ld items"
+          }
+        }
+      }
+    },
+    "10 个": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10"
+          }
+        }
+      }
+    },
+    "20 个": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "20"
+          }
+        }
+      }
+    },
+    "5 个": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5"
+          }
+        }
+      }
+    },
+    "7-Zip / Keka / The Unarchiver 兼容": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compatible with 7-Zip / Keka / The Unarchiver"
+          }
+        }
+      }
+    },
+    "7z / RAR 读取": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7z / RAR reading"
+          }
+        }
+      }
+    },
+    "AES-256 加密，高压缩率；Windows 需 7-Zip 打开，macOS 可用 Keka 或 The Unarchiver。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AES-256 encryption, high compression. Requires 7-Zip on Windows; works with Keka or The Unarchiver on macOS."
+          }
+        }
+      }
+    },
+    "AES-256（推荐）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AES-256 (Recommended)"
           }
         }
       }
@@ -96,6 +206,68 @@
           "stringUnit": {
             "state": "translated",
             "value": "MPEG-4 video"
+          }
+        }
+      }
+    },
+    "MacUnzip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacUnzip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac解霸"
+          }
+        }
+      }
+    },
+    "MacUnzip 已是默认解压缩工具": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacUnzip is already the default archive handler"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac解霸 已是默认解压缩工具"
+          }
+        }
+      }
+    },
+    "MacUnzip 帮助": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacUnzip Help"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac解霸 帮助"
+          }
+        }
+      }
+    },
+    "Markdown 预览：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown Preview: %@"
           }
         }
       }
@@ -232,6 +404,61 @@
         }
       }
     },
+    "Pro 功能已解锁，请重新点击该功能以继续。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro features unlocked. Click the feature again to continue."
+          }
+        }
+      }
+    },
+    "Pro 激活": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro Activation"
+          }
+        }
+      }
+    },
+    "RAR 创建失败：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RAR creation failed: %@"
+          }
+        }
+      }
+    },
+    "RAR 创建（外部）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RAR creation (external)"
+          }
+        }
+      }
+    },
+    "RARLAB 专有格式，广泛兼容；需已安装并授权 RARLAB rar 命令行工具。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "RARLAB proprietary format with broad compatibility. Requires the installed and licensed RARLAB rar command-line tool."
+          }
+        }
+      }
+    },
     "SVG 图像": {
       "extractionState": "manual",
       "localizations": {
@@ -239,6 +466,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "SVG image"
+          }
+        }
+      }
+    },
+    "WinRAR / 7-Zip / Keka 兼容": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compatible with WinRAR / 7-Zip / Keka"
           }
         }
       }
@@ -254,6 +492,61 @@
         }
       }
     },
+    "Windows 保留名称": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows reserved name"
+          }
+        }
+      }
+    },
+    "Windows 兼容性检查": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows Compatibility Check"
+          }
+        }
+      }
+    },
+    "Windows 兼容模式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows Compatibility Mode"
+          }
+        }
+      }
+    },
+    "Windows 文件名检查": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows Filename Checks"
+          }
+        }
+      }
+    },
+    "Windows 设备名称": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows device name"
+          }
+        }
+      }
+    },
     "Word 文档": {
       "extractionState": "manual",
       "localizations": {
@@ -261,6 +554,111 @@
           "stringUnit": {
             "state": "translated",
             "value": "Word Document"
+          }
+        }
+      }
+    },
+    "ZIP 读写引擎": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZIP read/write engine"
+          }
+        }
+      }
+    },
+    "ZIP 读写引擎（内嵌）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZIP read/write engine (embedded)"
+          }
+        }
+      }
+    },
+    "ZipCrypto（旧版兼容）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZipCrypto (Legacy)"
+          }
+        }
+      }
+    },
+    "gzip 压缩": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gzip compression"
+          }
+        }
+      }
+    },
+    "macOS / Linux / Windows (7-Zip) 兼容": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compatible with macOS / Linux / Windows (7-Zip)"
+          }
+        }
+      }
+    },
+    "xz 压缩": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "xz compression"
+          }
+        }
+      }
+    },
+    "zstd 压缩": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zstd compression"
+          }
+        }
+      }
+    },
+    "© 2026 MacUnzip. 保留所有权利。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© 2026 MacUnzip. All rights reserved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© 2026 Mac解霸. 保留所有权利。"
+          }
+        }
+      }
+    },
+    "“%@”不是可加入的普通文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is not a regular file that can be added."
           }
         }
       }
@@ -287,6 +685,50 @@
         }
       }
     },
+    "“%@”与“%@”在压缩包中会发生名称冲突。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” and “%@” would collide inside the archive."
+          }
+        }
+      }
+    },
+    "“%@”使用了当前版本无法编辑的加密或压缩方式，保存已取消。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” uses encryption or compression that this version cannot edit. Save canceled."
+          }
+        }
+      }
+    },
+    "“%@”包含无效的文件路径，无法加入压缩包。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” has an invalid file path and cannot be added to the archive."
+          }
+        }
+      }
+    },
+    "“%@”已存在。继续创建将替换原有文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” already exists. Continuing will replace the existing file."
+          }
+        }
+      }
+    },
     "“%@”是特殊文件类型，无法归档。": {
       "extractionState": "manual",
       "localizations": {
@@ -298,6 +740,171 @@
         }
       }
     },
+    "• 7z（读取 + 创建，需安装 7zz）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• 7z (read + create, requires 7zz)"
+          }
+        }
+      }
+    },
+    "• DMG / ISO（只读）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• DMG / ISO (read-only)"
+          }
+        }
+      }
+    },
+    "• RAR（读取，需安装 7zz）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• RAR (read, requires 7zz)"
+          }
+        }
+      }
+    },
+    "• TAR / TAR.GZ / TAR.BZ2 / TAR.XZ / TAR.ZST（读取 + 创建，含 TGZ、TBZ2、TXZ 等别名）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• TAR / TAR.GZ / TAR.BZ2 / TAR.XZ / TAR.ZST (read + create, including TGZ, TBZ2, TXZ aliases)"
+          }
+        }
+      }
+    },
+    "• ZIP / ZIPX（读写，内置 minizip-ng 引擎，支持 AES-256 加密）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• ZIP / ZIPX (read/write, built-in minizip-ng engine, AES-256 encryption)"
+          }
+        }
+      }
+    },
+    "• 所有解压操作均经过路径安全检查，防止路径穿越攻击。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• All extractions pass path safety checks to prevent path traversal attacks."
+          }
+        }
+      }
+    },
+    "• 诊断信息导出已脱敏，不包含用户路径或敏感数据。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• Diagnostics export is sanitized and contains no user paths or sensitive data."
+          }
+        }
+      }
+    },
+    "• 预览文件有大小限制，防止内存溢出。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• Previews are size-limited to prevent memory exhaustion."
+          }
+        }
+      }
+    },
+    "✅ 内置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ Built-in"
+          }
+        }
+      }
+    },
+    "✅ 已检测到": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "✅ Detected"
+          }
+        }
+      }
+    },
+    "❌ 未检测到": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "❌ Not detected"
+          }
+        }
+      }
+    },
+    "上次保存 %@ 时中断，是否恢复？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last save of %@ was interrupted. Restore it?"
+          }
+        }
+      }
+    },
+    "不保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don’t Save"
+          }
+        }
+      }
+    },
+    "不保存并打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Without Saving"
+          }
+        }
+      }
+    },
+    "不保存并继续": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Without Saving"
+          }
+        }
+      }
+    },
     "不加密": {
       "extractionState": "manual",
       "localizations": {
@@ -305,6 +912,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "No encryption"
+          }
+        }
+      }
+    },
+    "不支持的加密方式，请尝试使用 7zz 或更新版本打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsupported encryption. Try opening with 7zz or a newer version."
+          }
+        }
+      }
+    },
+    "不支持的文件类型：%@。请拖入 ZIP、7z、RAR、TAR 等压缩包文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsupported file type: %@. Drop archive files such as ZIP, 7z, RAR, or TAR."
+          }
+        }
+      }
+    },
+    "不能以点或空格结尾": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot end with a dot or space"
+          }
+        }
+      }
+    },
+    "不覆盖": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Do Not Overwrite"
+          }
+        }
+      }
+    },
+    "与归档同目录": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same as Archive"
+          }
+        }
+      }
+    },
+    "专业归档工具 · 解压 · 创建 · 预览": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Professional archive tool · Extract · Create · Preview"
+          }
+        }
+      }
+    },
+    "两次输入的密码不一致": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The passwords you entered do not match"
+          }
+        }
+      }
+    },
+    "仍然创建": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Anyway"
           }
         }
       }
@@ -321,6 +1016,17 @@
         }
       }
     },
+    "从左侧列表选择一个组件以查看许可证详情。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a component from the list on the left to view its license details."
+          }
+        }
+      }
+    },
     "使用 UTF-8 文件名，自动排除 macOS 元数据；创建前检查 Windows 保留名、非法字符和名称冲突。": {
       "extractionState": "manual",
       "localizations": {
@@ -332,6 +1038,39 @@
         }
       }
     },
+    "使用 ⌘O 或点击「打开压缩包」按钮，支持 ZIP、7z、RAR、TAR 等格式。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press ⌘O or click “Open Archive”. Supports ZIP, 7z, RAR, TAR, and more."
+          }
+        }
+      }
+    },
+    "侧栏": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sidebar"
+          }
+        }
+      }
+    },
+    "保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
     "保存位置": {
       "extractionState": "manual",
       "localizations": {
@@ -339,6 +1078,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save Location"
+          }
+        }
+      }
+    },
+    "保存修改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Changes"
           }
         }
       }
@@ -366,6 +1116,50 @@
         }
       }
     },
+    "保存并打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save and Open"
+          }
+        }
+      }
+    },
+    "保存并继续": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save and Continue"
+          }
+        }
+      }
+    },
+    "保留 Unix 权限；适合 macOS/Linux 分发，Windows 需 7-Zip 解压。符号链接出于安全考虑不予包含。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preserves Unix permissions. Good for macOS/Linux distribution; requires 7-Zip to extract on Windows. Symlinks are excluded for security."
+          }
+        }
+      }
+    },
+    "保留文件时间戳": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preserve Timestamps"
+          }
+        }
+      }
+    },
     "信息": {
       "extractionState": "manual",
       "localizations": {
@@ -373,6 +1167,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Info"
+          }
+        }
+      }
+    },
+    "修改已暂存，尚未保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes staged but not saved"
           }
         }
       }
@@ -399,6 +1204,111 @@
         }
       }
     },
+    "关于 MacUnzip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About MacUnzip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于 Mac解霸"
+          }
+        }
+      }
+    },
+    "关闭格式警告": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss Format Warning"
+          }
+        }
+      }
+    },
+    "关闭错误提示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss Error"
+          }
+        }
+      }
+    },
+    "其他分卷": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "other volumes"
+          }
+        }
+      }
+    },
+    "兼容性": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compatibility"
+          }
+        }
+      }
+    },
+    "内嵌于应用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Embedded in app"
+          }
+        }
+      }
+    },
+    "分卷": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Split Volumes"
+          }
+        }
+      }
+    },
+    "分卷创建暂不可用。为避免生成未分卷的压缩包，已停止创建。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume splitting is unavailable. Creation stopped to avoid producing an unsplit archive."
+          }
+        }
+      }
+    },
+    "分卷大小": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume Size"
+          }
+        }
+      }
+    },
     "切换为列表视图": {
       "extractionState": "manual",
       "localizations": {
@@ -421,6 +1331,39 @@
         }
       }
     },
+    "切换列表/媒体视图": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle list/media view"
+          }
+        }
+      }
+    },
+    "切换到媒体视图（工具栏右侧）可预览图片和文本内容。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to the media view (right side of the toolbar) to preview images and text."
+          }
+        }
+      }
+    },
+    "列表": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "List"
+          }
+        }
+      }
+    },
     "列表视图": {
       "extractionState": "manual",
       "localizations": {
@@ -428,6 +1371,67 @@
           "stringUnit": {
             "state": "translated",
             "value": "List View"
+          }
+        }
+      }
+    },
+    "创建": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation"
+          }
+        }
+      }
+    },
+    "创建 7z 需要免费的 7zz 工具。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载，安装后在「设置 → 引擎」确认已检测到。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating 7z requires the free 7zz tool. Run “brew install 7zip” in Terminal or download it from 7-zip.org, then confirm detection in Settings → Engines."
+          }
+        }
+      }
+    },
+    "创建 RAR 前需要确认 RARLAB 许可。请重新选择 RAR 格式并确认后重试。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You must accept the RARLAB license before creating RAR. Select the RAR format again, confirm, and retry."
+          }
+        }
+      }
+    },
+    "创建 RAR 将调用你自行安装的 RARLAB 官方 rar 工具。RARLAB rar 是共享软件，需要合法许可才能使用；MacUnzip 不随附该工具。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating a RAR archive invokes the official RARLAB rar tool you installed yourself. RARLAB rar is shareware that requires a valid license; MacUnzip does not bundle it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建 RAR 将调用你自行安装的 RARLAB 官方 rar 工具。RARLAB rar 是共享软件，需要合法许可才能使用；Mac解霸 不随附该工具。"
+          }
+        }
+      }
+    },
+    "创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating RAR requires the official RARLAB rar tool. Download the macOS version from rarlab.com, install it, then confirm detection in Settings → Engines."
           }
         }
       }
@@ -451,6 +1455,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create a ZIP archive that Windows users can open directly"
+          }
+        }
+      }
+    },
+    "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包（需要 Pro）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create ZIP, 7z, RAR, TAR.GZ, TAR.XZ, and TAR.ZST archives (requires Pro)"
+          }
+        }
+      }
+    },
+    "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create ZIP, 7z, RAR, TAR.GZ, TAR.XZ, and TAR.ZST archives"
+          }
+        }
+      }
+    },
+    "创建压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Archive"
+          }
+        }
+      }
+    },
+    "创建压缩包需要 MacUnzip Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating archives requires MacUnzip Pro"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建压缩包需要 Mac解霸 Pro"
           }
         }
       }
@@ -532,6 +1586,28 @@
         }
       }
     },
+    "删除": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "刷新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
+    },
     "前往下一个文件夹": {
       "extractionState": "manual",
       "localizations": {
@@ -561,6 +1637,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encryption"
+          }
+        }
+      }
+    },
+    "加密压缩包需要 MacUnzip Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encrypting archives requires MacUnzip Pro"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加密压缩包需要 Mac解霸 Pro"
+          }
+        }
+      }
+    },
+    "加密方式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encryption Method"
+          }
+        }
+      }
+    },
+    "包含非法字符": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contains invalid characters"
+          }
+        }
+      }
+    },
+    "即将把 %ld 个压缩包解压到各自所在的文件夹。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About to extract %ld archives into their containing folders."
+          }
+        }
+      }
+    },
+    "压缩": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compression"
+          }
+        }
+      }
+    },
+    "压缩包中找不到“%@”。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” was not found in the archive."
+          }
+        }
+      }
+    },
+    "压缩包信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archive Info"
+          }
+        }
+      }
+    },
+    "压缩包内存在仅大小写不同的同名文件，无法解压到当前磁盘格式。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive contains names that differ only by case and cannot be extracted to this disk format."
           }
         }
       }
@@ -631,6 +1801,17 @@
         }
       }
     },
+    "压缩包在编辑期间发生了变化，请重新打开后再保存。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive changed while you were editing it. Reopen it before saving."
+          }
+        }
+      }
+    },
     "压缩包在读取期间发生了变化，请重新打开。": {
       "extractionState": "manual",
       "localizations": {
@@ -686,6 +1867,17 @@
         }
       }
     },
+    "压缩级别": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compression Level"
+          }
+        }
+      }
+    },
     "原生视频预览": {
       "extractionState": "manual",
       "localizations": {
@@ -693,6 +1885,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Native video preview"
+          }
+        }
+      }
+    },
+    "发现未完成的保存操作": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unfinished Save Found"
           }
         }
       }
@@ -730,6 +1933,28 @@
         }
       }
     },
+    "另存为": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save As"
+          }
+        }
+      }
+    },
+    "另存为…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save As…"
+          }
+        }
+      }
+    },
     "可以选择多个文件和文件夹；创建前会检查 Windows 文件名兼容性。": {
       "extractionState": "manual",
       "localizations": {
@@ -753,6 +1978,17 @@
         }
       }
     },
+    "可用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available"
+          }
+        }
+      }
+    },
     "名称": {
       "extractionState": "manual",
       "localizations": {
@@ -760,6 +1996,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Name"
+          }
+        }
+      }
+    },
+    "名称无效，不能包含路径分隔符或特殊字符。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid name. It cannot contain path separators or special characters."
           }
         }
       }
@@ -797,6 +2044,17 @@
         }
       }
     },
+    "启用详细日志": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable Verbose Logging"
+          }
+        }
+      }
+    },
     "图像": {
       "extractionState": "manual",
       "localizations": {
@@ -808,6 +2066,17 @@
         }
       }
     },
+    "在 Dock 中显示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Dock"
+          }
+        }
+      }
+    },
     "在 Finder 中显示": {
       "extractionState": "manual",
       "localizations": {
@@ -815,6 +2084,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show in Finder"
+          }
+        }
+      }
+    },
+    "在欢迎界面点击「新建压缩包」，支持 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click “New Archive” on the welcome screen. Supports ZIP, 7z, RAR, TAR.GZ, TAR.XZ, and TAR.ZST."
+          }
+        }
+      }
+    },
+    "外观": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
           }
         }
       }
@@ -841,6 +2132,17 @@
         }
       }
     },
+    "如果不保存，所做的修改将会丢失。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you don’t save, your changes will be lost."
+          }
+        }
+      }
+    },
     "媒体条带": {
       "extractionState": "manual",
       "localizations": {
@@ -863,6 +2165,61 @@
         }
       }
     },
+    "安全说明": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Security Notes"
+          }
+        }
+      }
+    },
+    "完成": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "定位": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal"
+          }
+        }
+      }
+    },
+    "密码": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password"
+          }
+        }
+      }
+    },
+    "密码不一致": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwords do not match"
+          }
+        }
+      }
+    },
     "密码不正确，请重新输入。": {
       "extractionState": "manual",
       "localizations": {
@@ -870,6 +2227,105 @@
           "stringUnit": {
             "state": "translated",
             "value": "The password is incorrect. Try again."
+          }
+        }
+      }
+    },
+    "密码错误": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wrong Password"
+          }
+        }
+      }
+    },
+    "密码错误次数过多": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too Many Wrong Passwords"
+          }
+        }
+      }
+    },
+    "导出": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export"
+          }
+        }
+      }
+    },
+    "导出失败": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Failed"
+          }
+        }
+      }
+    },
+    "导出诊断信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Diagnostics"
+          }
+        }
+      }
+    },
+    "导出诊断信息…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Diagnostics…"
+          }
+        }
+      }
+    },
+    "导出诊断信息（已脱敏）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Diagnostics (Sanitized)"
+          }
+        }
+      }
+    },
+    "导出诊断信息（已脱敏）…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export Diagnostics (Sanitized)…"
+          }
+        }
+      }
+    },
+    "尚未保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not saved yet"
           }
         }
       }
@@ -885,6 +2341,72 @@
         }
       }
     },
+    "嵌套压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nested archive"
+          }
+        }
+      }
+    },
+    "嵌套压缩包为只读，请返回上级编辑": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nested archives are read-only. Go back to the parent to edit."
+          }
+        }
+      }
+    },
+    "工具栏「解压缩全部」按钮导出全部内容；选中文件或文件夹后按 ⌘E 或右键「解压选中」仅导出所选项目。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The “Extract All” toolbar button exports everything. Select files or folders, then press ⌘E or right-click “Extract Selected” to export only the selection."
+          }
+        }
+      }
+    },
+    "已为 Windows 兼容性自动修正": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically fixed for Windows compatibility"
+          }
+        }
+      }
+    },
+    "已保存修改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes saved"
+          }
+        }
+      }
+    },
+    "已取消": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canceled"
+          }
+        }
+      }
+    },
     "已取消创建归档": {
       "extractionState": "manual",
       "localizations": {
@@ -896,6 +2418,17 @@
         }
       }
     },
+    "已取消创建，未覆盖原有文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation canceled. The existing file was not replaced."
+          }
+        }
+      }
+    },
     "已取消解压缩": {
       "extractionState": "manual",
       "localizations": {
@@ -903,6 +2436,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extraction canceled"
+          }
+        }
+      }
+    },
+    "已存在同名项目，无法重命名。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An item with this name already exists. Cannot rename."
+          }
+        }
+      }
+    },
+    "已安装": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installed"
+          }
+        }
+      }
+    },
+    "已导出": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exported"
+          }
+        }
+      }
+    },
+    "已导出诊断信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics Exported"
           }
         }
       }
@@ -929,6 +2506,94 @@
         }
       }
     },
+    "已打开嵌套压缩包 %@（第 %ld 层）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened nested archive %@ (level %ld)"
+          }
+        }
+      }
+    },
+    "已打开第一个压缩包，其余 %ld 个文件未处理。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened the first archive. The remaining %ld files were not processed."
+          }
+        }
+      }
+    },
+    "已拷贝路径": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Path Copied"
+          }
+        }
+      }
+    },
+    "已撤销上一步修改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undid last change"
+          }
+        }
+      }
+    },
+    "已检测的 Provider": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detected Providers"
+          }
+        }
+      }
+    },
+    "已检测的引擎": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detected Engines"
+          }
+        }
+      }
+    },
+    "已清除": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleared"
+          }
+        }
+      }
+    },
+    "已达到最大嵌套深度限制。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum nesting depth reached."
+          }
+        }
+      }
+    },
     "已选择 1 项 · %@": {
       "extractionState": "manual",
       "localizations": {
@@ -947,6 +2612,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "A new folder will be created at the selected location. Existing files will not be replaced."
+          }
+        }
+      }
+    },
+    "引擎": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engines"
           }
         }
       }
@@ -1006,17 +2682,6 @@
         }
       }
     },
-    "Mac解霸": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac Unzip"
-          }
-        }
-      }
-    },
     "归档工具栏": {
       "extractionState": "manual",
       "localizations": {
@@ -1024,6 +2689,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Archive Toolbar"
+          }
+        }
+      }
+    },
+    "归档数据损坏": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archive data corrupted"
           }
         }
       }
@@ -1127,6 +2803,105 @@
         }
       }
     },
+    "待替换": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending replace"
+          }
+        }
+      }
+    },
+    "待添加": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending add"
+          }
+        }
+      }
+    },
+    "快捷操作": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Actions"
+          }
+        }
+      }
+    },
+    "快捷键": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shortcuts"
+          }
+        }
+      }
+    },
+    "快速开始": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick Start"
+          }
+        }
+      }
+    },
+    "恢复": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "恢复默认": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "恢复默认设置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset All Settings"
+          }
+        }
+      }
+    },
+    "我已安装并拥有许可": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I Have Installed and Licensed It"
+          }
+        }
+      }
+    },
     "打开": {
       "extractionState": "manual",
       "localizations": {
@@ -1145,6 +2920,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open ZIP archives and inspect their files safely."
+          }
+        }
+      }
+    },
+    "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\nPro 已激活 · 全部功能可用": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open ZIP, 7z, RAR, TAR, DMG, and ISO archives and safely browse their files.\nYou can also drag archive files directly onto this window.\n\nPro activated · All features available"
+          }
+        }
+      }
+    },
+    "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\n免费浏览 · 解压缩/创建/编辑需要 Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open ZIP, 7z, RAR, TAR, DMG, and ISO archives and safely browse their files.\nYou can also drag archive files directly onto this window.\n\nFree browsing · Extraction/creation/editing requires Pro"
           }
         }
       }
@@ -1171,6 +2968,39 @@
         }
       }
     },
+    "打开压缩包后，使用「添加」按钮向归档中追加文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After opening an archive, use the “Add” button to append files."
+          }
+        }
+      }
+    },
+    "打开帮助": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Help"
+          }
+        }
+      }
+    },
+    "打开选中的嵌套压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open selected nested archive"
+          }
+        }
+      }
+    },
     "找不到分卷压缩包的其他部分。请将所有分卷放在同一文件夹后再试。": {
       "extractionState": "manual",
       "localizations": {
@@ -1178,6 +3008,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Other parts of this split archive are missing. Place all parts in the same folder and try again."
+          }
+        }
+      }
+    },
+    "找到 %ld 个项目": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Found %ld items"
+          }
+        }
+      }
+    },
+    "拷贝路径": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
+          }
+        }
+      }
+    },
+    "排除 macOS 元数据": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exclude macOS Metadata"
           }
         }
       }
@@ -1204,6 +3067,39 @@
         }
       }
     },
+    "搜索框": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search Field"
+          }
+        }
+      }
+    },
+    "撤销修改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo Changes"
+          }
+        }
+      }
+    },
+    "撤销失败，修改仍然存在。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo failed. The changes are still present."
+          }
+        }
+      }
+    },
     "播放视频时发生错误。": {
       "extractionState": "manual",
       "localizations": {
@@ -1226,6 +3122,83 @@
         }
       }
     },
+    "操作失败": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Operation Failed"
+          }
+        }
+      }
+    },
+    "支持 AES-256 加密": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports AES-256 encryption"
+          }
+        }
+      }
+    },
+    "支持加密": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports encryption"
+          }
+        }
+      }
+    },
+    "支持加密和分卷": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports encryption and splitting"
+          }
+        }
+      }
+    },
+    "支持压缩级别": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supports compression level"
+          }
+        }
+      }
+    },
+    "支持的格式": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supported Formats"
+          }
+        }
+      }
+    },
+    "收集诊断数据": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collect Diagnostic Data"
+          }
+        }
+      }
+    },
     "文件": {
       "extractionState": "manual",
       "localizations": {
@@ -1233,6 +3206,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "File"
+          }
+        }
+      }
+    },
+    "文件内容实际为 %@ 格式，但扩展名为 .%@。已按实际格式打开。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The file content is actually in %@ format, but its extension is .%@. It was opened using the actual format."
+          }
+        }
+      }
+    },
+    "文件写入失败，请确认磁盘空间充足且目标位置可写。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to write files. Make sure the disk has enough space and the destination is writable."
+          }
+        }
+      }
+    },
+    "文件冲突策略": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Conflict Strategy"
+          }
+        }
+      }
+    },
+    "文件名": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File name"
           }
         }
       }
@@ -1248,13 +3265,24 @@
         }
       }
     },
+    "文件名过长": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File name too long"
+          }
+        }
+      }
+    },
     "文件名：%@": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Filename: %@"
+            "value": "File name: %@"
           }
         }
       }
@@ -1292,6 +3320,83 @@
         }
       }
     },
+    "文件夹内存在仅大小写不同的同名文件，无法解压到当前磁盘格式。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The folder contains names that differ only by case and cannot be extracted to this disk format."
+          }
+        }
+      }
+    },
+    "文件已存在": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Already Exists"
+          }
+        }
+      }
+    },
+    "新名称：": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New name:"
+          }
+        }
+      }
+    },
+    "新建压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Archive"
+          }
+        }
+      }
+    },
+    "新建压缩包…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Archive…"
+          }
+        }
+      }
+    },
+    "无": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
+          }
+        }
+      }
+    },
+    "无效许可证，请检查密钥格式或重新购买。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invalid license. Check the key format or purchase again."
+          }
+        }
+      }
+    },
     "无法写入目标位置，未生成压缩包。": {
       "extractionState": "manual",
       "localizations": {
@@ -1299,6 +3404,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "The destination could not be written to, so no archive was created."
+          }
+        }
+      }
+    },
+    "无法写入诊断报告文件，请检查磁盘空间或目标路径。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not write the diagnostics report. Check disk space or the destination path."
           }
         }
       }
@@ -1358,6 +3474,17 @@
         }
       }
     },
+    "无法完成该操作，请检查磁盘空间或目标路径后重试。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The operation could not be completed. Check disk space or the destination path and retry."
+          }
+        }
+      }
+    },
     "无法打开压缩包": {
       "extractionState": "manual",
       "localizations": {
@@ -1376,6 +3503,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "This archive could not be opened. It may be damaged or not a supported ZIP file."
+          }
+        }
+      }
+    },
+    "无法打开这个压缩包。文件可能已损坏或不是受支持的格式。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This archive cannot be opened. The file may be corrupted or in an unsupported format."
           }
         }
       }
@@ -1424,6 +3562,39 @@
         }
       }
     },
+    "无法设置安全隔离属性，已阻止打开。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not set the quarantine attribute. Opening was blocked."
+          }
+        }
+      }
+    },
+    "无法读取 Markdown 文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot read the Markdown file."
+          }
+        }
+      }
+    },
+    "无法读取“%@”，请确认文件仍然可访问。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot read “%@”. Make sure the file is still accessible."
+          }
+        }
+      }
+    },
     "无法读取压缩包。请稍后再试。": {
       "extractionState": "manual",
       "localizations": {
@@ -1431,6 +3602,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "The archive could not be read. Try again later."
+          }
+        }
+      }
+    },
+    "无法读取所选文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to read the selected file."
           }
         }
       }
@@ -1446,6 +3628,17 @@
         }
       }
     },
+    "无法重新打开上级压缩包，请重新打开文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reopen the parent archive. Open the file again."
+          }
+        }
+      }
+    },
     "无法预览": {
       "extractionState": "manual",
       "localizations": {
@@ -1453,6 +3646,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview Unavailable"
+          }
+        }
+      }
+    },
+    "旧版编码检测": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Legacy Encoding Detection"
+          }
+        }
+      }
+    },
+    "显示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "显示/隐藏侧栏": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/hide sidebar"
+          }
+        }
+      }
+    },
+    "显示/隐藏信息面板": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/hide inspector"
+          }
+        }
+      }
+    },
+    "显示侧栏": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Sidebar"
+          }
+        }
+      }
+    },
+    "显示信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Inspector"
           }
         }
       }
@@ -1479,6 +3738,160 @@
         }
       }
     },
+    "暂无最近打开的压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recent archives"
+          }
+        }
+      }
+    },
+    "更多操作": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More Actions"
+          }
+        }
+      }
+    },
+    "替换": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace"
+          }
+        }
+      }
+    },
+    "替换文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace File"
+          }
+        }
+      }
+    },
+    "替换选中文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace selected file"
+          }
+        }
+      }
+    },
+    "最小": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smallest"
+          }
+        }
+      }
+    },
+    "最小（Maximum）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smallest (Maximum)"
+          }
+        }
+      }
+    },
+    "最快": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fastest"
+          }
+        }
+      }
+    },
+    "最快（Store）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fastest (Store)"
+          }
+        }
+      }
+    },
+    "最近打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent"
+          }
+        }
+      }
+    },
+    "最近打开的压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent Archives"
+          }
+        }
+      }
+    },
+    "清除": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "未找到匹配的文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Matching Files"
+          }
+        }
+      }
+    },
+    "未检测到": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Detected"
+          }
+        }
+      }
+    },
     "未选择项目": {
       "extractionState": "manual",
       "localizations": {
@@ -1486,6 +3899,61 @@
           "stringUnit": {
             "state": "translated",
             "value": "No Selection"
+          }
+        }
+      }
+    },
+    "权限不足，请在 Finder 中检查": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permission denied. Check in Finder."
+          }
+        }
+      }
+    },
+    "松开以打开压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop to open archive"
+          }
+        }
+      }
+    },
+    "构建信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build Info"
+          }
+        }
+      }
+    },
+    "架构": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Architecture"
+          }
+        }
+      }
+    },
+    "架构：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Architecture: %@"
           }
         }
       }
@@ -1519,6 +3987,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Format"
+          }
+        }
+      }
+    },
+    "格式支持状态": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format Support Status"
+          }
+        }
+      }
+    },
+    "桌面": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desktop"
           }
         }
       }
@@ -1611,6 +4101,39 @@
         }
       }
     },
+    "正在创建中…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation in progress…"
+          }
+        }
+      }
+    },
+    "正在创建中，暂不能更改保存位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creation in progress. The save location cannot be changed."
+          }
+        }
+      }
+    },
+    "正在检查文件名兼容性…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking filename compatibility…"
+          }
+        }
+      }
+    },
     "正在解压缩 · %ld/%ld 项": {
       "extractionState": "manual",
       "localizations": {
@@ -1618,6 +4141,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extracting · %1$ld/%2$ld items"
+          }
+        }
+      }
+    },
+    "正在解压缩…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extracting…"
+          }
+        }
+      }
+    },
+    "正在读取 Markdown…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading Markdown…"
           }
         }
       }
@@ -1644,6 +4189,17 @@
         }
       }
     },
+    "正在读取压缩包，请稍候再保存。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive is still loading. Try saving again in a moment."
+          }
+        }
+      }
+    },
     "正在读取图片…": {
       "extractionState": "manual",
       "localizations": {
@@ -1651,6 +4207,171 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading image…"
+          }
+        }
+      }
+    },
+    "正在预览 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previewing %@"
+          }
+        }
+      }
+    },
+    "此压缩包中没有可在媒体视图中显示的文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This archive has no files that can be shown in the media view."
+          }
+        }
+      }
+    },
+    "此压缩包受密码保护，请输入密码后打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This archive is password-protected. Enter the password to open it."
+          }
+        }
+      }
+    },
+    "此嵌套压缩包需要密码，请先解压后再单独打开。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This nested archive requires a password. Extract it first, then open it separately."
+          }
+        }
+      }
+    },
+    "此归档有未保存的更改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This archive has unsaved changes"
+          }
+        }
+      }
+    },
+    "此操作将清除所有自定义设置，无法撤销。部分更改（如外观）将在重启后生效。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clears all custom settings and cannot be undone. Some changes (such as appearance) take effect after a restart."
+          }
+        }
+      }
+    },
+    "此文件夹为空。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder is empty."
+          }
+        }
+      }
+    },
+    "此文件夹无法直接打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This folder cannot be opened directly"
+          }
+        }
+      }
+    },
+    "此文件类型暂不支持预览": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview is not supported for this file type"
+          }
+        }
+      }
+    },
+    "此格式不支持解压缩": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This format does not support extraction"
+          }
+        }
+      }
+    },
+    "此格式不支持该操作。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This format does not support that operation."
+          }
+        }
+      }
+    },
+    "此格式为只读，不支持添加": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This format is read-only. Adding is not supported."
+          }
+        }
+      }
+    },
+    "此格式为只读，不支持编辑": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This format is read-only. Editing is not supported."
+          }
+        }
+      }
+    },
+    "此格式需要免费的 7zz 工具，但未检测到。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载后重试。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This format requires the free 7zz tool, which was not detected. Run “brew install 7zip” in Terminal or download it from 7-zip.org, then retry."
+          }
+        }
+      }
+    },
+    "每次询问": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Each Time"
           }
         }
       }
@@ -1674,6 +4395,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "There are no files to add."
+          }
+        }
+      }
+    },
+    "没有可用的应用程序打开此文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No application is available to open this file."
+          }
+        }
+      }
+    },
+    "没有可预览的文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Previewable Files"
+          }
+        }
+      }
+    },
+    "没有符合搜索条件的文件。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No files match your search."
+          }
+        }
+      }
+    },
+    "没有需要保存的更改": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No changes to save"
+          }
+        }
+      }
+    },
+    "浅色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        }
+      }
+    },
+    "深色": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
           }
         }
       }
@@ -1713,6 +4500,144 @@
         }
       }
     },
+    "清除预览缓存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Preview Cache"
+          }
+        }
+      }
+    },
+    "激活": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activate"
+          }
+        }
+      }
+    },
+    "激活 Pro 版本以使用全部功能": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activate Pro to unlock all features"
+          }
+        }
+      }
+    },
+    "激活失败，许可证无效": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activation failed. The license is invalid."
+          }
+        }
+      }
+    },
+    "激活成功": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activation Successful"
+          }
+        }
+      }
+    },
+    "激活许可证…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activate License…"
+          }
+        }
+      }
+    },
+    "点击此按钮可隐藏当前警告": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to dismiss this warning"
+          }
+        }
+      }
+    },
+    "版本": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "版本 %@（%@）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ (%@)"
+          }
+        }
+      }
+    },
+    "版权": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copyright"
+          }
+        }
+      }
+    },
+    "状态栏：%@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status bar: %@"
+          }
+        }
+      }
+    },
+    "用其他应用打开文件需要先将其解压缩，此功能需要 MacUnzip Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening files in other apps requires extracting them first; this feature requires MacUnzip Pro"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用其他应用打开文件需要先将其解压缩，此功能需要 Mac解霸 Pro"
+          }
+        }
+      }
+    },
     "用途": {
       "extractionState": "manual",
       "localizations": {
@@ -1735,6 +4660,72 @@
         }
       }
     },
+    "确定": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "确认 RAR 许可": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm RAR License"
+          }
+        }
+      }
+    },
+    "确认密码": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm Password"
+          }
+        }
+      }
+    },
+    "确认恢复默认设置？": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset all settings to defaults?"
+          }
+        }
+      }
+    },
+    "磁盘空间不足（需要 %@）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough disk space (%@ required)"
+          }
+        }
+      }
+    },
+    "磁盘空间不足，请释放空间后重试": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough disk space. Free up space and retry."
+          }
+        }
+      }
+    },
     "移除": {
       "comment": "从压缩包移除所选项目的操作。",
       "extractionState": "manual",
@@ -1743,6 +4734,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove"
+          }
+        }
+      }
+    },
+    "移除 < > : \" | ? * 等字符": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove characters such as < > : \" | ? *"
+          }
+        }
+      }
+    },
+    "移除末尾的点或空格": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the trailing dot or space"
+          }
+        }
+      }
+    },
+    "移除选中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Selected"
+          }
+        }
+      }
+    },
+    "移除选中文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove selected file"
+          }
+        }
+      }
+    },
+    "稍后": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        }
+      }
+    },
+    "简体中文": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simplified Chinese"
           }
         }
       }
@@ -1758,6 +4815,28 @@
         }
       }
     },
+    "系统": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        }
+      }
+    },
+    "系统内嵌": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System embedded"
+          }
+        }
+      }
+    },
     "系统暂时无法创建文档预览。": {
       "extractionState": "manual",
       "localizations": {
@@ -1765,6 +4844,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "A document preview is temporarily unavailable."
+          }
+        }
+      }
+    },
+    "系统版本": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System version"
+          }
+        }
+      }
+    },
+    "组件与许可证": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Components & Licenses"
+          }
+        }
+      }
+    },
+    "组件与许可证…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Components & Licenses…"
+          }
+        }
+      }
+    },
+    "终身授权 · 一次购买 · 免费更新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lifetime license · One-time purchase · Free updates"
           }
         }
       }
@@ -1780,6 +4903,111 @@
         }
       }
     },
+    "编辑压缩包（添加、删除、重命名）需要 MacUnzip Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editing archives (adding, deleting, renaming) requires MacUnzip Pro"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑压缩包（添加、删除、重命名）需要 Mac解霸 Pro"
+          }
+        }
+      }
+    },
+    "编辑类快捷键（⌫ 移除、↩ 重命名、⌘Z 撤销、⇧⌘Z 重做）仅对可编辑格式（如 ZIP）有效；7z、RAR、DMG、ISO 及嵌套压缩包为只读。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editing shortcuts (⌫ remove, ↩ rename, ⌘Z undo, ⇧⌘Z redo) only work on editable formats (such as ZIP). 7z, RAR, DMG, ISO, and nested archives are read-only."
+          }
+        }
+      }
+    },
+    "缩短文件名至 255 字符以内": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shorten the file name to 255 characters or fewer"
+          }
+        }
+      }
+    },
+    "缺少分卷文件：需要 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Missing volume: %@ required"
+          }
+        }
+      }
+    },
+    "缺少原始压缩包，无法保存修改。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The original archive is missing. Cannot save changes."
+          }
+        }
+      }
+    },
+    "自动": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic"
+          }
+        }
+      }
+    },
+    "自动修正": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto Fix"
+          }
+        }
+      }
+    },
+    "覆盖": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Overwrite"
+          }
+        }
+      }
+    },
+    "视图": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
     "视频": {
       "extractionState": "manual",
       "localizations": {
@@ -1787,6 +5015,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "video"
+          }
+        }
+      }
+    },
+    "解压": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extraction"
           }
         }
       }
@@ -1802,6 +5041,17 @@
         }
       }
     },
+    "解压到所在文件夹": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract to Containing Folder"
+          }
+        }
+      }
+    },
     "解压缩": {
       "extractionState": "manual",
       "localizations": {
@@ -1809,6 +5059,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extract"
+          }
+        }
+      }
+    },
+    "解压缩全部": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract All"
           }
         }
       }
@@ -1879,6 +5140,34 @@
         }
       }
     },
+    "解压缩所选项目到指定位置。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract the selected items to a chosen location."
+          }
+        }
+      }
+    },
+    "解压缩文件需要 MacUnzip Pro": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extracting files requires MacUnzip Pro"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "解压缩文件需要 Mac解霸 Pro"
+          }
+        }
+      }
+    },
     "解压缩进度": {
       "extractionState": "manual",
       "localizations": {
@@ -1886,6 +5175,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extraction Progress"
+          }
+        }
+      }
+    },
+    "解压选中": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract Selected"
+          }
+        }
+      }
+    },
+    "解压选中…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract Selected…"
+          }
+        }
+      }
+    },
+    "解压选中文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract selected file"
+          }
+        }
+      }
+    },
+    "解压选中的文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extract the selected file"
+          }
+        }
+      }
+    },
+    "许可证全文": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full License Text"
+          }
+        }
+      }
+    },
+    "许可证密钥": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "License Key"
+          }
+        }
+      }
+    },
+    "设为默认": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set as Default"
+          }
+        }
+      }
+    },
+    "设为默认后，双击压缩包将自动用 MacUnzip 打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once set as default, double-clicking an archive opens it in MacUnzip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设为默认后，双击压缩包将自动用 Mac解霸 打开"
           }
         }
       }
@@ -1901,6 +5284,127 @@
         }
       }
     },
+    "诊断报告已保存到「%@」。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics report saved to “%@”."
+          }
+        }
+      }
+    },
+    "请先添加要压缩的文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add files to compress first"
+          }
+        }
+      }
+    },
+    "请先输入授权码": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter your license key first"
+          }
+        }
+      }
+    },
+    "请先返回上级压缩包再保存": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go back to the parent archive before saving"
+          }
+        }
+      }
+    },
+    "请输入密码": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a password"
+          }
+        }
+      }
+    },
+    "请输入密码后重试": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the password and retry"
+          }
+        }
+      }
+    },
+    "请输入新的文件名。不能包含 / : \\ < > | ? * \" 等字符。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a new file name. It cannot contain / : \\ < > | ? * \" characters."
+          }
+        }
+      }
+    },
+    "请选择保存位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a save location"
+          }
+        }
+      }
+    },
+    "购买 Pro →": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buy Pro →"
+          }
+        }
+      }
+    },
+    "跟随系统": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow System"
+          }
+        }
+      }
+    },
+    "跨平台验证提示": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cross-platform Verification Hints"
+          }
+        }
+      }
+    },
     "路径": {
       "extractionState": "manual",
       "localizations": {
@@ -1908,6 +5412,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Path"
+          }
+        }
+      }
+    },
+    "跳转到 %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Go to %@"
+          }
+        }
+      }
+    },
+    "输入密码": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter Password"
           }
         }
       }
@@ -1930,6 +5456,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Go back to the previous folder"
+          }
+        }
+      }
+    },
+    "返回上一层压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to parent archive"
           }
         }
       }
@@ -2066,6 +5603,17 @@
         }
       }
     },
+    "选择一个压缩包文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an archive file"
+          }
+        }
+      }
+    },
     "选择保存位置和文件名；已有文件不会被静默覆盖。": {
       "extractionState": "manual",
       "localizations": {
@@ -2077,6 +5625,28 @@
         }
       }
     },
+    "选择压缩包的保存位置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose where to save the archive"
+          }
+        }
+      }
+    },
+    "选择固定位置后，解压缩将直接保存到该位置下的同名文件夹，不再弹出选择窗口。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After choosing a fixed location, extractions save directly to a same-named folder there without prompting."
+          }
+        }
+      }
+    },
     "选择文件 %@": {
       "extractionState": "manual",
       "localizations": {
@@ -2084,6 +5654,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Select file %@"
+          }
+        }
+      }
+    },
+    "选择格式与文件，创建跨平台兼容的压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a format and files to create a cross-platform archive"
+          }
+        }
+      }
+    },
+    "选择用于替换%@的新文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a new file to replace %@"
+          }
+        }
+      }
+    },
+    "选择组件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a component"
           }
         }
       }
@@ -2110,17 +5713,6 @@
         }
       }
     },
-    "预览失败": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview Failed"
-          }
-        }
-      }
-    },
     "通用": {
       "extractionState": "manual",
       "localizations": {
@@ -2132,35 +5724,90 @@
         }
       }
     },
-    "解压": {
+    "重命名": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Extraction"
+            "value": "Rename"
           }
         }
       }
     },
-    "创建": {
+    "重命名…": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Creation"
+            "value": "Rename…"
           }
         }
       }
     },
-    "兼容性": {
+    "重命名为其他名称": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compatibility"
+            "value": "Rename to a different name"
+          }
+        }
+      }
+    },
+    "重命名选中文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename selected file"
+          }
+        }
+      }
+    },
+    "重新输入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-enter"
+          }
+        }
+      }
+    },
+    "重试": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "链接": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Links"
+          }
+        }
+      }
+    },
+    "随应用内置": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bundled with the app"
           }
         }
       }
@@ -2176,497 +5823,57 @@
         }
       }
     },
-    "高级": {
+    "隐藏侧栏": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Advanced"
+            "value": "Hide Sidebar"
           }
         }
       }
     },
-    "默认视图模式": {
+    "隐藏信息": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default View Mode"
+            "value": "Hide Inspector"
           }
         }
       }
     },
-    "列表": {
+    "需安装 RARLAB rar（不支持加密）": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "List"
+            "value": "Requires RARLAB rar (no encryption)"
           }
         }
       }
     },
-    "默认语言": {
+    "需要先选中文件": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default Language"
+            "value": "Select a file first"
           }
         }
       }
     },
-    "跟随系统": {
+    "项目数": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Follow System"
-          }
-        }
-      }
-    },
-    "简体中文": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Simplified Chinese"
-          }
-        }
-      }
-    },
-    "在 Dock 中显示": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show in Dock"
-          }
-        }
-      }
-    },
-    "最近打开的压缩包": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recent Archives"
-          }
-        }
-      }
-    },
-    "无": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "None"
-          }
-        }
-      }
-    },
-    "默认解压位置": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default Extraction Destination"
-          }
-        }
-      }
-    },
-    "每次询问": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask Each Time"
-          }
-        }
-      }
-    },
-    "与归档同目录": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Same as Archive"
-          }
-        }
-      }
-    },
-    "桌面": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desktop"
-          }
-        }
-      }
-    },
-    "文件冲突策略": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "File Conflict Strategy"
-          }
-        }
-      }
-    },
-    "不覆盖": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Do Not Overwrite"
-          }
-        }
-      }
-    },
-    "覆盖": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Overwrite"
-          }
-        }
-      }
-    },
-    "保留文件时间戳": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preserve Timestamps"
-          }
-        }
-      }
-    },
-    "默认格式": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default Format"
-          }
-        }
-      }
-    },
-    "压缩级别": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compression Level"
-          }
-        }
-      }
-    },
-    "最快": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fastest"
-          }
-        }
-      }
-    },
-    "默认": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default"
-          }
-        }
-      }
-    },
-    "最小": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Smallest"
-          }
-        }
-      }
-    },
-    "排除 macOS 元数据": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Exclude macOS Metadata"
-          }
-        }
-      }
-    },
-    "Windows 兼容模式": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Windows Compatibility Mode"
-          }
-        }
-      }
-    },
-    "Windows 文件名检查": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Windows Filename Checks"
-          }
-        }
-      }
-    },
-    "旧版编码检测": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Legacy Encoding Detection"
-          }
-        }
-      }
-    },
-    "自动": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Automatic"
-          }
-        }
-      }
-    },
-    "跨平台验证提示": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cross-platform Verification Hints"
-          }
-        }
-      }
-    },
-    "已检测的 Provider": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detected Providers"
-          }
-        }
-      }
-    },
-    "收集诊断数据": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Collect Diagnostic Data"
-          }
-        }
-      }
-    },
-    "预览缓存上限": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview Cache Limit"
-          }
-        }
-      }
-    },
-    "清除预览缓存": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear Preview Cache"
-          }
-        }
-      }
-    },
-    "已清除": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cleared"
-          }
-        }
-      }
-    },
-    "启用详细日志": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enable Verbose Logging"
-          }
-        }
-      }
-    },
-    "导出诊断信息（已脱敏）": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Export Diagnostics (Sanitized)"
-          }
-        }
-      }
-    },
-    "构建信息": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Build Info"
-          }
-        }
-      }
-    },
-    "版本": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version"
-          }
-        }
-      }
-    },
-    "架构": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Architecture"
-          }
-        }
-      }
-    },
-    "系统": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System"
-          }
-        }
-      }
-    },
-    "恢复默认设置": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset All Settings"
-          }
-        }
-      }
-    },
-    "确认恢复默认设置？": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset all settings to defaults?"
-          }
-        }
-      }
-    },
-    "恢复默认": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset"
-          }
-        }
-      }
-    },
-    "显示": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View"
-          }
-        }
-      }
-    },
-    "侧栏": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sidebar"
-          }
-        }
-      }
-    },
-    "正在预览 %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Previewing %@"
+            "value": "Items"
           }
         }
       }
@@ -2682,123 +5889,145 @@
         }
       }
     },
-    "状态栏：%@": {
+    "预览失败": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Status bar: %@"
+            "value": "Preview Failed"
           }
         }
       }
     },
-    "%@，解压缩进度 %@": {
+    "预览文件": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@, extraction progress %2$@"
+            "value": "Preview Files"
           }
         }
       }
     },
-    "搜索框": {
+    "预览缓存上限": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Search Field"
+            "value": "Preview Cache Limit"
           }
         }
       }
     },
-    "格式": {
+    "验证密码并重新打开": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Format"
+            "value": "Verify password and reopen"
           }
         }
       }
     },
-    "支持加密和分卷": {
+    "验证并激活授权": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supports encryption and splitting"
+            "value": "Verify and activate"
           }
         }
       }
     },
-    "支持压缩级别": {
+    "高级": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supports compression level"
+            "value": "Advanced"
           }
         }
       }
     },
-    "压缩": {
+    "默认": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compression"
+            "value": "Default"
           }
         }
       }
     },
-    "压缩级别": {
+    "默认压缩": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compression Level"
+            "value": "Default compression"
           }
         }
       }
     },
-    "最快": {
+    "默认格式": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fastest"
+            "value": "Default Format"
           }
         }
       }
     },
-    "最小": {
+    "默认视图模式": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smallest"
+            "value": "Default View Mode"
           }
         }
       }
     },
-    "最快（Store）": {
+    "默认解压位置": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fastest (Store)"
+            "value": "Default Extraction Destination"
+          }
+        }
+      }
+    },
+    "默认解压缩软件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default Archive Handler"
+          }
+        }
+      }
+    },
+    "默认语言": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default Language"
           }
         }
       }
@@ -2814,145 +6043,112 @@
         }
       }
     },
-    "最小（Maximum）": {
+    "（待移除）": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smallest (Maximum)"
+            "value": " (pending removal)"
           }
         }
       }
     },
-    "加密": {
+    "（未安装）": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encryption"
+            "value": " (not installed)"
           }
         }
       }
     },
-    "密码": {
+    "请先自动修正文件名兼容性问题": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Password"
+            "value": "Auto-fix the filename compatibility issues first"
           }
         }
       }
     },
-    "确认密码": {
+    "暂不支持直接移除文件夹": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Confirm Password"
+            "value": "Removing folders directly is not supported yet"
           }
         }
       }
     },
-    "密码不一致": {
+    "暂不支持直接重命名文件夹": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Passwords do not match"
+            "value": "Renaming folders directly is not supported yet"
           }
         }
       }
     },
-    "加密方式": {
+    "已选择文件夹 %@ · %ld 项": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Encryption Method"
+            "value": "Selected folder %@ · %ld items"
           }
         }
       }
     },
-    "AES-256（推荐）": {
+    "包含项目": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "AES-256 (Recommended)"
+            "value": "Contains"
           }
         }
       }
     },
-    "ZipCrypto（旧版兼容）": {
+    "重做修改": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "ZipCrypto (Legacy)"
+            "value": "Redo Changes"
           }
         }
       }
     },
-    "分卷": {
+    "已重做上一步修改": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Split Volumes"
+            "value": "Redid last change"
           }
         }
       }
     },
-    "分卷大小": {
+    "无法设置为默认，请在系统设置中手动选择": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volume Size"
-          }
-        }
-      }
-    },
-    "Windows 兼容性检查": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Windows Compatibility Check"
-          }
-        }
-      }
-    },
-    "自动修正": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auto Fix"
-          }
-        }
-      }
-    },
-    "仍然创建": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create Anyway"
+            "value": "Couldn't set as default. Please choose MacUnzip manually in System Settings."
           }
         }
       }

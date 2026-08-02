@@ -101,7 +101,7 @@ public actor DMGArchiveProvider: ArchiveProvider {
             }
             let entry = ArchiveEntry(
                 id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                rawPath: ArchivePathBytes(Array(parsed.path.utf8)),
                 displayPath: validationPath
             )
             snapshots.append(ArchiveEntrySnapshot(
@@ -134,7 +134,7 @@ public actor DMGArchiveProvider: ArchiveProvider {
         let result = try invoke(
             arguments: [
                 "x", "-so", "-y", "-spd", "-bso0", "-bsp0",
-                archiveURL.path, snapshot.entry.displayPath,
+                archiveURL.path, "-i!" + String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self),
             ],
             timeoutSeconds: extractionTimeoutSeconds,
             maximumStdoutBytes: Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1

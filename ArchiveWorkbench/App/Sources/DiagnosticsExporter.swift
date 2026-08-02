@@ -9,47 +9,47 @@ import UniformTypeIdentifiers
 enum DiagnosticsExporter {
     static func collectReport() -> String {
         var lines: [String] = []
-        lines.append("Mac Unzip 诊断报告")
+        lines.append("MacUnzip Diagnostics Report")
         lines.append("========================")
         lines.append("")
 
         // App info
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        lines.append("应用版本: \(version) (\(build))")
-        lines.append("架构: \(architectureString)")
+        lines.append("App Version: \(version) (\(build))")
+        lines.append("Architecture: \(architectureString)")
         lines.append("")
 
         // OS info
         let osVersion = ProcessInfo.processInfo.operatingSystemVersion
-        lines.append("系统: macOS \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)")
-        lines.append("系统版本标识: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        lines.append("System: macOS \(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)")
+        lines.append("OS Version String: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         lines.append("")
 
         // Locale
-        lines.append("语言环境: \(Locale.current.identifier)")
-        lines.append("首选语言: \(Locale.preferredLanguages.joined(separator: ", "))")
+        lines.append("Locale: \(Locale.current.identifier)")
+        lines.append("Preferred Languages: \(Locale.preferredLanguages.joined(separator: ", "))")
         lines.append("")
 
-        // Provider status
-        lines.append("Provider 状态:")
+        // Engine status
+        lines.append("Engine Status:")
         let providers = ProviderStatusDetector.detectAll()
         for provider in providers {
             lines.append("  \(provider.name): \(provider.statusText)")
             if provider.version != "—" {
-                lines.append("    版本: \(provider.version)")
+                lines.append("    Version: \(provider.version)")
             }
-            // Sanitize path: only show basename, not full path
-            if provider.path != "内嵌于应用" && provider.path != "未检测到"
-                && provider.path != "未安装" && provider.path != "计划中" {
+            // Sanitize path: only show basename, and only for real filesystem paths
+            // (localized display strings like "Embedded in app" never start with "/").
+            if provider.path.hasPrefix("/") {
                 let basename = (provider.path as NSString).lastPathComponent
-                lines.append("    路径: <已脱敏>/\(basename)")
+                lines.append("    Path: <sanitized>/\(basename)")
             }
         }
         lines.append("")
 
         // Components
-        lines.append("组件:")
+        lines.append("Components:")
         for component in ComponentRegistry.all {
             lines.append("  \(component.name) \(component.version) (\(component.licenseName))")
         }
@@ -57,9 +57,9 @@ enum DiagnosticsExporter {
 
         // Timestamp (UTC only, no timezone-identifying info)
         let formatter = ISO8601DateFormatter()
-        lines.append("生成时间: \(formatter.string(from: Date()))")
+        lines.append("Generated: \(formatter.string(from: Date()))")
         lines.append("")
-        lines.append("--- 报告结束 ---")
+        lines.append("--- End of Report ---")
 
         return lines.joined(separator: "\n")
     }
@@ -78,14 +78,27 @@ enum DiagnosticsExporter {
     @MainActor
     static func exportToFile() {
         let panel = NSSavePanel()
-        panel.title = "导出诊断信息"
-        panel.prompt = "导出"
+        panel.title = AppLocalization().string("导出诊断信息")
+        panel.prompt = AppLocalization().string("导出")
         panel.nameFieldStringValue = "MacUnzip-Diagnostics.txt"
         panel.allowedContentTypes = [.plainText]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         let report = collectReport()
-        try? report.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try report.write(to: url, atomically: true, encoding: .utf8)
+            let alert = NSAlert()
+            alert.messageText = AppLocalization().string("已导出诊断信息")
+            alert.informativeText = AppLocalization().format("诊断报告已保存到「%@」。", url.lastPathComponent)
+            alert.alertStyle = .informational
+            alert.runModal()
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = AppLocalization().string("导出失败")
+            alert.informativeText = AppLocalization().string("无法写入诊断报告文件，请检查磁盘空间或目标路径。")
+            alert.alertStyle = .warning
+            alert.runModal()
+        }
     }
 }

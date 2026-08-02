@@ -107,6 +107,7 @@ public enum CrashRecoveryJournalStore {
         in directories: [URL]
     ) -> [(journalURL: URL, journal: CrashRecoveryJournal)] {
         var results: [(journalURL: URL, journal: CrashRecoveryJournal)] = []
+        var seenJournalPaths = Set<String>()
         let journalExtension = CrashRecoveryJournal.fileExtension
         for directory in directories {
             guard let enumerator = FileManager.default.enumerator(
@@ -124,13 +125,54 @@ public enum CrashRecoveryJournalStore {
                       journal.state == .inProgress
                 else { continue }
                 let expectedSource = fileURL.deletingPathExtension().path
-                guard journal.sourceArchive == expectedSource else { continue }
+                guard canonicalPath(journal.sourceArchive) == canonicalPath(expectedSource)
+                else { continue }
                 let stagingDir = URL(fileURLWithPath: journal.stagingFile).deletingLastPathComponent()
-                guard stagingDir == fileURL.deletingLastPathComponent() else { continue }
+                guard canonicalPath(stagingDir.path)
+                    == canonicalPath(fileURL.deletingLastPathComponent().path)
+                else { continue }
+                let canonicalJournalPath = canonicalPath(fileURL.path)
+                guard seenJournalPaths.insert(canonicalJournalPath).inserted else { continue }
                 results.append((journalURL: fileURL, journal: journal))
             }
         }
         return results
+    }
+
+    /// Returns `true` when the journal is consistent with the archive it was
+    /// found next to: its recorded source archive resolves to `archiveURL`
+    /// (after symlink canonicalization) and its staging file lives in the same
+    /// directory as the archive. Mirrors the integrity checks performed during
+    /// directory scanning so an open-time check cannot act on a stale or
+    /// relocated journal.
+    public static func journal(
+        _ journal: CrashRecoveryJournal,
+        matchesArchiveAt archiveURL: URL
+    ) -> Bool {
+        let journalURL = journalURL(forArchiveAt: archiveURL)
+        let expectedSource = journalURL.deletingPathExtension().path
+        guard canonicalPath(journal.sourceArchive) == canonicalPath(expectedSource)
+        else { return false }
+        let stagingDir = URL(fileURLWithPath: journal.stagingFile).deletingLastPathComponent()
+        guard canonicalPath(stagingDir.path)
+            == canonicalPath(journalURL.deletingLastPathComponent().path)
+        else { return false }
+        // Staleness guard: the staging file holds the interrupted save's output
+        // and must be at least as new as the on-disk archive. If the archive is
+        // newer, it was replaced after the crash (e.g. a fresh archive created
+        // at the same path), so recovering would clobber it with stale bytes.
+        let stagingURL = URL(fileURLWithPath: journal.stagingFile)
+        if
+            let archiveDate = (try? archiveURL.resourceValues(
+                forKeys: [.contentModificationDateKey]
+            ))?.contentModificationDate,
+            let stagingDate = (try? stagingURL.resourceValues(
+                forKeys: [.contentModificationDateKey]
+            ))?.contentModificationDate
+        {
+            return archiveDate <= stagingDate
+        }
+        return true
     }
 
     /// Returns `true` when the staging file referenced by the journal still
@@ -176,6 +218,15 @@ public enum CrashRecoveryJournalStore {
             deleteJournal(forArchiveAt: targetURL)
             throw CrashRecoveryError.stagingFileMissing
         }
+        Darwin.close(stagingFD)
+
+        // Refuse to overwrite the original unless the staging file parses as a
+        // complete ZIP. A partial staging file (interrupted write) would
+        // otherwise destroy the user's intact archive.
+        guard ZIPStagingValidator.isValidArchive(at: stagingURL) else {
+            deleteJournal(forArchiveAt: targetURL)
+            throw CrashRecoveryError.stagingFileInvalid
+        }
 
         let renameResult = stagingURL.withUnsafeFileSystemRepresentation { stagePath in
             targetURL.withUnsafeFileSystemRepresentation { targetPath in
@@ -183,7 +234,6 @@ public enum CrashRecoveryJournalStore {
                 return Darwin.rename(stagePath, targetPath)
             }
         }
-        Darwin.close(stagingFD)
         guard renameResult == 0 else {
             throw CrashRecoveryError.renameFailed(errno)
         }
@@ -219,6 +269,30 @@ public enum CrashRecoveryJournalStore {
 
     // MARK: Private
 
+    /// Returns a symlink-canonical form of a path for reliable equality checks.
+    ///
+    /// Resolves the deepest existing ancestor via `realpath` and re-appends any
+    /// remaining (not-yet-created) components lexically. This canonicalizes
+    /// symlinked prefixes such as `/var -> /private/var` even when the final
+    /// path does not exist yet, matching the resolved URLs the directory
+    /// enumerator produces during scanning.
+    private static func canonicalPath(_ path: String) -> String {
+        var current = path
+        var trailing: [String] = []
+        while true {
+            if let resolved = realpath(current, nil) {
+                let base = String(cString: resolved)
+                free(resolved)
+                guard !trailing.isEmpty else { return base }
+                return (base as NSString).appendingPathComponent(trailing.reversed().joined(separator: "/"))
+            }
+            let parent = (current as NSString).deletingLastPathComponent
+            if parent == current { return path }
+            trailing.append((current as NSString).lastPathComponent)
+            current = parent
+        }
+    }
+
     private static func syncDirectory(at url: URL) {
         let descriptor = url.withUnsafeFileSystemRepresentation { path -> Int32 in
             guard let path else { return -1 }
@@ -235,6 +309,9 @@ public enum CrashRecoveryJournalStore {
 public enum CrashRecoveryError: Error, Equatable, Sendable {
     /// The staging file referenced by the journal no longer exists.
     case stagingFileMissing
+    /// The staging file exists but is not a structurally complete ZIP archive,
+    /// so recovery refuses to overwrite the original.
+    case stagingFileInvalid
     /// The atomic rename during recovery failed with the given `errno`.
     case renameFailed(Int32)
 }

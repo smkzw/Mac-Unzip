@@ -347,4 +347,76 @@ final class RARArchiveProviderTests: XCTestCase {
         let provider = try RARArchiveProvider.makeValidated()
         XCTAssertNotNil(provider)
     }
+
+    // MARK: - readEntry regression (fixture-based, requires rar + 7zz)
+
+    private func requireRARBinary() throws -> RARBinaryDiscovery {
+        guard let discovery = RARBinaryDiscovery.discover() else {
+            throw XCTSkip("rar is not installed at a trusted location; skipping RAR fixture test.")
+        }
+        return discovery
+    }
+
+    @discardableResult
+    private func runProcess(
+        _ binary: String,
+        _ arguments: [String],
+        in workingDirectory: URL
+    ) throws -> (Int32, String, String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: binary)
+        process.arguments = arguments
+        process.currentDirectoryURL = workingDirectory
+        process.standardInput = FileHandle.nullDevice
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = errPipe
+        try process.run()
+        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (
+            process.terminationStatus,
+            String(decoding: outData, as: UTF8.self),
+            String(decoding: errData, as: UTF8.self)
+        )
+    }
+
+    private func makeRARArchive(rarBinary: String, files: [String: Data]) throws -> URL {
+        let dir = try makeTempDirectory()
+        let sourceDir = dir.appending(path: "src", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        var names: [String] = []
+        for (name, data) in files.sorted(by: { $0.key < $1.key }) {
+            let fileURL = sourceDir.appending(path: name)
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try data.write(to: fileURL)
+            names.append(name)
+        }
+        let archiveURL = dir.appending(path: "archive.rar")
+        var args = ["a", "-r", "-idq"]
+        args.append(archiveURL.path)
+        args.append(contentsOf: names)
+        let (status, _, stderr) = try runProcess(rarBinary, args, in: sourceDir)
+        XCTAssertEqual(status, 0, "rar create failed: \(stderr)")
+        return archiveURL
+    }
+
+    func testReadSingleEntryReturnsExactBytes() async throws {
+        let sevenZip = try requireValidatedBinary()
+        let rar = try requireRARBinary()
+        let payload = Data("精确的字节内容 12345".utf8)
+        let archiveURL = try makeRARArchive(rarBinary: rar.resolvedPath, files: ["payload.bin": payload])
+        defer { try? FileManager.default.removeItem(at: archiveURL.deletingLastPathComponent()) }
+        let provider = RARArchiveProvider(binaryPath: sevenZip.resolvedPath)
+
+        let snapshot = try await provider.open(url: archiveURL)
+        let entry = try XCTUnwrap(snapshot.entries.first { $0.entry.displayPath == "payload.bin" })
+        let data = try await provider.readEntry(id: entry.entry.id, maximumBytes: 1 << 20)
+        XCTAssertEqual(data, payload)
+    }
 }

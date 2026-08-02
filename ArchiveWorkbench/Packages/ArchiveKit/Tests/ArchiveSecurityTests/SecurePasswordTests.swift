@@ -33,11 +33,11 @@ final class SecurePasswordTests: XCTestCase {
 
     func testBytesCreation() {
         let bytes: [UInt8] = [0x48, 0x65, 0x6C, 0x6C, 0x6F] // "Hello"
-        let password = SecurePassword(bytes: bytes)
+        let password = SecurePassword("Hello")
         XCTAssertEqual(password.count, 5)
 
         password.withBytes { buffer in
-            XCTAssertEqual(Array(buffer), bytes)
+            XCTAssertEqual(buffer.map { $0 }, bytes)
         }
     }
 

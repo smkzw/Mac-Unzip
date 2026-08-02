@@ -1,50 +1,73 @@
 import AppKit
-@preconcurrency import ArchiveOperations
 import SwiftUI
 import UniformTypeIdentifiers
 
 // Inline constant definitions (moved from UIConstants.swift due to module visibility)
-struct ArchiveWorkbenchUIConstants {
+struct MacUnzipUIConstants {
     static let defaultWindowWidth: CGFloat = 1180
     static let defaultWindowHeight: CGFloat = 760
 }
 
+/// Lets the AppKit delegate open a new main window from outside SwiftUI.
+/// `openWindow` is captured by `RootWindowView` on appear and stays valid for
+/// the app's lifetime, so it can reopen a window after all are closed.
 @MainActor
-final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
+enum MainAppWindowOpener {
+    static var openWindow: OpenWindowAction?
+
+    static func openMainWindow() {
+        openWindow?(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+@MainActor
+final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
     private let serviceProvider = ArchiveServiceProvider()
 
     /// URL from application(_:openURLs:) that arrived before the view subscribed.
     static var pendingLaunchURL: URL?
 
-    /// Journals found during launch scan, before AppModel exists to observe the notification.
-    static var pendingRecoveryJournals: [(journalURL: URL, journal: CrashRecoveryJournal)] = []
+    /// Count of archives skipped when a multi-open request opens only the first.
+    static var pendingSkippedOpenCount = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = serviceProvider
         guard !ProcessInfo.processInfo.arguments.contains("-ui-testing") else { return }
         try? FileManager.default.removeItem(at: ValidatedPreviewCacheURL.cacheRoot)
+        try? FileManager.default.removeItem(
+            at: FileManager.default.temporaryDirectory.appendingPathComponent("MacUnzipExternal", isDirectory: true)
+        )
         cleanStaleFinderTempFiles()
+        StaleCopyTempStore.sweep()
         handleLaunchArguments()
         registerFinderIPC()
-        scanForCrashRecoveryJournals()
     }
 
     private func registerFinderIPC() {
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(handleFinderRequest(_:)),
-            name: NSNotification.Name("com.smkzw.ArchiveWorkbench.finderRequest"),
+            name: NSNotification.Name("com.smkzw.MacUnzip.finderRequest"),
             object: nil
         )
     }
 
     @objc private func handleFinderRequest(_ notification: Notification) {
-        // Note: Previously added serial queue (finderIPCQueue) but Swift 6 Sendable rules
-        // prevent using notification.userInfo inside async closure without complex casting.
-        // The race condition risk is minimal as Finder IPC naturally serializes requests,
-        // but this should be refactored when Swift supports better Non-Sendable handling.
-        
-        // Original implementation preserved for functionality:
+        // SECURITY: DistributedNotificationCenter is unauthenticated; any process running
+        // as the current user can post this notification. We require the Finder extension
+        // process to actually be running before honoring a request — a running-process
+        // check cannot be spoofed by an unrelated app. This blocks opportunistic IPC from
+        // processes that are not the extension. It does NOT fully defend against a
+        // malicious process running as the same user (which could coexist with a running
+        // extension); the complete fix is an authenticated XPC connection, which is the
+        // documented upgrade path. Downstream, LicenseGate + confirmation alerts still
+        // mediate any privileged action.
+        let extensionRunning = !NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.smkzw.MacUnzip.finder-extension"
+        ).isEmpty
+        guard extensionRunning else { return }
+
         guard let userInfo = notification.userInfo,
               let pathsString = userInfo["paths"] as? String else { return }
         let action = userInfo["action"] as? String ?? "compress"
@@ -52,9 +75,10 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
         guard !paths.isEmpty else { return }
         let urls = paths.map { URL(fileURLWithPath: $0) }
         guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
-        if action == "open", urls.count == 1 {
-            RecentArchivesManager.shared.noteRecentArchive(urls[0])
-            NotificationCenter.default.post(name: .openArchiveURL, object: urls[0])
+        if action == "open" {
+            // Multi-selection open: open the first archive, matching
+            // application(_:open urls:) which also honors urls.first.
+            Self.deliverOpenURL(urls[0], skippedCount: max(0, urls.count - 1))
         } else {
             NotificationCenter.default.post(
                 name: .finderCompressRequest,
@@ -89,17 +113,19 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
             return args[actionIndex + 1]
         }()
         guard let data = FileManager.default.contents(atPath: tempPath) else { return }
-        try? FileManager.default.removeItem(atPath: tempPath)
         // Graceful fallback for non-UTF-8 encoded paths from Finder IPC
         let pathsString = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) ?? ""
         let paths = pathsString.split(separator: "\0", omittingEmptySubsequences: true).map(String.init)
         guard !paths.isEmpty else { return }
         let urls = paths.map { URL(fileURLWithPath: $0) }
         guard urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
-        if action == "open", urls.count == 1 {
-            Self.pendingLaunchURL = urls[0]
-            RecentArchivesManager.shared.noteRecentArchive(urls[0])
-            NotificationCenter.default.post(name: .openArchiveURL, object: urls[0])
+        if action == "open" {
+            guard let first = urls.first else { return }
+            // RootWindowView parses these same -finder-* arguments and owns the
+            // open (deleting the temp file and surfacing the skipped count). Do
+            // not post .openArchiveURL here: a live window would open the archive
+            // a second time. Just record recency.
+            RecentArchivesManager.shared.noteRecentArchive(first)
         } else {
             NotificationCenter.default.post(
                 name: .finderCompressRequest,
@@ -107,25 +133,6 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
                 userInfo: ["urls": urls, "action": action]
             )
         }
-    }
-
-    /// Scans common user directories for unfinished crash-recovery journals
-    /// and posts Notification/Name/crashRecoveryJournalsFound if any are
-    /// discovered. Recovery is never automatic; the UI presents the user with
-    /// a choice to recover or discard.
-    private func scanForCrashRecoveryJournals() {
-        let searchDirectories = [
-            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
-            FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first,
-            FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first,
-        ].compactMap { $0 }
-        let unfinished = CrashRecoveryJournalStore.scanForUnfinishedJournals(in: searchDirectories)
-        guard !unfinished.isEmpty else { return }
-        Self.pendingRecoveryJournals = unfinished
-        NotificationCenter.default.post(
-            name: .crashRecoveryJournalsFound,
-            object: unfinished
-        )
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -138,21 +145,22 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
         let alert = NSAlert()
-        alert.messageText = AppLocalization().string("此归档有未保存的更改。")
+        alert.messageText = AppLocalization().string("此归档有未保存的更改")
         alert.informativeText = AppLocalization().string("如果不保存，所做的修改将会丢失。")
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppLocalization().string("保存"))
         alert.addButton(withTitle: AppLocalization().string("不保存"))
         alert.addButton(withTitle: AppLocalization().string("取消"))
         alert.buttons[0].keyEquivalent = "\r"
-        alert.buttons[1].keyEquivalent = ""
+        alert.buttons[1].keyEquivalent = "d"
+        alert.buttons[1].keyEquivalentModifierMask = .command
         alert.buttons[2].keyEquivalent = "\u{1b}"
         let response = alert.runModal()
         switch response {
         case .alertFirstButtonReturn:
             Task { @MainActor in
                 for d in unsavedDelegates {
-                    await d.model.saveArchive()
+                    await d.model.saveArchiveResolvingNested()
                 }
                 let allSaved = unsavedDelegates.allSatisfy { !$0.model.hasUnsavedChanges }
                 sender.reply(toApplicationShouldTerminate: allSaved)
@@ -167,16 +175,42 @@ final class ArchiveWorkbenchAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         try? FileManager.default.removeItem(at: ValidatedPreviewCacheURL.cacheRoot)
+        try? FileManager.default.removeItem(
+            at: FileManager.default.temporaryDirectory.appendingPathComponent("MacUnzipExternal", isDirectory: true)
+        )
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first else { return }
-        RecentArchivesManager.shared.noteRecentArchive(url)
+        let skipped = max(0, urls.count - 1)
         if application.isActive {
-            NotificationCenter.default.post(name: .openArchiveURL, object: url)
+            Self.deliverOpenURL(url, skippedCount: skipped)
         } else {
+            RecentArchivesManager.shared.noteRecentArchive(url)
             Self.pendingLaunchURL = url
+            Self.pendingSkippedOpenCount = skipped
         }
+    }
+
+    /// Routes an open-archive request to a live window, or stashes it and opens
+    /// a new window when none exists (e.g. app running with all windows closed).
+    static func deliverOpenURL(_ url: URL, skippedCount: Int = 0) {
+        RecentArchivesManager.shared.noteRecentArchive(url)
+        if hasMainWindow {
+            NotificationCenter.default.post(
+                name: .openArchiveURL,
+                object: url,
+                userInfo: skippedCount > 0 ? ["skippedCount": skippedCount] : nil
+            )
+        } else {
+            pendingLaunchURL = url
+            pendingSkippedOpenCount = skippedCount
+            MainAppWindowOpener.openMainWindow()
+        }
+    }
+
+    private static var hasMainWindow: Bool {
+        NSApp.windows.contains { $0.delegate is UnsavedChangesWindowDelegate }
     }
 }
 
@@ -193,20 +227,21 @@ final class UnsavedChangesWindowDelegate: NSObject, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard model.hasUnsavedChanges else { return true }
         let alert = NSAlert()
-        alert.messageText = AppLocalization().string("此归档有未保存的更改。")
+        alert.messageText = AppLocalization().string("此归档有未保存的更改")
         alert.informativeText = AppLocalization().string("如果不保存，所做的修改将会丢失。")
         alert.alertStyle = .warning
         alert.addButton(withTitle: AppLocalization().string("保存"))
         alert.addButton(withTitle: AppLocalization().string("不保存"))
         alert.addButton(withTitle: AppLocalization().string("取消"))
         alert.buttons[0].keyEquivalent = "\r"
-        alert.buttons[1].keyEquivalent = ""
+        alert.buttons[1].keyEquivalent = "d"
+        alert.buttons[1].keyEquivalentModifierMask = .command
         alert.buttons[2].keyEquivalent = "\u{1b}"
         let response = alert.runModal()
         switch response {
         case .alertFirstButtonReturn:
             Task { @MainActor in
-                await self.model.saveArchive()
+                await self.model.saveArchiveResolvingNested()
                 if !self.model.hasUnsavedChanges {
                     sender.close()
                 }
@@ -266,42 +301,66 @@ private final class WindowObservingView: NSView {
 }
 
 @main
-struct ArchiveWorkbenchApp: App {
-    @NSApplicationDelegateAdaptor(ArchiveWorkbenchAppDelegate.self) private var appDelegate
+struct MacUnzipApp: App {
+    @NSApplicationDelegateAdaptor(MacUnzipAppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup { RootWindowView() }
-            .defaultSize(width: ArchiveWorkbenchUIConstants.defaultWindowWidth, height: ArchiveWorkbenchUIConstants.defaultWindowHeight)
-            .windowToolbarStyle(.unified(showsTitle: false))
+        WindowGroup(id: "main") { RootWindowView() }
+            .defaultSize(width: MacUnzipUIConstants.defaultWindowWidth, height: MacUnzipUIConstants.defaultWindowHeight)
+            .windowToolbarStyle(.unified)
             .commands {
-                CommandGroup(after: .newItem) {
-                    Button("打开压缩包…") {
-                        NotificationCenter.default.post(name: .openArchiveRequest, object: nil)
-                    }
-                    .keyboardShortcut("o", modifiers: .command)
-
-                    Button("新建压缩包…") {
-                        NotificationCenter.default.post(name: .createArchiveRequest, object: nil)
-                    }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                }
+                OpenCreateCommands()
                 CommandGroup(after: .saveItem) {
                     SaveCommands()
                 }
                 CommandGroup(replacing: .undoRedo) {
                     UndoArchiveCommand()
+                    RedoArchiveCommand()
                 }
                 CommandGroup(after: .textEditing) {
-                    Button("搜索压缩包内容") {
-                        NotificationCenter.default.post(name: .focusArchiveSearch, object: nil)
-                    }
-                    .keyboardShortcut("f", modifiers: .command)
+                    SearchArchiveCommand()
                 }
                 EditArchiveCommands()
                 ViewNavigationCommands()
                 HelpMenuCommands()
             }
         Settings { SettingsView() }
+    }
+}
+
+// MARK: - Open / Create Commands
+
+struct OpenCreateCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+    @FocusedValue(\.appModel) private var model: AppModel?
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("打开压缩包…") { perform(.openArchive) }
+                .keyboardShortcut("o", modifiers: .command)
+
+            Button(AppLocalization().string("新建压缩包…") + proSuffix) { perform(.createArchive) }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+        }
+    }
+
+    private var proSuffix: String {
+        LicenseManager.shared.isProLicensed ? "" : " · Pro"
+    }
+
+    private func perform(_ command: PendingWindowCommand) {
+        if model != nil {
+            let name: Notification.Name = command == .openArchive
+                ? .openArchiveRequest
+                : .createArchiveRequest
+            NotificationCenter.default.post(name: name, object: nil)
+        } else {
+            // No window is open: remember the command and open a fresh window,
+            // which performs it on appear.
+            PendingWindowCommandBox.shared.set(command)
+            openWindow(id: "main")
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
 
@@ -316,14 +375,14 @@ struct SaveCommands: View {
             Task { await model.saveArchive() }
         }
         .keyboardShortcut("s", modifiers: .command)
-        .disabled(model?.hasUnsavedChanges != true)
+        .disabled(model?.hasUnsavedChanges != true || model?.isNestedSession == true)
 
         Button("另存为…") {
             guard let model else { return }
             presentSaveAsPanel(model: model)
         }
         .keyboardShortcut("s", modifiers: [.command, .shift])
-        .disabled(model?.hasDocument != true)
+        .disabled(model?.hasDocument != true || model?.isNestedSession == true)
     }
 
     private func presentSaveAsPanel(model: AppModel) {
@@ -340,16 +399,55 @@ struct SaveCommands: View {
 
 // MARK: - Undo Command
 
+/// Routes the Edit menu undo/redo key equivalents to the focused text editor
+/// when one is active, so ⌘Z/⌘⇧Z edit text (search field, rename alert, license
+/// or password fields) instead of undoing archive changes. Returns true when
+/// the action was handled by a text editor.
+@MainActor
+enum EditMenuTextRouter {
+    static func forwardIfEditingText(_ selector: Selector) -> Bool {
+        guard let responder = NSApp.keyWindow?.firstResponder,
+              responder is NSTextView,
+              responder.responds(to: selector) else { return false }
+        return responder.tryToPerform(selector, with: nil)
+    }
+}
+
 struct UndoArchiveCommand: View {
     @FocusedValue(\.appModel) private var model: AppModel?
 
     var body: some View {
         Button("撤销修改") {
-            guard let model else { return }
+            if EditMenuTextRouter.forwardIfEditingText(NSSelectorFromString("undo:")) { return }
+            guard let model, model.hasUnsavedChanges, !model.isNestedSession else { return }
             Task { await model.undoLastChange() }
         }
         .keyboardShortcut("z", modifiers: .command)
-        .disabled(model?.hasUnsavedChanges != true)
+    }
+}
+
+struct RedoArchiveCommand: View {
+    @FocusedValue(\.appModel) private var model: AppModel?
+
+    var body: some View {
+        Button("重做修改") {
+            if EditMenuTextRouter.forwardIfEditingText(NSSelectorFromString("redo:")) { return }
+            guard let model, model.canRedo else { return }
+            Task { await model.redoLastChange() }
+        }
+        .keyboardShortcut("z", modifiers: [.command, .shift])
+    }
+}
+
+struct SearchArchiveCommand: View {
+    @FocusedValue(\.appModel) private var model: AppModel?
+
+    var body: some View {
+        Button("搜索压缩包内容") {
+            NotificationCenter.default.post(name: .focusArchiveSearch, object: nil)
+        }
+        .keyboardShortcut("f", modifiers: .command)
+        .disabled(model?.hasDocument != true)
     }
 }
 
@@ -362,26 +460,28 @@ struct EditArchiveCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
 
-            Button(AppLocalization().string("移除选中")) {
+            Button(AppLocalization().string("移除选中") + proSuffix) {
                 NotificationCenter.default.post(name: .removeSelectedRequest, object: nil)
             }
-            .keyboardShortcut(.delete, modifiers: [])
             .disabled(model?.canRemoveSelectedEntry != true)
 
-            Button(AppLocalization().string("重命名…")) {
+            Button(AppLocalization().string("重命名…") + proSuffix) {
                 NotificationCenter.default.post(name: .renameSelectedRequest, object: nil)
             }
-            .keyboardShortcut(.return, modifiers: [])
             .disabled(model?.canRenameSelectedEntry != true)
 
             Divider()
 
-            Button(AppLocalization().string("解压选中…")) {
+            Button(AppLocalization().string("解压选中…") + proSuffix) {
                 NotificationCenter.default.post(name: .extractSelectedRequest, object: nil)
             }
             .keyboardShortcut("e", modifiers: .command)
             .disabled(model?.canExtractSelected != true)
         }
+    }
+
+    private var proSuffix: String {
+        LicenseManager.shared.isProLicensed ? "" : " · Pro"
     }
 }
 

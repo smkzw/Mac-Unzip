@@ -2,9 +2,28 @@ import SwiftUI
 
 struct ArchiveSidebarView: View {
     @Bindable var model: AppModel
+    @AppStorage(SettingsKeys.recentArchivesCount) private var recentArchivesCount = 10
     let onExtract: () -> Void
     let onAdd: () -> Void
     let onOpenRecent: (URL) -> Void
+    let onOpen: (() -> Void)?
+    let onCreate: (() -> Void)?
+
+    init(
+        model: AppModel,
+        onExtract: @escaping () -> Void,
+        onAdd: @escaping () -> Void,
+        onOpenRecent: @escaping (URL) -> Void,
+        onOpen: (() -> Void)? = nil,
+        onCreate: (() -> Void)? = nil
+    ) {
+        self.model = model
+        self.onExtract = onExtract
+        self.onAdd = onAdd
+        self.onOpenRecent = onOpenRecent
+        self.onOpen = onOpen
+        self.onCreate = onCreate
+    }
 
     var body: some View {
         List {
@@ -30,21 +49,55 @@ struct ArchiveSidebarView: View {
         }
     }
 
+    private var extractHelp: String {
+        if model.isExtracting {
+            return AppLocalization().string("正在解压缩…")
+        }
+        return model.canExtract
+            ? AppLocalization().string("解压缩全部内容")
+            : AppLocalization().string("此格式不支持解压缩")
+    }
+
     private var quickActionsSection: some View {
         Section {
             Button {
+                onOpen?()
+            } label: {
+                Label(AppLocalization().string("打开其他压缩包"), systemImage: "folder")
+            }
+            .help(AppLocalization().string("打开另一个压缩包"))
+
+            Button {
+                onCreate?()
+            } label: {
+                HStack(spacing: 4) {
+                    Label(AppLocalization().string("新建压缩包"), systemImage: "archivebox.badge.plus")
+                    if !LicenseManager.shared.isProLicensed { proBadge }
+                }
+            }
+            .help(AppLocalization().string("新建一个压缩包（需要 Pro）"))
+
+            Button {
                 onAdd()
             } label: {
-                Label(AppLocalization().string("添加文件"), systemImage: "plus")
+                HStack(spacing: 4) {
+                    Label(AppLocalization().string("添加文件"), systemImage: "plus")
+                    if !LicenseManager.shared.isProLicensed { proBadge }
+                }
             }
             .disabled(!model.canAdd)
+            .help(model.canAdd ? AppLocalization().string("向压缩包添加文件") : AppLocalization().string("此格式为只读，不支持添加"))
 
             Button {
                 onExtract()
             } label: {
-                Label(AppLocalization().string("解压缩全部"), systemImage: "arrow.down.to.line")
+                HStack(spacing: 4) {
+                    Label(AppLocalization().string("解压缩全部"), systemImage: "arrow.down.to.line")
+                    if !LicenseManager.shared.isProLicensed { proBadge }
+                }
             }
             .disabled(!model.canExtract || model.isExtracting)
+            .help(extractHelp)
         } header: {
             Label("快捷操作", systemImage: "bolt")
                 .font(.caption)
@@ -52,40 +105,48 @@ struct ArchiveSidebarView: View {
         }
     }
 
+    private var proBadge: some View {
+        Text("Pro")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.purple)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(.purple.opacity(0.12), in: Capsule())
+    }
+
+    @ViewBuilder
     private var recentSection: some View {
-        Section {
-            let maxCount = UserDefaults.standard.object(forKey: SettingsKeys.recentArchivesCount) == nil
-                ? 10
-                : UserDefaults.standard.integer(forKey: SettingsKeys.recentArchivesCount)
-            let recent = RecentArchivesManager.shared.recentURLs
-            if maxCount == 0 {
-                EmptyView()
-            } else if recent.isEmpty {
-                Text("暂无最近打开的压缩包")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            } else {
-                ForEach(recent.prefix(maxCount), id: \.self) { url in
-                    Button {
-                        onOpenRecent(url)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "archivebox")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(url.lastPathComponent)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+        let maxCount = recentArchivesCount
+        let recent = RecentArchivesManager.shared.recentURLs
+        if maxCount > 0 {
+            Section {
+                if recent.isEmpty {
+                    Text("暂无最近打开的压缩包")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    ForEach(recent.prefix(maxCount), id: \.self) { url in
+                        Button {
+                            onOpenRecent(url)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "archivebox")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(url.lastPathComponent)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
                         }
+                        .buttonStyle(.plain)
+                        .help(url.path)
                     }
-                    .buttonStyle(.plain)
-                    .help(url.path)
                 }
+            } header: {
+                Label("最近打开", systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-        } header: {
-            Label("最近打开", systemImage: "clock")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 

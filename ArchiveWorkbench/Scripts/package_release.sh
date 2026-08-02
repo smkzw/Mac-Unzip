@@ -20,9 +20,9 @@ set -euo pipefail
 # Configuration (TODO: Replace placeholder values)
 # -----------------------------------------------------------------------------
 
-APP_NAME="ArchiveWorkbench"
-BUNDLE_ID="com.smkzw.ArchiveWorkbench"
-VERSION="${2:-1.0.0}"  # TODO: Set actual version or pass as argument
+APP_NAME="MacUnzip"
+BUNDLE_ID="com.smkzw.MacUnzip"
+VERSION="1.0.0"  # Default; override with --version X.Y.Z (parsed below)
 
 # TODO: Replace with actual Developer ID identity
 SIGNING_IDENTITY="Developer ID Application: YOUR NAME (TEAM_ID)"
@@ -33,7 +33,6 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="${PROJECT_DIR}/build"
 ARCHIVE_PATH="${BUILD_DIR}/${APP_NAME}.xcarchive"
 APP_PATH="${ARCHIVE_PATH}/Products/Applications/${APP_NAME}.app"
-OUTPUT_DMG="${BUILD_DIR}/${APP_NAME}-${VERSION}.dmg"
 ENTITLEMENTS="${PROJECT_DIR}/Distribution/${APP_NAME}.entitlements"
 
 # Reproducible build timestamp (2026-07-27T00:00:00Z)
@@ -62,6 +61,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Computed after arg parsing so --version overrides are reflected in the DMG name.
+OUTPUT_DMG="${BUILD_DIR}/${APP_NAME}-${VERSION}.dmg"
 
 # -----------------------------------------------------------------------------
 # Step 1: Clean & Build Release
@@ -143,10 +145,13 @@ if [[ "${SKIP_SIGN}" == "true" ]]; then
   echo "  Signing skipped; verifying ad-hoc signature..."
   codesign --verify --verbose=2 "${APP_PATH}" 2>&1 || true
 else
-  # Verify hardened runtime
-  codesign -dvvv "${APP_PATH}" 2>&1 | grep -q "flags=0x10000(runtime)" \
-    && echo "  Hardened runtime: YES" \
-    || echo "  WARNING: Hardened runtime NOT detected!"
+  # Verify hardened runtime (capture first: grep -q in a pipe would SIGPIPE codesign under pipefail)
+  CODESIGN_INFO="$(codesign -dvvv "${APP_PATH}" 2>&1)"
+  if grep -q "flags=0x10000(runtime)" <<< "${CODESIGN_INFO}"; then
+    echo "  Hardened runtime: YES"
+  else
+    echo "  WARNING: Hardened runtime NOT detected!"
+  fi
 
   # Verify signature validity
   codesign --verify --deep --strict --verbose=2 "${APP_PATH}"

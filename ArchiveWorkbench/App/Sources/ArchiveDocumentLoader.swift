@@ -115,6 +115,9 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
     private var activePreviewRootURL: URL?
     private var currentArchiveURL: URL?
     private var currentFormat: ArchiveFormat?
+    /// Cached result of the expensive RAR binary discovery (SHA-256 + process
+    /// spawn). Computed once per loader; the license flag is read fresh each time.
+    private var cachedRARBinaryAvailable: Bool?
 
     init(
         provider: ZIPArchiveProvider = ZIPArchiveProvider(),
@@ -137,12 +140,23 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
     /// Runtime-discovered capability registry: 7z, RAR, DMG, and ISO capabilities
     /// are exposed only when a validated 7zz binary is present.
     var capabilityRegistry: ArchiveCapabilityRegistry {
-        ArchiveCapabilityRegistry.productionBaseline
+        let rarBinaryAvailable: Bool
+        if let cached = cachedRARBinaryAvailable {
+            rarBinaryAvailable = cached
+        } else {
+            rarBinaryAvailable = RARBinaryDiscovery.discover() != nil
+            cachedRARBinaryAvailable = rarBinaryAvailable
+        }
+        return ArchiveCapabilityRegistry.productionBaseline
             .withSevenZipAvailable(sevenZipProvider != nil)
             .withRARAvailable(rarProvider != nil)
-            .withRARCreateAvailable(RARBinaryDiscovery.discover() != nil)
+            .withRARCreateAvailable(rarBinaryAvailable && RARLicenseConfirmation().isConfirmed)
             .withDMGAvailable(dmgProvider != nil)
             .withISOAvailable(isoProvider != nil)
+    }
+
+    func invalidateEngineCache() {
+        cachedRARBinaryAvailable = nil
     }
 
     deinit {

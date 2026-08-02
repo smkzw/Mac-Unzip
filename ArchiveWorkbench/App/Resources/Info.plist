@@ -131,7 +131,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>用 Mac解霸 打开</string>
+				<string>用 MacUnzip 打开</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>openArchiveFromService</string>

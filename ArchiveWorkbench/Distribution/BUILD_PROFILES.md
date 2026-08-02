@@ -1,6 +1,6 @@
 # Build Profiles
 
-ArchiveWorkbench supports two distribution profiles:
+MacUnzip supports two distribution profiles:
 
 ---
 
@@ -22,12 +22,13 @@ ArchiveWorkbench supports two distribution profiles:
 ### Build Steps
 
 ```bash
-# 1. Build Release archive
+# 1. Regenerate the Xcode project from project.yml (required if MacUnzip.xcodeproj is absent), then build Release archive
+xcodegen generate
 xcodebuild archive \
-  -project ArchiveWorkbench.xcodeproj \
-  -scheme ArchiveWorkbench \
+  -project MacUnzip.xcodeproj \
+  -scheme MacUnzip \
   -configuration Release \
-  -archivePath build/ArchiveWorkbench.xcarchive \
+  -archivePath build/MacUnzip.xcarchive \
   -destination "generic/platform=macOS" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="Developer ID Application: ..." \
@@ -49,8 +50,8 @@ xcodebuild archive \
 ### Artifacts
 
 ```
-ArchiveWorkbench-1.0.0.dmg          # Signed + notarized + stapled
-ArchiveWorkbench-1.0.0.dmg.sha256   # Checksum
+MacUnzip-1.0.0.dmg          # Signed + notarized + stapled
+MacUnzip-1.0.0.dmg.sha256   # Checksum
 SBOM.spdx.json                      # Software Bill of Materials
 THIRD_PARTY_NOTICES.md              # License attributions
 ```
@@ -76,7 +77,7 @@ THIRD_PARTY_NOTICES.md              # License attributions
 
 ```bash
 # Clone and build from source
-git clone https://github.com/smkzw/ArchiveWorkbench.git
+git clone https://github.com/smkzw/Mac-Unzip.git
 cd ArchiveWorkbench
 
 # Install build dependencies
@@ -87,8 +88,8 @@ xcodegen generate
 
 # Build
 xcodebuild build \
-  -project ArchiveWorkbench.xcodeproj \
-  -scheme ArchiveWorkbench \
+  -project MacUnzip.xcodeproj \
+  -scheme MacUnzip \
   -configuration Release \
   -destination "platform=macOS" \
   CODE_SIGN_IDENTITY="-" \
@@ -149,10 +150,13 @@ Eliminates timestamp-based non-determinism in build outputs:
 # Set to a fixed date (e.g., release date)
 export SOURCE_DATE_EPOCH=1785081600  # 2026-07-27T00:00:00Z
 
+# Regenerate the Xcode project from project.yml (required if MacUnzip.xcodeproj is absent)
+xcodegen generate
+
 # Build with deterministic settings
 xcodebuild build \
-  -project ArchiveWorkbench.xcodeproj \
-  -scheme ArchiveWorkbench \
+  -project MacUnzip.xcodeproj \
+  -scheme MacUnzip \
   -configuration Release \
   CODE_SIGN_IDENTITY="-" \
   CODE_SIGN_STYLE=Manual \
@@ -183,7 +187,7 @@ diff <(shasum -a 256 .build-a/release/ArchiveKit) \
 ### Distribution
 
 - **GitHub**: Source repository with tagged releases
-- **Source tarball**: `git archive --format=tar.gz --prefix=ArchiveWorkbench-1.0.0/ v1.0.0`
+- **Source tarball**: `git archive --format=tar.gz --prefix=MacUnzip-1.0.0/ v1.0.0`
 - **No binary distribution** in this profile (users build locally)
 
 ---
@@ -212,4 +216,4 @@ diff <(shasum -a 256 .build-a/release/ArchiveKit) \
 
 ---
 
-*Generated: 2026-07-27 | ArchiveWorkbench Distribution Preparation (Phase G)*
+*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*

@@ -552,6 +552,7 @@ public actor TARArchiveProvider: ArchiveProvider {
 
         var entryPointer: OpaquePointer?
         while true {
+            try Task.checkCancellation()
             let result = archive_read_next_header(reader, &entryPointer)
             if result == ARCHIVE_EOF { break }
             guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
@@ -615,22 +616,27 @@ public actor TARArchiveProvider: ArchiveProvider {
                 includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey, .contentModificationDateKey, .isSymbolicLinkKey],
                 options: []
             ) else { return }
+            // enumerator yields symlink-resolved paths; resolve the base too so the prefix matches.
+            let resolvedPrefix = fileURL.resolvingSymlinksInPath().path + "/"
             for case let itemURL as URL in enumerator {
                 try Task.checkCancellation()
-                let relativePath = baseName + "/" + itemURL.path.dropFirst(fileURL.path.count + 1)
+                guard itemURL.path.hasPrefix(resolvedPrefix) else { continue }
+                let relativePath = baseName + "/" + itemURL.path.dropFirst(resolvedPrefix.count)
                 let itemResourceValues = try itemURL.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
                 guard itemResourceValues.isSymbolicLink != true else { continue }
                 let itemAttributes = try fm.attributesOfItem(atPath: itemURL.path)
                 let itemType = itemAttributes[.type] as? FileAttributeType
                 if itemType == .typeDirectory {
                     try addDirectoryEntry(writer: writer, path: relativePath, attributes: itemAttributes)
-                } else {
+                } else if itemType == .typeRegular {
                     try addRegularFileEntry(writer: writer, fileURL: itemURL, archivePath: relativePath, attributes: itemAttributes)
                 }
+                // Skip special files (FIFO/socket/device): opening them can block.
             }
-        } else {
+        } else if fileType == .typeRegular {
             try addRegularFileEntry(writer: writer, fileURL: fileURL, archivePath: fileURL.lastPathComponent, attributes: attributes)
         }
+        // Skip special files (FIFO/socket/device): opening them can block.
     }
 
     private func addDirectoryEntry(writer: OpaquePointer, path: String, attributes: [FileAttributeKey: Any]) throws {
@@ -686,6 +692,7 @@ public actor TARArchiveProvider: ArchiveProvider {
         defer { try? handle.close() }
         var totalWritten: Int64 = 0
         while true {
+            try Task.checkCancellation()
             let chunk: Data
             do {
                 chunk = try handle.read(upToCount: 1024 * 1024) ?? Data()

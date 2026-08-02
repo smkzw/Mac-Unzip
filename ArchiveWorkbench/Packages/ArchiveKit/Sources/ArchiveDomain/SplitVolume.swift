@@ -172,26 +172,31 @@ public struct SplitVolumeResolver: Sendable {
         var volumeURLs: [URL] = []
         var missingVolumes: [URL] = []
         var volumeIndex = 1
+        // A run of missing volumes is only a real gap if a later volume exists;
+        // otherwise it is simply the natural end of the set. Accumulate tentative
+        // gaps and confirm them when a subsequent volume is found.
+        var pendingGap: [URL] = []
+        var consecutiveMisses = 0
+        let maxConsecutiveMisses = 3
 
-        // Enumerate .z01, .z02, ... until we find a gap
         while true {
             let volumeName = String(format: "%@.z%02d", baseName, volumeIndex)
             let volumeURL = directory.appendingPathComponent(volumeName)
             if FileManager.default.fileExists(atPath: volumeURL.path) {
+                missingVolumes.append(contentsOf: pendingGap)
+                pendingGap.removeAll()
                 volumeURLs.append(volumeURL)
+                consecutiveMisses = 0
                 volumeIndex += 1
             } else {
-                // Check if there are more volumes after this gap
-                let nextName = String(format: "%@.z%02d", baseName, volumeIndex + 1)
-                let nextURL = directory.appendingPathComponent(nextName)
-                if FileManager.default.fileExists(atPath: nextURL.path) {
-                    missingVolumes.append(volumeURL)
-                    volumeIndex += 1
-                } else {
-                    break
-                }
+                pendingGap.append(volumeURL)
+                consecutiveMisses += 1
+                volumeIndex += 1
+                if consecutiveMisses >= maxConsecutiveMisses { break }
             }
         }
+        // Any trailing pendingGap is discarded: it marks the end of the set, not
+        // a gap, so complete sets are not falsely reported as missing volumes.
 
         // The final .zip segment
         let finalURL = directory.appendingPathComponent(baseName + ".zip")

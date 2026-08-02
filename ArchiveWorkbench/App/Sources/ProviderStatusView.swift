@@ -1,4 +1,5 @@
 import AppKit
+import ArchiveProviders
 import Foundation
 import SwiftUI
 
@@ -12,6 +13,14 @@ struct ProviderStatusInfo: Identifiable {
     let statusText: String
     let version: String
     let path: String
+    /// Human-readable update channel note (bundled vs external).
+    let updateNote: String
+    /// Non-nil for externally-distributed engines: opens the vendor site so the
+    /// user can fetch the latest binary. Nil for engines shipped inside the app
+    /// (updated by updating the app itself) — we never download/replace an
+    /// external executable from inside the app (supply-chain risk + contradicts
+    /// the zero-network privacy promise + RARLAB licensing).
+    let updateURL: URL?
 }
 
 enum ProviderStatusDetector {
@@ -28,69 +37,74 @@ enum ProviderStatusDetector {
         ProviderStatusInfo(
             id: "minizip-ng",
             name: "MinizipNG",
-            role: "ZIP 读写引擎",
+            role: AppLocalization().string("ZIP 读写引擎"),
             isAvailable: true,
-            statusText: "✅ 内置",
+            statusText: AppLocalization().string("✅ 内置"),
             version: "v4.2.1",
-            path: "内嵌于应用"
+            path: AppLocalization().string("内嵌于应用"),
+            updateNote: AppLocalization().string("随应用更新"),
+            updateURL: nil
         )
     }
 
     private static func detectSevenZip() -> ProviderStatusInfo {
-        let candidates = [
-            "/opt/homebrew/bin/7zz",
-            "/usr/local/bin/7zz",
-            "/usr/bin/7zz",
-        ]
-        for candidate in candidates where FileManager.default.fileExists(atPath: candidate) {
-            let version = queryVersion(path: candidate, arguments: ["i"])
+        if let discovery = SevenZipBinaryDiscovery.discover() {
+            let isBundled = discovery.resolvedPath.contains(Bundle.main.resourceURL?.path ?? "\0")
             return ProviderStatusInfo(
                 id: "7zz",
                 name: "7zz",
-                role: "7z / RAR 读取",
+                role: AppLocalization().string("7z / RAR 读取"),
                 isAvailable: true,
-                statusText: "✅ 已检测到",
-                version: version ?? "已安装",
-                path: candidate
+                statusText: isBundled
+                    ? AppLocalization().string("✅ 内置")
+                    : AppLocalization().string("✅ 已检测到"),
+                version: discovery.version,
+                path: isBundled ? AppLocalization().string("内嵌于应用") : discovery.resolvedPath,
+                updateNote: isBundled
+                    ? AppLocalization().string("随应用更新")
+                    : AppLocalization().string("前往官网获取最新版"),
+                updateURL: isBundled ? nil : URL(string: "https://www.7-zip.org")
             )
         }
         return ProviderStatusInfo(
             id: "7zz",
             name: "7zz",
-            role: "7z / RAR 读取",
+            role: AppLocalization().string("7z / RAR 读取"),
             isAvailable: false,
-            statusText: "❌ 未安装",
+            statusText: AppLocalization().string("❌ 未检测到"),
             version: "—",
-            path: "未检测到"
+            path: AppLocalization().string("未检测到"),
+            updateNote: AppLocalization().string("前往官网获取最新版"),
+            updateURL: URL(string: "https://www.7-zip.org")
         )
     }
 
     private static func detectRarlab() -> ProviderStatusInfo {
-        let candidates = [
-            "/opt/homebrew/bin/rar",
-            "/usr/local/bin/rar",
-            "/usr/bin/rar",
-        ]
-        for candidate in candidates where FileManager.default.fileExists(atPath: candidate) {
-            let version = queryVersion(path: candidate, arguments: ["--version"])
+        if let discovery = RARBinaryDiscovery.discover() {
             return ProviderStatusInfo(
                 id: "rarlab-rar",
                 name: "RARLAB rar",
-                role: "RAR 创建（外部）",
+                role: AppLocalization().string("RAR 创建（外部）"),
                 isAvailable: true,
-                statusText: "✅ 已检测到",
-                version: version ?? "已安装",
-                path: candidate
+                statusText: AppLocalization().string("✅ 已检测到"),
+                version: discovery.version.isEmpty
+                    ? AppLocalization().string("已安装")
+                    : discovery.version,
+                path: discovery.resolvedPath,
+                updateNote: AppLocalization().string("前往官网获取最新版"),
+                updateURL: URL(string: "https://www.rarlab.com")
             )
         }
         return ProviderStatusInfo(
             id: "rarlab-rar",
             name: "RARLAB rar",
-            role: "RAR 创建（外部）",
+            role: AppLocalization().string("RAR 创建（外部）"),
             isAvailable: false,
-            statusText: "❌ 未安装",
+            statusText: AppLocalization().string("❌ 未检测到"),
             version: "—",
-            path: "未安装"
+            path: AppLocalization().string("未检测到"),
+            updateNote: AppLocalization().string("前往官网获取最新版"),
+            updateURL: URL(string: "https://www.rarlab.com")
         )
     }
 
@@ -98,38 +112,14 @@ enum ProviderStatusDetector {
         ProviderStatusInfo(
             id: "libarchive",
             name: "libarchive",
-            role: "tar / gz / xz / zst",
+            role: "tar / gz / xz / zst / ISO",
             isAvailable: true,
-            statusText: "✅ 系统内嵌",
-            version: "系统版本",
-            path: "系统内嵌"
+            statusText: AppLocalization().string("✅ 内置"),
+            version: "3.8.x",
+            path: AppLocalization().string("内嵌于应用"),
+            updateNote: AppLocalization().string("随应用更新"),
+            updateURL: nil
         )
-    }
-
-    private static func queryVersion(path: String, arguments: [String]) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8) else { return nil }
-            let lines = output.components(separatedBy: .newlines)
-            // Look for a line containing a version-like pattern (digits and dots)
-            for line in lines {
-                if line.rangeOfCharacter(from: .decimalDigits) != nil,
-                   line.contains(".") {
-                    return line.trimmingCharacters(in: .whitespaces)
-                }
-            }
-            return lines.first(where: { !$0.isEmpty })
-        } catch {
-            return nil
-        }
     }
 }
 
@@ -141,12 +131,13 @@ struct ProviderStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Provider 状态")
+                Text("格式支持状态")
                     .font(.title2.weight(.semibold))
                 Spacer()
                 Button("刷新") {
                     providers = ProviderStatusDetector.detectAll()
                 }
+                .accessibilityIdentifier("刷新引擎状态")
             }
             .padding(20)
             .padding(.bottom, 8)
@@ -175,11 +166,23 @@ struct ProviderStatusView: View {
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                        if let updateURL = provider.updateURL {
+                            Button(AppLocalization().string("前往官网")) {
+                                NSWorkspace.shared.open(updateURL)
+                            }
+                            .font(.caption)
+                            .buttonStyle(.link)
+                            .accessibilityIdentifier("前往\(provider.name)官网")
+                        } else {
+                            Text(provider.updateNote)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
                 .padding(.vertical, 6)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(provider.name)，\(provider.statusText)")
+                .accessibilityLabel("\(provider.name)，\(provider.statusText.replacingOccurrences(of: "✅ ", with: "").replacingOccurrences(of: "❌ ", with: ""))")
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
         }
@@ -188,7 +191,7 @@ struct ProviderStatusView: View {
             providers = ProviderStatusDetector.detectAll()
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Provider 状态")
+        .accessibilityLabel("格式支持状态")
     }
 }
 
@@ -214,7 +217,7 @@ final class ProviderStatusWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        newWindow.title = "Provider 状态"
+        newWindow.title = AppLocalization().string("格式支持状态")
         newWindow.contentView = hostingView
         newWindow.isReleasedWhenClosed = false
         newWindow.delegate = self

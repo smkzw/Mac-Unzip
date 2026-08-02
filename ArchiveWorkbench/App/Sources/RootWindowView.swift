@@ -1,4 +1,5 @@
 import AppKit
+import ArchiveProviders
 import Combine
 import Foundation
 import SwiftUI
@@ -29,6 +30,35 @@ extension Notification.Name {
     static let renameSelectedRequest = Notification.Name("renameSelectedRequest")
     static let extractSelectedRequest = Notification.Name("extractSelectedRequest")
     static let finderCompressRequest = Notification.Name("finderCompressRequest")
+    static let showLicenseActivationRequest = Notification.Name("showLicenseActivationRequest")
+}
+
+/// A menu command issued while no window existed, performed by the next window
+/// that appears (menu commands posted as notifications would otherwise be lost).
+enum PendingWindowCommand {
+    case openArchive
+    case createArchive
+    case showLicenseActivation
+}
+
+final class PendingWindowCommandBox: @unchecked Sendable {
+    static let shared = PendingWindowCommandBox()
+    private let lock = NSLock()
+    private var command: PendingWindowCommand?
+
+    func set(_ command: PendingWindowCommand) {
+        lock.lock()
+        self.command = command
+        lock.unlock()
+    }
+
+    func take() -> PendingWindowCommand? {
+        lock.lock()
+        defer { lock.unlock() }
+        let current = command
+        command = nil
+        return current
+    }
 }
 
 enum VisualCaptureStyle {
@@ -37,7 +67,21 @@ enum VisualCaptureStyle {
     case increaseContrast
 }
 
+@MainActor
+private func shouldHandleNotification(for model: AppModel) -> Bool {
+    if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate {
+        return keyDelegate.model === model
+    }
+    for window in NSApp.orderedWindows {
+        if let delegate = window.delegate as? UnsavedChangesWindowDelegate {
+            return delegate.model === model
+        }
+    }
+    return true
+}
+
 struct RootWindowView: View {
+    @Environment(\.openWindow) private var openWindow
     @State private var model: AppModel
     @State private var creationDraft: ArchiveCreationDraft?
     @State private var renameAlertPresented = false
@@ -45,6 +89,8 @@ struct RootWindowView: View {
     @State private var pendingOpenURL: URL?
     @State private var pendingCreationInputs: [URL]?
     @State private var licenseSheetFeature: ProFeature?
+    @State private var showLicenseSheet = false
+    @State private var pendingExtractHereURLs: [URL]?
     @State private var isDropTargeted = false
     private let visualCapture: Bool
     private let visualCaptureStyle: VisualCaptureStyle
@@ -126,6 +172,16 @@ struct RootWindowView: View {
                     onRemove: removeSelectedEntry,
                     onRename: presentRenameAlert,
                     onReplace: presentReplacePanel,
+                    onOpenRecent: { url in
+                        RecentArchivesManager.shared.noteRecentArchive(url)
+                        if model.hasUnsavedChanges {
+                            pendingOpenURL = url
+                        } else {
+                            Task { await model.openArchive(url: url) }
+                        }
+                    },
+                    onOpen: { presentOpenPanel() },
+                    onCreate: { presentCreationInputPanel() },
                 )
                     .frame(minWidth: 900, minHeight: 560)
             } else {
@@ -147,18 +203,37 @@ struct RootWindowView: View {
                             )
                         }
                         ContentUnavailableView {
-                            Label("Mac解霸", systemImage: "archivebox")
+                            Label("MacUnzip", systemImage: "archivebox")
                         } description: {
-                            Text("Mac解霸 — 打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。")
+                            Text(AppLocalization().string(LicenseManager.shared.isProLicensed
+                                ? "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\nPro 已激活 · 全部功能可用"
+                                : "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\n免费浏览 · 解压缩/创建/编辑需要 Pro"))
                         } actions: {
                             HStack(spacing: 12) {
                                 Button("打开压缩包") { presentOpenPanel() }
                                     .buttonStyle(.borderedProminent)
                                     .keyboardShortcut(.defaultAction)
                                     .accessibilityIdentifier("打开压缩包")
-                                Button("创建归档") { presentCreationInputPanel() }
-                                    .help("创建 ZIP、7z、TAR.GZ、TAR.XZ、TAR.ZST 或 RAR 压缩包")
-                                    .accessibilityIdentifier("创建归档")
+                                Button {
+                                    presentCreationInputPanel()
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("新建压缩包")
+                                        if !LicenseManager.shared.isProLicensed {
+                                            Text("Pro")
+                                                .font(.caption2.weight(.semibold))
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 1)
+                                                .background(.purple.opacity(0.15))
+                                                .foregroundStyle(.purple)
+                                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                                        }
+                                    }
+                                }
+                                .help(AppLocalization().string(LicenseManager.shared.isProLicensed
+                                    ? "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包"
+                                    : "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包（需要 Pro）"))
+                                .accessibilityIdentifier("新建压缩包")
                             }
                         }
                         if !model.statusMessage.isEmpty {
@@ -173,9 +248,18 @@ struct RootWindowView: View {
                             : UserDefaults.standard.integer(forKey: SettingsKeys.recentArchivesCount)
                         if recentMax > 0 && !recentURLs.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("最近打开")
-                                    .font(.caption)
+                                HStack {
+                                    Text("最近打开")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Button(AppLocalization().string("清除")) {
+                                        RecentArchivesManager.shared.clearRecent()
+                                    }
+                                    .font(.caption2)
+                                    .buttonStyle(.plain)
                                     .foregroundStyle(.secondary)
+                                }
                                 ForEach(recentURLs.prefix(recentMax), id: \.self) { url in
                                     Button {
                                         RecentArchivesManager.shared.noteRecentArchive(url)
@@ -185,9 +269,16 @@ struct RootWindowView: View {
                                             Image(systemName: "archivebox")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
-                                            Text(url.lastPathComponent)
-                                                .lineLimit(1)
-                                                .truncationMode(.middle)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(url.lastPathComponent)
+                                                    .lineLimit(1)
+                                                    .truncationMode(.middle)
+                                                Text(url.deletingLastPathComponent().lastPathComponent)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.tertiary)
+                                                    .lineLimit(1)
+                                                    .truncationMode(.middle)
+                                            }
                                         }
                                     }
                                     .buttonStyle(.plain)
@@ -195,13 +286,14 @@ struct RootWindowView: View {
                                 }
                             }
                             .padding(.top, 8)
+                            .frame(maxWidth: 320)
                         }
                     }
                 }
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(AppLocalization().string(model.hasDocument ? "Mac解霸" : "欢迎"))
+        .accessibilityLabel(AppLocalization().string(model.hasDocument ? "MacUnzip" : "欢迎"))
         .frame(minWidth: 900, minHeight: 560)
         .focusedValue(\.appModel, model)
         .background(WindowCloseHandler(model: model))
@@ -228,19 +320,23 @@ struct RootWindowView: View {
             handleDrop(providers: providers)
         }
         .onReceive(NotificationCenter.default.publisher(for: .openArchiveRequest)) { _ in
-            if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate,
-               keyDelegate.model !== model { return }
+            guard shouldHandleNotification(for: model) else { return }
             presentOpenPanel()
         }
         .onReceive(NotificationCenter.default.publisher(for: .createArchiveRequest)) { _ in
-            if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate,
-               keyDelegate.model !== model { return }
+            guard shouldHandleNotification(for: model) else { return }
             presentCreationInputPanel()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openArchiveURL)) { notification in
             guard let url = notification.object as? URL else { return }
-            if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate,
-               keyDelegate.model !== model { return }
+            guard shouldHandleNotification(for: model) else { return }
+            let skipped = (notification.userInfo?["skippedCount"] as? Int) ?? 0
+            if skipped > 0 {
+                model.transientStatusMessage = AppLocalization().format(
+                    "已打开首个压缩包，其余 %ld 个已跳过",
+                    skipped
+                )
+            }
             if model.hasUnsavedChanges {
                 pendingOpenURL = url
             } else {
@@ -250,21 +346,14 @@ struct RootWindowView: View {
         .onReceive(NotificationCenter.default.publisher(for: .finderCompressRequest)) { notification in
             guard let userInfo = notification.userInfo,
                   let urls = userInfo["urls"] as? [URL], !urls.isEmpty else { return }
-            if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate,
-               keyDelegate.model !== model { return }
+            guard shouldHandleNotification(for: model) else { return }
             let action = userInfo["action"] as? String
             if action == "extract-here" {
-                Task {
-                    for url in urls {
-                        await model.openArchive(url: url)
-                        if model.hasDocument {
-                            model.startExtraction(to: url.deletingLastPathComponent())
-                            await model.awaitExtractionCompletion()
-                        }
-                    }
-                }
+                guard LicenseGate.requirePro(for: .extract) else { return }
+                pendingExtractHereURLs = urls
                 return
             }
+            guard LicenseGate.requirePro(for: .create) else { return }
             if action == "compress-zip" {
                 model.creationFormat = .zip
             }
@@ -310,30 +399,73 @@ struct RootWindowView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: LicenseGate.upgradeRequiredNotification)) { notification in
-            if let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate,
-               keyDelegate.model !== model { return }
+            guard shouldHandleNotification(for: model) else { return }
             licenseSheetFeature = notification.userInfo?["feature"] as? ProFeature
+            showLicenseSheet = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showLicenseActivationRequest)) { _ in
+            guard shouldHandleNotification(for: model) else { return }
+            licenseSheetFeature = nil
+            showLicenseSheet = true
         }
         .sheet(
             isPresented: Binding(
-                get: { licenseSheetFeature != nil },
-                set: { if !$0 { licenseSheetFeature = nil } }
+                get: { showLicenseSheet },
+                set: { if !$0 { showLicenseSheet = false; licenseSheetFeature = nil } }
             )
         ) {
             LicenseActivationView(requestedFeature: licenseSheetFeature)
         }
+        .alert(
+            AppLocalization().string("解压到所在文件夹"),
+            isPresented: Binding(
+                get: { pendingExtractHereURLs != nil },
+                set: { if !$0 { pendingExtractHereURLs = nil } }
+            )
+        ) {
+            Button(AppLocalization().string("解压缩")) {
+                guard let urls = pendingExtractHereURLs else { return }
+                pendingExtractHereURLs = nil
+                Task {
+                    for url in urls {
+                        await model.openArchive(url: url)
+                        if model.hasDocument {
+                            model.startExtraction(to: url.deletingLastPathComponent())
+                            await model.awaitExtractionCompletion()
+                        }
+                    }
+                }
+            }
+            Button(AppLocalization().string("取消"), role: .cancel) { pendingExtractHereURLs = nil }
+        } message: {
+            if let urls = pendingExtractHereURLs {
+                Text(AppLocalization().format("即将把 %ld 个压缩包解压到各自所在的文件夹。", urls.count))
+            }
+        }
         .onAppear {
+            MainAppWindowOpener.openWindow = openWindow
+            if let pending = PendingWindowCommandBox.shared.take() {
+                DispatchQueue.main.async {
+                    switch pending {
+                    case .openArchive: presentOpenPanel()
+                    case .createArchive: presentCreationInputPanel()
+                    case .showLicenseActivation:
+                        licenseSheetFeature = nil
+                        showLicenseSheet = true
+                    }
+                }
+            }
             DispatchQueue.main.async {
                 guard let window = NSApp.keyWindow
                     ?? NSApp.windows.first(where: \.isVisible)
                     ?? NSApp.windows.first else { return }
                 let localization = AppLocalization()
-                let label = localization.string(model.hasDocument ? "Mac解霸" : "欢迎")
+                let label = localization.string(model.hasDocument ? "MacUnzip" : "欢迎")
                 window.setAccessibilityLabel(label)
-                window.setAccessibilityIdentifier("ArchiveWorkbenchMainWindow")
+                window.setAccessibilityIdentifier("MacUnzipMainWindow")
                 window.titleVisibility = .hidden
                 window.contentView?.setAccessibilityLabel(label)
-                window.contentView?.setAccessibilityIdentifier("ArchiveWorkbenchMainWindowContent")
+                window.contentView?.setAccessibilityIdentifier("MacUnzipMainWindowContent")
                 if minimumWindow, let screen = window.screen ?? NSScreen.main {
                     let visibleFrame = screen.visibleFrame
                     let size = NSSize(width: 900, height: min(700, visibleFrame.height))
@@ -376,6 +508,14 @@ struct RootWindowView: View {
             case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
             }
         }
+        .onChange(of: model.hasDocument) { _, hasDocument in
+            guard let window = NSApp.keyWindow
+                ?? NSApp.windows.first(where: \.isVisible)
+                ?? NSApp.windows.first else { return }
+            let label = AppLocalization().string(hasDocument ? "MacUnzip" : "欢迎")
+            window.setAccessibilityLabel(label)
+            window.contentView?.setAccessibilityLabel(label)
+        }
     }
 
     // MARK: - Drag and Drop
@@ -405,18 +545,23 @@ struct RootWindowView: View {
             let supported = allURLs.filter { ArchiveFileTypes.isSupportedArchive($0) }
             guard let first = supported.first else {
                 if let firstURL = allURLs.first {
-                    model.statusMessage = "不支持的文件类型：\(firstURL.pathExtension)。请拖入 ZIP、7z、RAR、TAR 等压缩包文件。"
+                    let ext = firstURL.pathExtension
+                    let descriptor = ext.isEmpty ? firstURL.lastPathComponent : ext
+                    model.statusMessage = AppLocalization().format("不支持的文件类型：%@。请拖入 ZIP、7z、RAR、TAR 等压缩包文件。", descriptor)
                 }
                 return
             }
             RecentArchivesManager.shared.noteRecentArchive(first)
-            if supported.count > 1 {
-                model.statusMessage = "已打开第一个压缩包，其余 \(supported.count - 1) 个文件未处理。"
-            }
+            let ignoredCount = supported.count - 1
             if model.hasUnsavedChanges {
                 pendingOpenURL = first
             } else {
-                Task { await model.openArchive(url: first) }
+                Task {
+                    await model.openArchive(url: first)
+                    if ignoredCount > 0, model.hasDocument {
+                        model.statusMessage = AppLocalization().format("已打开第一个压缩包，其余 %ld 个文件未处理。", ignoredCount)
+                    }
+                }
             }
         }
         return true
@@ -430,18 +575,19 @@ struct RootWindowView: View {
             try? FileManager.default.removeItem(atPath: finderFilesPath)
             if !paths.isEmpty {
                 let urls = paths.map { URL(fileURLWithPath: $0) }
-                if finderAction == "open", urls.count == 1 {
-                    await model.openArchive(url: urls[0])
-                } else if finderAction == "extract-here" {
-                    for url in urls {
-                        await model.openArchive(url: url)
-                        if model.hasDocument {
-                            let destination = url.deletingLastPathComponent()
-                            model.startExtraction(to: destination)
-                            await model.awaitExtractionCompletion()
-                        }
+                if finderAction == "open" {
+                    guard let first = urls.first else { return }
+                    RecentArchivesManager.shared.noteRecentArchive(first)
+                    await model.openArchive(url: first)
+                    let ignoredCount = urls.count - 1
+                    if ignoredCount > 0, model.hasDocument {
+                        model.statusMessage = AppLocalization().format("已打开第一个压缩包，其余 %ld 个文件未处理。", ignoredCount)
                     }
+                } else if finderAction == "extract-here" {
+                    guard LicenseGate.requirePro(for: .extract) else { return }
+                    pendingExtractHereURLs = urls
                 } else {
+                    guard LicenseGate.requirePro(for: .create) else { return }
                     if finderAction == "compress-zip" {
                         model.creationFormat = .zip
                     }
@@ -450,8 +596,16 @@ struct RootWindowView: View {
             }
         } else if let initialArchiveURL, !model.hasDocument, !model.isLoading {
             await model.openArchive(url: initialArchiveURL)
-        } else if let pendingURL = ArchiveWorkbenchAppDelegate.pendingLaunchURL, !model.hasDocument, !model.isLoading {
-            ArchiveWorkbenchAppDelegate.pendingLaunchURL = nil
+        } else if let pendingURL = MacUnzipAppDelegate.pendingLaunchURL, !model.hasDocument, !model.isLoading {
+            MacUnzipAppDelegate.pendingLaunchURL = nil
+            let skipped = MacUnzipAppDelegate.pendingSkippedOpenCount
+            MacUnzipAppDelegate.pendingSkippedOpenCount = 0
+            if skipped > 0 {
+                model.transientStatusMessage = AppLocalization().format(
+                    "已打开首个压缩包，其余 %ld 个已跳过",
+                    skipped
+                )
+            }
             await model.openArchive(url: pendingURL)
         }
     }
@@ -477,6 +631,7 @@ struct RootWindowView: View {
     }
 
     private func presentCreationInputPanel() {
+        guard LicenseGate.requirePro(for: .create) else { return }
         let panel = NSOpenPanel()
         panel.title = ArchiveCreationCopy.inputPanelTitle()
         panel.prompt = ArchiveCreationCopy.inputPanelPrompt()
@@ -499,6 +654,9 @@ struct RootWindowView: View {
         panel.prompt = ArchiveCreationCopy.savePanelPrompt()
         panel.message = ArchiveCreationCopy.savePanelMessage()
         panel.nameFieldStringValue = suggestedFilename
+        if let firstInput = creationDraft?.inputs.first {
+            panel.directoryURL = firstInput.deletingLastPathComponent()
+        }
         let ext = URL(fileURLWithPath: suggestedFilename).pathExtension
         if let ut = UTType(filenameExtension: ext) {
             panel.allowedContentTypes = [ut]
@@ -509,6 +667,7 @@ struct RootWindowView: View {
     }
 
     private func presentAddPanel() {
+        guard LicenseGate.requirePro(for: .edit) else { return }
         let panel = NSOpenPanel()
         panel.title = ArchiveShellCopy.addPanelTitle()
         panel.prompt = ArchiveShellCopy.addPanelPrompt()
@@ -523,15 +682,32 @@ struct RootWindowView: View {
     }
 
     private func removeSelectedEntry() {
+        guard LicenseGate.requirePro(for: .edit) else { return }
+        guard model.canRemoveSelectedEntry else {
+            model.transientStatusMessage = AppLocalization().string(
+                model.selectedEntryID == nil && model.selectedFolderPath != nil
+                    ? "暂不支持直接移除文件夹"
+                    : "此格式为只读，不支持编辑")
+            return
+        }
         Task { await model.removeSelectedEntry() }
     }
 
     private func presentRenameAlert() {
+        guard LicenseGate.requirePro(for: .edit) else { return }
+        guard model.canRenameSelectedEntry else {
+            model.transientStatusMessage = AppLocalization().string(
+                model.selectedEntryID == nil && model.selectedFolderPath != nil
+                    ? "暂不支持直接重命名文件夹"
+                    : "此格式为只读，不支持编辑")
+            return
+        }
         renameText = model.selectedEntryFileName ?? ""
         renameAlertPresented = true
     }
 
     private func presentReplacePanel() {
+        guard LicenseGate.requirePro(for: .edit) else { return }
         guard let fileName = model.selectedEntryFileName else { return }
         let localization = AppLocalization()
         let panel = NSOpenPanel()
@@ -555,8 +731,13 @@ struct RootWindowView: View {
 
 
     private func presentExtractionPanel() {
+        guard LicenseGate.requirePro(for: .extract) else { return }
         if let extractionDestinationURL {
             model.startExtraction(to: extractionDestinationURL)
+            return
+        }
+        if let direct = preferredExtractionDirectory {
+            model.startExtraction(to: direct)
             return
         }
         let panel = NSOpenPanel()
@@ -567,20 +748,16 @@ struct RootWindowView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        let destinationSetting = UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) ?? "ask"
-        switch destinationSetting {
-        case "same":
-            panel.directoryURL = model.currentSourceURL?.deletingLastPathComponent()
-        case "desktop":
-            panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
-        default:
-            break
-        }
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.startExtraction(to: url)
     }
 
     private func presentExtractSelectedPanel() {
+        guard LicenseGate.requirePro(for: .extract) else { return }
+        if let direct = preferredExtractionDirectory {
+            model.startExtractSelected(to: direct)
+            return
+        }
         let panel = NSOpenPanel()
         panel.title = AppLocalization().string("选择解压位置")
         panel.prompt = AppLocalization().string("解压缩到此处")
@@ -589,17 +766,26 @@ struct RootWindowView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        let destinationSetting = UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) ?? "ask"
-        switch destinationSetting {
-        case "same":
-            panel.directoryURL = model.currentSourceURL?.deletingLastPathComponent()
-        case "desktop":
-            panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
-        default:
-            break
-        }
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.startExtractSelected(to: url)
+    }
+
+    /// The directory the user configured as the default extraction destination,
+    /// or nil when they chose to be asked each time (or it cannot be resolved).
+    private var preferredExtractionDirectory: URL? {
+        let setting = UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) ?? "ask"
+        switch setting {
+        case "same":
+            // In a nested session currentSourceURL is a temporary materialized
+            // copy, so "same directory" would point into a temp folder; fall
+            // through to the interactive picker instead.
+            guard !model.isNestedSession else { return nil }
+            return model.currentSourceURL?.deletingLastPathComponent()
+        case "desktop":
+            return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+        default:
+            return nil
+        }
     }
 
     private func labelSplitViewContainers(in view: NSView) {
@@ -669,28 +855,6 @@ private struct RootAlertsModifier: ViewModifier {
                 Text(model.presentedError ?? "")
             }
             .alert(
-                "无法解压缩",
-                isPresented: Binding(
-                    get: { model.extractionErrorMessage != nil },
-                    set: { if !$0 { model.extractionErrorMessage = nil } }
-                )
-            ) {
-                Button("好") { model.extractionErrorMessage = nil }
-            } message: {
-                Text(model.extractionErrorMessage ?? "")
-            }
-            .alert(
-                "无法创建压缩包",
-                isPresented: Binding(
-                    get: { model.creationErrorMessage != nil },
-                    set: { if !$0 { model.creationErrorMessage = nil } }
-                )
-            ) {
-                Button("好") { model.creationErrorMessage = nil }
-            } message: {
-                Text(model.creationErrorMessage ?? "")
-            }
-            .alert(
                 "重命名",
                 isPresented: $renameAlertPresented
             ) {
@@ -706,7 +870,7 @@ private struct RootAlertsModifier: ViewModifier {
                 Text("请输入新的文件名。不能包含 / : \\ < > | ? * \" 等字符。")
             }
             .alert(
-                "此归档有未保存的更改。",
+                "此归档有未保存的更改",
                 isPresented: Binding(
                     get: { pendingOpenURL != nil },
                     set: { if !$0 { pendingOpenURL = nil } }
@@ -716,7 +880,7 @@ private struct RootAlertsModifier: ViewModifier {
                     if let url = pendingOpenURL {
                         pendingOpenURL = nil
                         Task {
-                            let saved = await model.saveArchive()
+                            let saved = await model.saveArchiveResolvingNested()
                             guard saved else { return }
                             await model.openArchive(url: url)
                         }
@@ -733,7 +897,7 @@ private struct RootAlertsModifier: ViewModifier {
                 Text("如果不保存，所做的修改将会丢失。")
             }
             .alert(
-                "此归档有未保存的更改。",
+                "此归档有未保存的更改",
                 isPresented: Binding(
                     get: { pendingCreationInputs != nil },
                     set: { if !$0 { pendingCreationInputs = nil } }
@@ -743,7 +907,7 @@ private struct RootAlertsModifier: ViewModifier {
                     if let inputs = pendingCreationInputs {
                         pendingCreationInputs = nil
                         Task {
-                            let saved = await model.saveArchive()
+                            let saved = await model.saveArchiveResolvingNested()
                             guard saved else { return }
                             creationDraft = ArchiveCreationDraft(inputs: inputs)
                         }
@@ -769,6 +933,7 @@ private struct RootAlertsModifier: ViewModifier {
                 if let journal = model.pendingRecoveryJournals.first {
                     Button("恢复") { model.recoverJournal(journal) }
                     Button("删除", role: .destructive) { model.discardJournal(journal) }
+                    Button("稍后", role: .cancel) { model.deferJournal(journal) }
                 }
             } message: {
                 if let journal = model.pendingRecoveryJournals.first {
@@ -784,25 +949,18 @@ private struct EditNotificationHandler: ViewModifier {
     let onRename: () -> Void
     let onExtractSelected: () -> Void
 
-    private var isKeyWindowModel: Bool {
-        guard let keyDelegate = NSApp.keyWindow?.delegate as? UnsavedChangesWindowDelegate else {
-            return true
-        }
-        return keyDelegate.model === model
-    }
-
     func body(content: Content) -> some View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .removeSelectedRequest)) { _ in
-                guard isKeyWindowModel else { return }
+                guard shouldHandleNotification(for: model) else { return }
                 onRemove()
             }
             .onReceive(NotificationCenter.default.publisher(for: .renameSelectedRequest)) { _ in
-                guard isKeyWindowModel else { return }
+                guard shouldHandleNotification(for: model) else { return }
                 onRename()
             }
             .onReceive(NotificationCenter.default.publisher(for: .extractSelectedRequest)) { _ in
-                guard isKeyWindowModel else { return }
+                guard shouldHandleNotification(for: model) else { return }
                 onExtractSelected()
             }
     }
@@ -813,21 +971,33 @@ private struct CreateArchiveView: View {
     @Binding var draft: ArchiveCreationDraft
     let chooseOutput: (String) -> URL?
     let dismiss: () -> Void
+    @State private var showRARLicenseConfirmation = false
+    @State private var rarRevertFormat: CreationFormat?
 
     private var passwordsMatch: Bool {
         !model.creationEncryptionEnabled
+            || !model.creationFormat.supportsEncryption
             || (!model.creationPassword.isEmpty && model.creationPassword == model.creationPasswordConfirm)
     }
 
     private var canCreate: Bool {
         draft.canCreate && passwordsMatch && !model.isCreating
+            && model.engineInstalled(for: model.creationFormat)
+            && (model.creationFormat != .zip || (model.preflightIssues.isEmpty && !model.isRunningPreflight))
     }
 
     private var createDisabledReason: String {
-        if draft.inputs.isEmpty { return "请先添加要压缩的文件" }
-        if draft.outputURL == nil { return "请选择保存位置" }
-        if !passwordsMatch { return "两次输入的密码不一致" }
-        if model.isCreating { return "正在创建中…" }
+        let localization = AppLocalization()
+        if draft.inputs.isEmpty { return localization.string("请先添加要压缩的文件") }
+        if draft.outputURL == nil { return localization.string("请选择保存位置") }
+        if !model.engineInstalled(for: model.creationFormat) { return missingEngineMessage(for: model.creationFormat) }
+        if model.creationEncryptionEnabled && model.creationFormat.supportsEncryption && model.creationPassword.isEmpty { return localization.string("请输入密码") }
+        if !passwordsMatch { return localization.string("两次输入的密码不一致") }
+        if model.creationFormat == .zip {
+            if model.isRunningPreflight { return localization.string("正在检查文件名兼容性…") }
+            if !model.preflightIssues.isEmpty { return localization.string("请先自动修正文件名兼容性问题") }
+        }
+        if model.isCreating { return localization.string("正在创建中…") }
         return ""
     }
 
@@ -840,9 +1010,6 @@ private struct CreateArchiveView: View {
                 compressionSection
                 if model.creationFormat.supportsEncryption {
                     encryptionSection
-                }
-                if model.creationFormat.supportsSplit {
-                    splitSection
                 }
                 if model.creationFormat == .zip {
                     preflightSection
@@ -865,6 +1032,38 @@ private struct CreateArchiveView: View {
         } message: {
             Text(model.creationErrorMessage ?? "")
         }
+        .alert(
+            AppLocalization().string(RARLicenseConfirmation.confirmationTitle),
+            isPresented: $showRARLicenseConfirmation
+        ) {
+            Button(AppLocalization().string(RARLicenseConfirmation.confirmButton)) {
+                RARLicenseConfirmation().confirm()
+            }
+            Button(AppLocalization().string(RARLicenseConfirmation.cancelButton), role: .cancel) {
+                model.creationFormat = rarRevertFormat ?? .zip
+            }
+        } message: {
+            Text(AppLocalization().string(RARLicenseConfirmation.confirmationMessage))
+        }
+        .alert(
+            AppLocalization().string("文件已存在"),
+            isPresented: Binding(
+                get: { model.pendingOverwriteURL != nil },
+                set: { if !$0 { model.resolveOverwriteConfirmation(replace: false) } }
+            )
+        ) {
+            Button(AppLocalization().string("替换"), role: .destructive) {
+                model.resolveOverwriteConfirmation(replace: true)
+            }
+            Button(AppLocalization().string("取消"), role: .cancel) {
+                model.resolveOverwriteConfirmation(replace: false)
+            }
+        } message: {
+            Text(AppLocalization().format(
+                "“%@”已存在。继续创建将替换原有文件。",
+                model.pendingOverwriteURL?.lastPathComponent ?? ""
+            ))
+        }
         .frame(width: 700, height: 680)
         .interactiveDismissDisabled(model.isCreating)
         .onChange(of: model.lastCreatedURL) { _, outputURL in
@@ -875,9 +1074,20 @@ private struct CreateArchiveView: View {
                 Task { await model.runPreflight(inputs: draft.inputs) }
             }
         }
-        .onChange(of: model.creationFormat) { _, newFormat in
+        .onChange(of: model.creationFormat) { oldFormat, newFormat in
+            if let current = draft.outputURL {
+                let retagged = ArchiveCreationDraft.retaggedFilename(current.lastPathComponent, for: newFormat)
+                draft.outputURL = current.deletingLastPathComponent().appendingPathComponent(retagged)
+            }
             if newFormat == .zip {
                 Task { await model.runPreflight(inputs: draft.inputs) }
+            } else {
+                model.resetPreflight()
+            }
+            if newFormat == .rar, model.engineInstalled(for: .rar),
+               !RARLicenseConfirmation().isConfirmed {
+                rarRevertFormat = oldFormat == .rar ? rarRevertFormat : oldFormat
+                showRARLicenseConfirmation = true
             }
         }
         .onDisappear {
@@ -896,7 +1106,7 @@ private struct CreateArchiveView: View {
                 .frame(width: 48, height: 48)
                 .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
             VStack(alignment: .leading, spacing: 3) {
-                Text("创建归档")
+                Text("新建压缩包")
                     .font(.title2.weight(.semibold))
                 Text(ArchiveCreationCopy.subtitle())
                     .foregroundStyle(.secondary)
@@ -912,7 +1122,10 @@ private struct CreateArchiveView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Picker("格式", selection: $model.creationFormat) {
                     ForEach(CreationFormat.allCases, id: \.self) { format in
-                        Text(format.displayName).tag(format)
+                        Text(model.engineInstalled(for: format)
+                            ? format.displayName
+                            : format.displayName + AppLocalization().string("（未安装）")
+                        ).tag(format)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -922,9 +1135,34 @@ private struct CreateArchiveView: View {
                 Text(model.creationFormat.capabilityText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if !model.engineInstalled(for: model.creationFormat) {
+                    Text(missingEngineMessage(for: model.creationFormat))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .accessibilityIdentifier("引擎缺失提示")
+                }
             }
             .padding(.vertical, 4)
         }
+    }
+
+    private func missingEngineMessage(for format: CreationFormat) -> String {
+        let localization = AppLocalization()
+        switch format {
+        case .sevenZip: return localization.string("创建 7z 需要免费的 7zz 工具。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载，安装后在「设置 → 引擎」确认已检测到。")
+        case .rar: return localization.string("创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。")
+        default: return ""
+        }
+    }
+
+    private func inputSubtitle(for url: URL) -> String {
+        let parent = url.deletingLastPathComponent().standardizedFileURL.path
+        let tempRoot = FileManager.default.temporaryDirectory.standardizedFileURL.path
+        if parent.hasPrefix(tempRoot) {
+            return AppLocalization().string("已为 Windows 兼容性自动修正")
+        }
+        return parent
     }
 
     private var inputList: some View {
@@ -938,7 +1176,7 @@ private struct CreateArchiveView: View {
                         Text(url.lastPathComponent)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        Text(url.deletingLastPathComponent().path)
+                        Text(inputSubtitle(for: url))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -996,32 +1234,16 @@ private struct CreateArchiveView: View {
                             .accessibilityIdentifier("密码不一致")
                     }
 
-                    Picker("加密方式", selection: $model.creationEncryptionMethod) {
-                        ForEach(EncryptionMethod.allCases, id: \.self) { method in
-                            Text(method.displayName).tag(method)
+                    if model.creationFormat == .zip {
+                        Picker("加密方式", selection: $model.creationEncryptionMethod) {
+                            ForEach(EncryptionMethod.allCases, id: \.self) { method in
+                                Text(method.displayName).tag(method)
+                            }
                         }
+                        .labelsHidden()
+                        .accessibilityIdentifier("加密方式")
                     }
-                    .labelsHidden()
-                    .accessibilityIdentifier("加密方式")
                 }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    // MARK: - Split Section (ZIP only)
-
-    private var splitSection: some View {
-        GroupBox("分卷") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle("分卷", isOn: .constant(false))
-                    .disabled(true)
-                    .accessibilityIdentifier("分卷开关")
-
-                Text("分卷创建功能即将推出")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("分卷状态")
             }
             .padding(.vertical, 4)
         }
@@ -1056,13 +1278,10 @@ private struct CreateArchiveView: View {
                                 if !sanitized.isEmpty {
                                     draft.inputs = sanitized
                                 }
+                                await model.runPreflight(inputs: draft.inputs)
                             }
                         }
                         .accessibilityIdentifier("自动修正")
-                        Button("仍然创建") {
-                            model.preflightIssues = []
-                        }
-                        .accessibilityIdentifier("仍然创建")
                     }
                     .padding(.top, 4)
                 }
@@ -1094,24 +1313,26 @@ private struct CreateArchiveView: View {
     }
 
     private var compatibilityTitle: String {
+        let localization = AppLocalization()
         switch model.creationFormat {
-        case .zip: return "Windows 11 可直接打开"
-        case .sevenZip: return "7-Zip / Keka / The Unarchiver 兼容"
-        case .rar: return "WinRAR / 7-Zip / Keka 兼容"
-        case .tarGz, .tarXz, .tarZst: return "macOS / Linux / Windows (7-Zip) 兼容"
+        case .zip: return localization.string("Windows 11 可直接打开")
+        case .sevenZip: return localization.string("7-Zip / Keka / The Unarchiver 兼容")
+        case .rar: return localization.string("WinRAR / 7-Zip / Keka 兼容")
+        case .tarGz, .tarXz, .tarZst: return localization.string("macOS / Linux / Windows (7-Zip) 兼容")
         }
     }
 
     private var compatibilityDetail: String {
+        let localization = AppLocalization()
         switch model.creationFormat {
         case .zip:
-            return "使用 UTF-8 文件名，自动排除 macOS 元数据；创建前检查 Windows 保留名、非法字符和名称冲突。"
+            return localization.string("使用 UTF-8 文件名，自动排除 macOS 元数据；创建前检查 Windows 保留名、非法字符和名称冲突。")
         case .sevenZip:
-            return "AES-256 加密，高压缩率；Windows 需 7-Zip 打开，macOS 可用 Keka 或 The Unarchiver。"
+            return localization.string("AES-256 加密，高压缩率；Windows 需 7-Zip 打开，macOS 可用 Keka 或 The Unarchiver。")
         case .rar:
-            return "RARLAB 专有格式，广泛兼容；需已安装并授权 RARLAB rar 命令行工具。"
+            return localization.string("RARLAB 专有格式，广泛兼容；需已安装并授权 RARLAB rar 命令行工具。")
         case .tarGz, .tarXz, .tarZst:
-            return "保留 Unix 权限；适合 macOS/Linux 分发，Windows 需 7-Zip 解压。符号链接出于安全考虑不予包含。"
+            return localization.string("保留 Unix 权限；适合 macOS/Linux 分发，Windows 需 7-Zip 解压。符号链接出于安全考虑不予包含。")
         }
     }
 
@@ -1131,6 +1352,7 @@ private struct CreateArchiveView: View {
                     }
                 }
                 .disabled(model.isCreating)
+                .help(model.isCreating ? "正在创建中，暂不能更改保存位置" : "选择压缩包的保存位置")
                 .accessibilityIdentifier("选择保存位置")
             }
             .padding(.vertical, 4)
@@ -1157,20 +1379,27 @@ private struct CreateArchiveView: View {
             }
         } else {
             HStack {
-                Text(ArchiveCreationCopy.verificationNote())
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ArchiveCreationCopy.verificationNote())
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    if !canCreate {
+                        Text(createDisabledReason)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
                 Spacer()
                 Button("取消", action: dismiss)
                     .keyboardShortcut(.cancelAction)
-                Button("创建归档") {
+                Button("新建压缩包") {
                     guard let outputURL = draft.outputURL else { return }
                     model.startCreation(at: outputURL, inputs: draft.inputs)
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canCreate)
-                .help(!canCreate ? createDisabledReason : "")
+                .help(canCreate ? AppLocalization().string("创建压缩包") : createDisabledReason)
                 .accessibilityIdentifier("确认创建归档")
             }
         }

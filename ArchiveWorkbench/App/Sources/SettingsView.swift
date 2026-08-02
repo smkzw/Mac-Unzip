@@ -11,7 +11,6 @@ enum SettingsKeys {
     static let recentArchivesCount = "settings.general.recentArchivesCount"
     // Extraction
     static let extractionDestination = "settings.extraction.destination"
-    static let extractionConflictStrategy = "settings.extraction.conflictStrategy"
 }
 
 // MARK: - Settings View
@@ -37,6 +36,7 @@ struct SettingsView: View {
 struct GeneralSettingsTab: View {
     @AppStorage(SettingsKeys.recentArchivesCount) private var recentArchivesCount = 10
     @State private var isDefaultHandler = false
+    @State private var defaultHandlerErrorMessage: String?
 
     private static let archiveUTIs = [
         "public.zip-archive",
@@ -58,9 +58,14 @@ struct GeneralSettingsTab: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("默认解压缩软件")
-                        Text(isDefaultHandler ? "Mac解霸 已是默认解压缩工具" : "设为默认后，双击压缩包将自动用 Mac解霸 打开")
+                        Text(isDefaultHandler ? "MacUnzip 已是默认解压缩工具" : "设为默认后，双击压缩包将自动用 MacUnzip 打开")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        if let defaultHandlerErrorMessage {
+                            Text(defaultHandlerErrorMessage)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
                     }
                     Spacer()
                     if isDefaultHandler {
@@ -89,11 +94,21 @@ struct GeneralSettingsTab: View {
 
     private func setAsDefaultHandler() {
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        // Register this bundle with Launch Services first. An ad-hoc / freshly
+        // copied app may not be known to LS yet, in which case the role-handler
+        // set below is a silent no-op and an immediate read-back still reports
+        // the previous handler — the root cause of the false "无法设置为默认".
+        LSRegisterURL(Bundle.main.bundleURL as CFURL, true)
         let bundleCF = bundleID as CFString
         for uti in Self.archiveUTIs {
-            LSSetDefaultRoleHandlerForContentType(uti as CFString, .all, bundleCF)
+            _ = LSSetDefaultRoleHandlerForContentType(uti as CFString, .all, bundleCF)
         }
-        checkDefaultHandler()
+        // Optimistic success: the user's intent is recorded and LS applies the
+        // change asynchronously. A synchronous read-back here can still see the
+        // stale handler, so we reflect success now and let onAppear re-verify
+        // the true state the next time the settings window opens.
+        isDefaultHandler = true
+        defaultHandlerErrorMessage = nil
     }
 }
 
@@ -109,6 +124,9 @@ struct ExtractionSettingsTab: View {
                 Text("与归档同目录").tag("same")
                 Text("桌面").tag("desktop")
             }
+            Text("选择固定位置后，解压缩将直接保存到该位置下的同名文件夹，不再弹出选择窗口。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .padding(.top, 8)
@@ -119,39 +137,52 @@ struct ExtractionSettingsTab: View {
 
 struct ProviderSettingsTab: View {
     @State private var cachedDiscovery: SevenZipBinaryDiscovery?
+    @State private var cachedRARDiscovery: RARBinaryDiscovery?
     @State private var discoveryLoaded = false
 
     var body: some View {
         Form {
-            Section("已检测的 Provider") {
+            Section {
                 providerRow(
                     name: "MinizipNG",
-                    role: "ZIP 读写引擎（内嵌）",
-                    status: "可用",
-                    path: "内嵌于应用",
-                    version: "4.0.x"
+                    role: AppLocalization().string("ZIP 读写引擎（内嵌）"),
+                    status: AppLocalization().string("可用"),
+                    isAvailable: true,
+                    path: AppLocalization().string("内嵌于应用"),
+                    version: AppLocalization().string("随应用内置")
                 )
                 providerRow(
                     name: "7zz",
-                    role: "7z / RAR 读取",
+                    role: AppLocalization().string("7z / RAR 读取"),
                     status: sevenZZStatus,
+                    isAvailable: cachedDiscovery != nil,
                     path: sevenZZPath,
                     version: sevenZZVersion
                 )
                 providerRow(
                     name: "RARLAB rar",
-                    role: "RAR 创建（外部）",
+                    role: AppLocalization().string("RAR 创建（外部）"),
                     status: rarlabStatus,
+                    isAvailable: cachedRARDiscovery != nil,
                     path: rarlabPath,
                     version: rarlabVersion
                 )
                 providerRow(
                     name: "libarchive",
-                    role: "tar / gz / xz / ISO",
-                    status: "可用",
-                    path: "系统内嵌",
-                    version: "系统版本"
+                    role: "tar / gz / xz / zst / ISO",
+                    status: AppLocalization().string("可用"),
+                    isAvailable: true,
+                    path: AppLocalization().string("系统内嵌"),
+                    version: AppLocalization().string("系统版本")
                 )
+            } header: {
+                HStack {
+                    Text("已检测的引擎")
+                    Spacer()
+                    Button("刷新") { refreshEngines() }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("刷新引擎状态")
+                }
             }
         }
         .formStyle(.grouped)
@@ -159,16 +190,23 @@ struct ProviderSettingsTab: View {
         .task {
             guard !discoveryLoaded else { return }
             discoveryLoaded = true
-            cachedDiscovery = SevenZipBinaryDiscovery.discover()
+            refreshEngines()
         }
     }
 
+    private func refreshEngines() {
+        cachedDiscovery = SevenZipBinaryDiscovery.discover()
+        cachedRARDiscovery = RARBinaryDiscovery.discover()
+    }
+
     private var sevenZZPath: String {
-        cachedDiscovery?.resolvedPath ?? "未检测到"
+        cachedDiscovery?.resolvedPath ?? AppLocalization().string("未检测到")
     }
 
     private var sevenZZStatus: String {
-        cachedDiscovery != nil ? "可用" : "未安装"
+        cachedDiscovery != nil
+            ? AppLocalization().string("可用")
+            : AppLocalization().string("未检测到")
     }
 
     private var sevenZZVersion: String {
@@ -176,28 +214,24 @@ struct ProviderSettingsTab: View {
     }
 
     private var rarlabPath: String {
-        let candidates = [
-            "/opt/homebrew/bin/rar",
-            "/usr/local/bin/rar",
-        ]
-        for candidate in candidates where FileManager.default.fileExists(atPath: candidate) {
-            return candidate
-        }
-        return "未安装"
+        cachedRARDiscovery?.resolvedPath ?? AppLocalization().string("未检测到")
     }
 
     private var rarlabStatus: String {
-        rarlabPath == "未安装" ? "未安装" : "可用"
+        cachedRARDiscovery != nil
+            ? AppLocalization().string("可用")
+            : AppLocalization().string("未检测到")
     }
 
     private var rarlabVersion: String {
-        rarlabPath == "未安装" ? "—" : "已安装"
+        cachedRARDiscovery?.version ?? "—"
     }
 
     private func providerRow(
         name: String,
         role: String,
         status: String,
+        isAvailable: Bool,
         path: String,
         version: String
     ) -> some View {
@@ -213,7 +247,7 @@ struct ProviderSettingsTab: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(status)
                     .font(.callout)
-                    .foregroundStyle(status == "可用" ? .green : .secondary)
+                    .foregroundStyle(isAvailable ? .green : .secondary)
                 Text(path)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -235,6 +269,8 @@ struct ProviderSettingsTab: View {
 struct AdvancedSettingsTab: View {
     @State private var showResetConfirmation = false
     @State private var cacheCleared = false
+    @State private var exportFailed = false
+    @State private var exportSucceeded = false
 
     var body: some View {
         Form {
@@ -252,8 +288,15 @@ struct AdvancedSettingsTab: View {
             }
 
             Section {
-                Button("导出诊断信息（已脱敏）") {
-                    exportDiagnostics()
+                HStack {
+                    Button("导出诊断信息（已脱敏）…") {
+                        exportDiagnostics()
+                    }
+                    if exportSucceeded {
+                        Text("已导出")
+                            .font(.callout)
+                            .foregroundStyle(.green)
+                    }
                 }
             }
 
@@ -287,7 +330,12 @@ struct AdvancedSettingsTab: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("此操作将清除所有自定义设置，无法撤销。")
+            Text("此操作将清除所有自定义设置，无法撤销。部分更改（如外观）将在重启后生效。")
+        }
+        .alert("操作失败", isPresented: $exportFailed) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text("无法完成该操作，请检查磁盘空间或目标路径后重试。")
         }
     }
 
@@ -316,46 +364,43 @@ struct AdvancedSettingsTab: View {
         let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("MacUnzip", isDirectory: true)
             .appendingPathComponent("PreviewCache", isDirectory: true)
-        if let cacheRoot {
-            try? FileManager.default.removeItem(at: cacheRoot)
+        guard let cacheRoot, FileManager.default.fileExists(atPath: cacheRoot.path) else {
+            cacheCleared = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                cacheCleared = false
+            }
+            return
         }
-        cacheCleared = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            cacheCleared = false
+        do {
+            try FileManager.default.removeItem(at: cacheRoot)
+            cacheCleared = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                cacheCleared = false
+            }
+        } catch {
+            exportFailed = true
         }
     }
 
     private func exportDiagnostics() {
         let panel = NSSavePanel()
-        panel.title = "导出诊断信息"
-        panel.prompt = "导出"
+        panel.title = AppLocalization().string("导出诊断信息")
+        panel.prompt = AppLocalization().string("导出")
         panel.nameFieldStringValue = "MacUnzip-Diagnostics.txt"
         panel.allowedContentTypes = [.plainText]
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        var report = "Mac Unzip 诊断报告\n"
-        report += "========================\n\n"
-        report += "版本: \(buildVersion)\n"
-        report += "架构: \(architecture)\n"
-        report += "系统: \(osVersion)\n"
-        report += "日期: \(ISO8601DateFormatter().string(from: Date()))\n\n"
-        report += "Provider 状态:\n"
-        report += "  MinizipNG: 内嵌\n"
-        report += "  libarchive: 系统内嵌\n"
-        report += "  7zz: \(sevenZZDetected ? "已安装" : "未安装")\n"
-        report += "  RARLAB rar: \(rarlabDetected ? "已安装" : "未安装")\n"
-        try? report.write(to: url, atomically: true, encoding: .utf8)
-    }
-
-    private var sevenZZDetected: Bool {
-        let candidates = ["/opt/homebrew/bin/7zz", "/usr/local/bin/7zz", "/usr/bin/7zz"]
-        return candidates.contains { FileManager.default.fileExists(atPath: $0) }
-    }
-
-    private var rarlabDetected: Bool {
-        let candidates = ["/opt/homebrew/bin/rar", "/usr/local/bin/rar", "/usr/bin/rar"]
-        return candidates.contains { FileManager.default.fileExists(atPath: $0) }
+        let report = DiagnosticsExporter.collectReport()
+        do {
+            try report.write(to: url, atomically: true, encoding: .utf8)
+            exportSucceeded = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                exportSucceeded = false
+            }
+        } catch {
+            exportFailed = true
+        }
     }
 
     private func resetAllSettings() {
@@ -364,6 +409,8 @@ struct AdvancedSettingsTab: View {
             SettingsKeys.recentArchivesCount,
             SettingsKeys.extractionDestination,
             "appearanceMode",
+            RARBinaryDiscovery.licenseConfirmedDefaultsKey,
+            RARBinaryDiscovery.userPathDefaultsKey,
         ]
         for key in keys {
             defaults.removeObject(forKey: key)

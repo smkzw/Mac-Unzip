@@ -68,12 +68,13 @@ public final class SplitZIPWriter {
     /// Opens a new entry with raw name bytes (preserves original encoding).
     public func openEntryRaw(nameBytes: [UInt8], usesUTF8: Bool, uncompressedSize: UInt64, modifiedUnixTime: Int64) throws {
         guard let handle else { throw ArchiveError.helperFailed }
+        guard let nameLength = UInt16(exactly: nameBytes.count) else { throw ArchiveError.helperFailed }
         let status = nameBytes.withUnsafeBufferPointer { buffer -> Int32 in
             guard let baseAddress = buffer.baseAddress else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
             return awb_mz_writer_open_entry_raw(
                 handle,
                 baseAddress,
-                UInt16(nameBytes.count),
+                nameLength,
                 usesUTF8 ? 1 : 0,
                 uncompressedSize,
                 modifiedUnixTime
@@ -158,54 +159,6 @@ public final class SplitZIPWriter {
         }
 
         return volumes
-    }
-}
-
-// MARK: - Split ZIP Reader
-
-/// Opens and reads split (multipart) ZIP archives.
-///
-/// minizip-ng transparently handles disk spanning when opening the final .zip
-/// segment — it automatically locates and reads preceding .z01, .z02 volumes.
-/// This wrapper adds volume detection, missing-volume diagnostics, and clear
-/// error reporting.
-///
-/// Error states from handoff:
-/// "分卷缺失、密码错误、不支持的加密、损坏归档要有不同状态和恢复动作"
-struct SplitZIPReader {
-    private let resolver = SplitVolumeResolver()
-
-    init() {}
-
-    /// Opens a split ZIP archive, resolving volumes and reporting missing ones.
-    /// - Parameter url: URL to any volume in the set, or the final .zip segment.
-    /// - Returns: An opened ZIPBridgeReader ready for entry listing/reading.
-    /// - Throws: ArchiveError.missingVolume if required volumes are not found.
-    func open(url: URL) throws -> ZIPBridgeReader {
-        // Check if this is part of a split set
-        if let resolution = resolver.resolve(url: url) {
-            if resolution.hasMissingVolumes {
-                let missingNames = resolution.missingVolumes
-                    .map(\.lastPathComponent)
-                    .joined(separator: ", ")
-                throw SplitArchiveError.missingVolumes(
-                    names: resolution.missingVolumes.map(\.lastPathComponent),
-                    message: "缺少分卷文件：需要 \(missingNames)"
-                )
-            }
-            // Open the primary URL (final .zip for spanning, first .001 for numbered)
-            return try ZIPBridgeReader(url: resolution.primaryURL)
-        }
-
-        // Not a split archive — open directly
-        return try ZIPBridgeReader(url: url)
-    }
-
-    /// Validates that all volumes in a split set are present.
-    /// - Parameter url: Any volume URL in the set.
-    /// - Returns: Resolution with volume details, or nil if not a split archive.
-    func validateVolumes(url: URL) -> SplitVolumeResolver.Resolution? {
-        resolver.resolve(url: url)
     }
 }
 

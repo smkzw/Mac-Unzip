@@ -13,7 +13,7 @@
 - [ ] Developer ID Application certificate installed in Keychain
 - [ ] Xcode 26+ with command-line tools
 - [ ] `xcrun notarytool` configured with App Store Connect API key or Apple ID
-- [ ] ArchiveWorkbench builds successfully in Release configuration
+- [ ] MacUnzip builds successfully in Release configuration
 - [ ] All tests pass
 
 ---
@@ -37,11 +37,14 @@ Note the identity string for use in subsequent steps.
 ```bash
 cd /path/to/ArchiveWorkbench
 
+# Regenerate the Xcode project from project.yml (required if MacUnzip.xcodeproj is absent)
+xcodegen generate
+
 xcodebuild archive \
-  -project ArchiveWorkbench.xcodeproj \
-  -scheme ArchiveWorkbench \
+  -project MacUnzip.xcodeproj \
+  -scheme MacUnzip \
   -configuration Release \
-  -archivePath build/ArchiveWorkbench.xcarchive \
+  -archivePath build/MacUnzip.xcarchive \
   -destination "generic/platform=macOS" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAM_ID)" \
@@ -65,7 +68,7 @@ OTHER_CODE_SIGN_FLAGS: --options=runtime
 
 Verify after build:
 ```bash
-codesign -dvvv build/ArchiveWorkbench.xcarchive/Products/Applications/ArchiveWorkbench.app 2>&1 | grep -i "runtime"
+codesign -dvvv build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app 2>&1 | grep -i "runtime"
 # Expected: flags=0x10000(runtime)
 ```
 
@@ -73,7 +76,7 @@ codesign -dvvv build/ArchiveWorkbench.xcarchive/Products/Applications/ArchiveWor
 
 ## Step 4: Entitlements
 
-Create `Distribution/ArchiveWorkbench.entitlements` if not present:
+Create `Distribution/MacUnzip.entitlements` if not present:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -112,9 +115,9 @@ Create `Distribution/ArchiveWorkbench.entitlements` if not present:
 Apply entitlements during signing:
 ```bash
 codesign --force --options runtime \
-  --entitlements Distribution/ArchiveWorkbench.entitlements \
+  --entitlements Distribution/MacUnzip.entitlements \
   --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  build/ArchiveWorkbench.xcarchive/Products/Applications/ArchiveWorkbench.app
+  build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app
 ```
 
 ---
@@ -124,17 +127,17 @@ codesign --force --options runtime \
 Sign all nested frameworks/helpers before signing the main app:
 
 ```bash
-APP_PATH="build/ArchiveWorkbench.xcarchive/Products/Applications/ArchiveWorkbench.app"
+APP_PATH="build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app"
 
 # Sign Quick Look extension
 codesign --force --options runtime \
-  --entitlements Distribution/ArchiveWorkbench.entitlements \
+  --entitlements Distribution/MacUnzip.entitlements \
   --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  "$APP_PATH/PlugIns/ArchiveWorkbenchQLExtension.appex"
+  "$APP_PATH/PlugIns/MacUnzipQLExtension.appex"
 
 # Sign main app (must be last)
 codesign --force --options runtime \
-  --entitlements Distribution/ArchiveWorkbench.entitlements \
+  --entitlements Distribution/MacUnzip.entitlements \
   --sign "Developer ID Application: Your Name (TEAM_ID)" \
   "$APP_PATH"
 ```
@@ -157,10 +160,10 @@ spctl --assess --type execute --verbose "$APP_PATH"
 
 ```bash
 # See Scripts/package_release.sh for full DMG creation
-hdiutil create -volname "ArchiveWorkbench" \
+hdiutil create -volname "MacUnzip" \
   -srcfolder "$APP_PATH" \
   -ov -format UDZO \
-  build/ArchiveWorkbench-1.0.0.dmg
+  build/MacUnzip-1.0.0.dmg
 ```
 
 ---
@@ -169,12 +172,12 @@ hdiutil create -volname "ArchiveWorkbench" \
 
 ```bash
 # Submit for notarization (DO NOT RUN without explicit authorization)
-xcrun notarytool submit build/ArchiveWorkbench-1.0.0.dmg \
+xcrun notarytool submit build/MacUnzip-1.0.0.dmg \
   --keychain-profile "AC_NOTARY_PROFILE" \
   --wait
 
 # Alternative: using App Store Connect API key
-xcrun notarytool submit build/ArchiveWorkbench-1.0.0.dmg \
+xcrun notarytool submit build/MacUnzip-1.0.0.dmg \
   --key ~/private_keys/AuthKey_KEYID.p8 \
   --key-id KEYID \
   --issuer ISSUER_ID \
@@ -211,10 +214,10 @@ xcrun notarytool log SUBMISSION_ID \
 After notarization succeeds:
 
 ```bash
-xcrun stapler staple build/ArchiveWorkbench-1.0.0.dmg
+xcrun stapler staple build/MacUnzip-1.0.0.dmg
 
 # Verify stapling
-xcrun stapler validate build/ArchiveWorkbench-1.0.0.dmg
+xcrun stapler validate build/MacUnzip-1.0.0.dmg
 # Expected: The validate action worked!
 ```
 
@@ -224,14 +227,14 @@ xcrun stapler validate build/ArchiveWorkbench-1.0.0.dmg
 
 ```bash
 # Verify the DMG opens and app launches
-hdiutil attach build/ArchiveWorkbench-1.0.0.dmg
-open /Volumes/ArchiveWorkbench/ArchiveWorkbench.app
+hdiutil attach build/MacUnzip-1.0.0.dmg
+open /Volumes/MacUnzip/MacUnzip.app
 
 # Verify Gatekeeper acceptance
 spctl --assess --type open --context context:primary-signature \
-  --verbose /Volumes/ArchiveWorkbench/ArchiveWorkbench.app
+  --verbose /Volumes/MacUnzip/MacUnzip.app
 
-hdiutil detach /Volumes/ArchiveWorkbench
+hdiutil detach /Volumes/MacUnzip
 ```
 
 ---
@@ -256,5 +259,5 @@ hdiutil detach /Volumes/ArchiveWorkbench
 
 ---
 
-*Generated: 2026-07-27 | ArchiveWorkbench Distribution Preparation (Phase G)*
+*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*
 *This document is a runbook only. No signing or notarization has been performed.*

@@ -61,11 +61,9 @@ func rarCreateRequiresValidatedExternalProvider() {
 func productionBaselineMatchesTheCapabilityMatrix() {
     let expected: [ArchiveFormat: ArchiveCapabilitySnapshot] = [
         .zip: .init(
-            actions: [.list, .read, .preview, .create],
+            actions: [.list, .read, .preview, .create, .update],
             primaryProvider: .minizipNG,
             unavailableReasons: [
-                .update: .notYetImplemented,
-                .encrypt: .notYetImplemented,
                 .split: .notYetImplemented,
                 .test: .notYetImplemented,
                 .repair: .notYetImplemented,
@@ -77,7 +75,6 @@ func productionBaselineMatchesTheCapabilityMatrix() {
             unavailableReasons: [
                 .create: .notYetImplemented,
                 .update: .notYetImplemented,
-                .encrypt: .notYetImplemented,
                 .split: .notYetImplemented,
                 .test: .notYetImplemented,
                 .repair: .unsupportedByProvider,
@@ -153,7 +150,7 @@ func productionBaselineMatchesTheCapabilityMatrix() {
 @Test
 func validatedRARLABReturnsAnIndependentRegistry() {
     let baseline = ArchiveCapabilityRegistry.productionBaseline
-    let validated = baseline.withValidatedRARLAB()
+    let validated = baseline.withRARCreateAvailable(true)
 
     #expect(!baseline.snapshot(format: .rar).actions.contains(.create))
     #expect(validated.snapshot(format: .rar).actions.contains(.create))

@@ -36,6 +36,7 @@ enum ArchiveErrorSeverity {
 /// Structured error presentations for extraction and open failures.
 enum ArchiveErrorPresentation: Equatable {
     case missingVolume(needed: String)
+    case passwordRequired
     case wrongPassword
     case unsupportedEncryption
     case corruptedArchive
@@ -47,6 +48,7 @@ enum ArchiveErrorPresentation: Equatable {
     var severity: ArchiveErrorSeverity {
         switch self {
         case .missingVolume: return .recoverable
+        case .passwordRequired: return .recoverable
         case .wrongPassword: return .recoverable
         case .unsupportedEncryption: return .fatal
         case .corruptedArchive: return .recoverable
@@ -62,13 +64,18 @@ enum ArchiveErrorPresentation: Equatable {
         switch self {
         case .missingVolume(let needed):
             return localization.format("缺少分卷文件：需要 %@", needed)
+        case .passwordRequired:
+            return localization.string("此压缩包受密码保护，请输入密码后打开")
         case .wrongPassword:
             return localization.string("密码错误")
         case .unsupportedEncryption:
-            return localization.string("不支持的加密方式")
+            return localization.string("不支持的加密方式，请尝试使用 7zz 或更新版本打开")
         case .corruptedArchive:
             return localization.string("归档数据损坏")
         case .diskFull(let required):
+            if required == 0 {
+                return localization.string("磁盘空间不足，请释放空间后重试")
+            }
             let formatted = ByteCountFormatter.string(
                 fromByteCount: Int64(clamping: required),
                 countStyle: .file
@@ -102,26 +109,10 @@ enum ArchiveErrorPresentation: Equatable {
 
     /// Whether this error shows an inline password retry field.
     var showsPasswordRetry: Bool {
-        if case .wrongPassword = self { return true }
-        return false
-    }
-}
-
-// MARK: - Conflict Resolution
-
-/// User's choice when a file conflict is detected during extraction.
-enum ExtractionConflictResolution: Equatable, Sendable {
-    case replace
-    case skip
-    case replaceAll
-    case skipAll
-}
-
-/// State for the per-file conflict dialog shown during extraction.
-struct ExtractionConflictInfo: Equatable {
-    let filePath: String
-    var fileName: String {
-        filePath.split(separator: "/").last.map(String.init) ?? filePath
+        switch self {
+        case .passwordRequired, .wrongPassword: return true
+        default: return false
+        }
     }
 }
 
@@ -139,6 +130,7 @@ struct ArchiveErrorBanner: View {
     var onResetLockout: (() -> Void)?
 
     @State private var isVisible = false
+    @State private var hostingWindow: NSWindow?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var severity: ArchiveErrorSeverity { errorType.severity }
@@ -210,8 +202,11 @@ struct ArchiveErrorBanner: View {
                     isVisible = true
                 }
             }
-            NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .layoutChanged, userInfo: nil)
+            if let hostingWindow {
+                NSAccessibility.post(element: hostingWindow, notification: .layoutChanged, userInfo: nil)
+            }
         }
+        .background(WindowCaptureView { hostingWindow = $0 })
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("错误横幅")
         .accessibilityLabel(effectiveMessage)
@@ -242,6 +237,7 @@ struct ArchiveErrorBanner: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(retryPassword.isEmpty)
+                .help(retryPassword.isEmpty ? AppLocalization().string("请输入密码后重试") : AppLocalization().string("验证密码并重新打开"))
                 .accessibilityIdentifier("密码重试按钮")
             }
             .padding(.leading, 28)
@@ -260,76 +256,5 @@ struct ArchiveErrorBanner: View {
         guard !retryPassword.isEmpty else { return }
         onRetryPassword(retryPassword)
         retryPassword = ""
-    }
-}
-
-// MARK: - Conflict Dialog View
-
-/// Inline conflict resolution dialog shown when extraction encounters an existing file.
-struct ExtractionConflictDialog: View {
-    let conflictInfo: ExtractionConflictInfo
-    let onResolution: (ExtractionConflictResolution) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "doc.badge.gearshape")
-                    .foregroundStyle(.orange)
-                    .font(.title3)
-                    .accessibilityHidden(true)
-
-                Text(AppLocalization().format("文件 %@ 已存在。", conflictInfo.fileName))
-                    .font(.callout)
-                    .fontWeight(.medium)
-            }
-
-            HStack(spacing: 8) {
-                Button(AppLocalization().string("替换")) {
-                    onResolution(.replace)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("冲突替换")
-
-                Button(AppLocalization().string("跳过")) {
-                    onResolution(.skip)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("冲突跳过")
-
-                Divider()
-                    .frame(height: 16)
-
-                Button(AppLocalization().string("全部替换")) {
-                    onResolution(.replaceAll)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("冲突全部替换")
-
-                Button(AppLocalization().string("全部跳过")) {
-                    onResolution(.skipAll)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("冲突全部跳过")
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.orange.opacity(0.10))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
-        )
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("冲突对话框")
-        .accessibilityLabel(AppLocalization().format("文件 %@ 已存在。", conflictInfo.fileName))
     }
 }

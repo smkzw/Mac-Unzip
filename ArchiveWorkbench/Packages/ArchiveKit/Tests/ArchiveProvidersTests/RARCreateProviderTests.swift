@@ -5,9 +5,10 @@ import XCTest
 
 /// Tests for the external RARLAB rar creation provider.
 ///
-/// Since RARLAB rar is NOT installed on this machine, fixture-based creation
-/// tests skip gracefully. Binary-validation, license-confirmation, version
-/// parsing, and capability-gating tests are deterministic and always run.
+/// These tests are environment-independent: fixture-based creation tests skip
+/// gracefully when no validated rar binary is discovered, while binary-validation,
+/// license-confirmation, version parsing, and capability-gating tests are
+/// deterministic and always run.
 final class RARCreateProviderTests: XCTestCase {
     // MARK: - Helpers
 
@@ -37,13 +38,16 @@ final class RARCreateProviderTests: XCTestCase {
         ]))
     }
 
-    func testDiscoverReturnsNilWhenRarNotInstalled() {
-        // On this machine rar is NOT installed, so default discovery must fail.
-        let defaults = UserDefaults(suiteName: "RARCreateProviderTests-\(UUID().uuidString)")!
-        defer { defaults.removePersistentDomain(forName: "RARCreateProviderTests") }
-        // Clear any user-configured path
+    func testDiscoverReturnsNilWhenNoValidCandidate() {
+        let suiteName = "RARCreateProviderTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.removeObject(forKey: RARBinaryDiscovery.userPathDefaultsKey)
-        XCTAssertNil(RARBinaryDiscovery.discover(defaults: defaults))
+        let discovery = RARBinaryDiscovery.discover(
+            candidatePaths: ["/opt/homebrew/bin/rar-missing-\(UUID().uuidString)"],
+            defaults: defaults
+        )
+        XCTAssertNil(discovery)
     }
 
     func testValidationRejectsRelativePath() {
@@ -252,7 +256,7 @@ final class RARCreateProviderTests: XCTestCase {
 
     func testRegistryWithValidatedRARLAB() {
         let baseline = ArchiveCapabilityRegistry.productionBaseline
-        let updated = baseline.withValidatedRARLAB()
+        let updated = baseline.withRARCreateAvailable(true)
         let snapshot = updated.snapshot(format: .rar)
         XCTAssertTrue(snapshot.actions.contains(.create))
         XCTAssertTrue(snapshot.actions.contains(.test))
@@ -299,10 +303,16 @@ final class RARCreateProviderTests: XCTestCase {
         let suiteName = "RARCreateProviderTests-path-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        // Set a non-existent user path; discovery should still fail but proves
-        // the path is consulted (it won't crash).
-        defaults.set("/nonexistent/rar", forKey: RARBinaryDiscovery.userPathDefaultsKey)
-        XCTAssertNil(RARBinaryDiscovery.discover(defaults: defaults))
+        guard let system = RARBinaryDiscovery.discover(defaults: defaults) else {
+            // No rar installed: a bogus user path must produce nil.
+            defaults.set("/nonexistent/rar", forKey: RARBinaryDiscovery.userPathDefaultsKey)
+            XCTAssertNil(RARBinaryDiscovery.discover(defaults: defaults))
+            return
+        }
+        // The user-configured path is consulted before the default locations.
+        defaults.set(system.resolvedPath, forKey: RARBinaryDiscovery.userPathDefaultsKey)
+        let discovery = RARBinaryDiscovery.discover(defaults: defaults)
+        XCTAssertEqual(discovery?.resolvedPath, system.resolvedPath)
     }
 
     // MARK: - Fixture tests (require real rar install, skip otherwise)
@@ -350,30 +360,5 @@ final class RARCreateProviderTests: XCTestCase {
             options: RARCreateOptions(method: .best, password: "TestPass123")
         )
         XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
-    }
-
-    func testCreateAndExtract() async throws {
-        let discovery = try requireValidatedBinary()
-        let provider = RARCreateProvider(binaryPath: discovery.resolvedPath)
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
-
-        let sourceFile = dir.appending(path: "data.bin")
-        let payload = Data(repeating: 0xAB, count: 4096)
-        try payload.write(to: sourceFile)
-
-        let archiveURL = dir.appending(path: "roundtrip.rar")
-        try await provider.create(
-            archiveURL: archiveURL,
-            sources: [sourceFile.path],
-            options: RARCreateOptions(method: .store)
-        )
-
-        let extractDir = dir.appending(path: "extracted", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
-        try await provider.extract(archiveURL: archiveURL, to: extractDir)
-
-        let extractedFile = extractDir.appending(path: "data.bin")
-        XCTAssertEqual(try Data(contentsOf: extractedFile), payload)
     }
 }

@@ -49,7 +49,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
             "根目录.txt": Data("root".utf8),
         ])
         let destination = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchDestination-" + UUID().uuidString,
+            path: "MacUnzipDestination-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
@@ -72,7 +72,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
 
     func testRealLoaderCreatesVerifiedWindowsZIPAndReturnsOpenedSnapshot() async throws {
         let root = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchCreateLoader-" + UUID().uuidString,
+            path: "MacUnzipCreateLoader-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         let input = root.appending(path: "输入资料", directoryHint: .isDirectory)
@@ -108,7 +108,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
         _ = try await loader.open(url: fixture.archiveURL)
 
         let sidecarRoot = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchEditSidecar-" + UUID().uuidString,
+            path: "MacUnzipEditSidecar-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: sidecarRoot, withIntermediateDirectories: true)
@@ -155,7 +155,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
     func testExtractionNeverOverwritesAndUsesFinderStyleNumericSuffix() async throws {
         let fixture = try LoaderZIPFixture(entries: ["说明.txt": Data("new".utf8)])
         let destination = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchCollision-" + UUID().uuidString,
+            path: "MacUnzipCollision-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         let existing = destination.appending(path: "fixture", directoryHint: .isDirectory)
@@ -177,7 +177,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
             "大文件.bin": loaderPseudoRandomData(count: 2_000_000),
         ])
         let destination = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchCancel-" + UUID().uuidString,
+            path: "MacUnzipCancel-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
@@ -243,7 +243,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
         XCTAssertEqual(model.documentTitle, "真实文档.zip")
         XCTAssertEqual(model.documentItemCount, 1)
         XCTAssertEqual(model.selectedEntryID, entry.id)
-        XCTAssertEqual(model.currentDirectory, "文档")
+        XCTAssertEqual(model.currentDirectory, "")
         XCTAssertEqual(
             model.folderSummaries,
             [ArchiveFolderSummary(name: "文档", itemCount: 1)]
@@ -342,8 +342,8 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
 
         await model.openArchive(url: sourceURL)
 
-        XCTAssertEqual(model.currentDirectory, "压缩包根目录")
-        XCTAssertEqual(model.visibleEntries, [rootEntry])
+        XCTAssertEqual(model.currentDirectory, "")
+        XCTAssertEqual(model.visibleEntries, [rootEntry, nestedEntry])
     }
 
     @MainActor
@@ -378,7 +378,7 @@ final class ArchiveDocumentLoaderTests: XCTestCase {
 
         await model.openArchive(url: sourceURL)
 
-        XCTAssertEqual(model.currentDirectory, "Archive Root")
+        XCTAssertEqual(model.currentDirectory, "")
         XCTAssertEqual(model.folderSummaries, [ArchiveFolderSummary(name: "Archive Root", itemCount: 1)])
         XCTAssertEqual(model.selectedMetadata?.type, "File")
     }
@@ -848,7 +848,7 @@ private final class LoaderZIPFixture {
 
     init(entries: [String: Data]) throws {
         rootURL = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchLoaderTests-" + UUID().uuidString,
+            path: "MacUnzipLoaderTests-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         let contentsURL = rootURL.appending(path: "contents", directoryHint: .isDirectory)

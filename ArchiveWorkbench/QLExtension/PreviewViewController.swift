@@ -124,7 +124,10 @@ struct ZIPSummaryReader: Sendable {
             offset += 46 + fileNameLength + extraFieldLength + commentLength
         }
 
-        let totalSize = entries.reduce(UInt64(0)) { $0 + $1.uncompressedSize }
+        let totalSize = entries.reduce(UInt64(0)) { partial, entry in
+            let (sum, overflow) = partial.addingReportingOverflow(entry.uncompressedSize)
+            return overflow ? .max : sum
+        }
         return Summary(entries: entries, totalUncompressedSize: totalSize, entryCount: entries.count)
     }
 
@@ -150,12 +153,12 @@ struct ZIPSummaryReader: Sendable {
         let locatorOffset = eocdOffset - 20
         guard locatorOffset >= 0 else { return nil }
         guard data.readUInt32(at: locatorOffset) == 0x07064B50 else { return nil }
-        let zip64EOCDOffset = Int(data.readUInt64(at: locatorOffset + 8))
-        guard zip64EOCDOffset + 56 <= data.count else { return nil }
+        guard let zip64EOCDOffset = Int(exactly: data.readUInt64(at: locatorOffset + 8)) else { return nil }
+        guard data.count >= 56, zip64EOCDOffset <= data.count - 56 else { return nil }
         guard data.readUInt32(at: zip64EOCDOffset) == 0x06064B50 else { return nil }
-        let totalEntries = Int(data.readUInt64(at: zip64EOCDOffset + 32))
-        let cdSize = Int(data.readUInt64(at: zip64EOCDOffset + 40))
-        let cdOffset = Int(data.readUInt64(at: zip64EOCDOffset + 48))
+        guard let totalEntries = Int(exactly: data.readUInt64(at: zip64EOCDOffset + 32)),
+              let cdSize = Int(exactly: data.readUInt64(at: zip64EOCDOffset + 40)),
+              let cdOffset = Int(exactly: data.readUInt64(at: zip64EOCDOffset + 48)) else { return nil }
         return ZIP64EOCDInfo(entryCount: totalEntries, cdOffset: cdOffset, cdSize: cdSize)
     }
 
@@ -182,11 +185,13 @@ struct ZIPSummaryReader: Sendable {
                 var fieldPos = pos
                 var uncompressed: UInt64 = 0
                 var compressed: UInt64 = 0
-                if needsUncompressed, fieldPos + 8 <= data.count {
+                if needsUncompressed {
+                    guard fieldPos + 8 <= data.count else { return nil }
                     uncompressed = data.readUInt64(at: fieldPos)
                     fieldPos += 8
                 }
-                if needsCompressed, fieldPos + 8 <= data.count {
+                if needsCompressed {
+                    guard fieldPos + 8 <= data.count else { return nil }
                     compressed = data.readUInt64(at: fieldPos)
                 }
                 return ZIP64Sizes(uncompressed: uncompressed, compressed: compressed)
@@ -260,6 +265,13 @@ enum DetectedArchiveFormat: String, Sendable {
 
 /// Builds the preview text content off the main actor.
 struct PreviewTextBuilder: Sendable {
+    /// The QL extension target ships no .strings resources; select copy at runtime
+    /// from the user's preferred language instead of wiring a resource bundle.
+    private static func L(_ zh: String, _ en: String) -> String {
+        let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
+        return preferred.hasPrefix("zh") ? zh : en
+    }
+
     static func buildPreview(for url: URL) -> String {
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
@@ -302,16 +314,16 @@ struct PreviewTextBuilder: Sendable {
         lines.append("│  \(fileName)")
         lines.append("└─────────────────────────────────────────┘")
         lines.append("")
-        lines.append("格式：ZIP")
-        lines.append("文件大小：\(formatBytes(fileSize))")
-        lines.append("包含项目：\(summary.entryCount) 项")
-        lines.append("解压后大小：\(formatBytes(summary.totalUncompressedSize))")
+        lines.append(L("格式：ZIP", "Format: ZIP"))
+        lines.append(L("文件大小：", "File size: ") + formatBytes(fileSize))
+        lines.append(L("包含项目：\(summary.entryCount) 项", "Items: \(summary.entryCount)"))
+        lines.append(L("解压后大小：", "Uncompressed size: ") + formatBytes(summary.totalUncompressedSize))
         if fileSize > 0, summary.totalUncompressedSize > 0 {
             let ratio = Double(fileSize) / Double(summary.totalUncompressedSize) * 100
-            lines.append("压缩率：\(String(format: "%.1f%%", ratio))")
+            lines.append(L("压缩率：", "Compression ratio: ") + String(format: "%.1f%%", ratio))
         }
         lines.append("")
-        lines.append("── 文件列表 ──────────────────────────────")
+        lines.append(L("── 文件列表 ──────────────────────────────", "── File List ──────────────────────────────"))
         lines.append("")
 
         let displayEntries = summary.entries.prefix(20)
@@ -326,12 +338,12 @@ struct PreviewTextBuilder: Sendable {
 
         if summary.entryCount > 20 {
             lines.append("")
-            lines.append("… 还有 \(summary.entryCount - 20) 个项目")
-            lines.append("  使用 ArchiveWorkbench 打开查看完整内容")
+            lines.append(L("… 还有 \(summary.entryCount - 20) 个项目", "… \(summary.entryCount - 20) more items"))
+            lines.append(L("  使用 MacUnzip 打开查看完整内容", "  Open with MacUnzip to view full contents"))
         }
 
         lines.append("")
-        lines.append("── 由 ArchiveWorkbench 生成预览 ──")
+        lines.append(L("── 由 MacUnzip 生成预览 ──", "── Preview generated by MacUnzip ──"))
         return lines.joined(separator: "\n")
     }
 
@@ -345,13 +357,14 @@ struct PreviewTextBuilder: Sendable {
         lines.append("│  \(fileName)")
         lines.append("└─────────────────────────────────────────┘")
         lines.append("")
-        lines.append("格式：\(format.rawValue)")
-        lines.append("文件大小：\(formatBytes(fileSize))")
+        let formatName = format == .unknown ? L("未知", "Unknown") : format.rawValue
+        lines.append(L("格式：", "Format: ") + formatName)
+        lines.append(L("文件大小：", "File size: ") + formatBytes(fileSize))
         lines.append("")
-        lines.append("此格式的详细内容预览需要 ArchiveWorkbench 应用。")
-        lines.append("右键点击文件 → 打开方式 → ArchiveWorkbench")
+        lines.append(L("此格式的详细内容预览需要 MacUnzip 应用。", "Detailed preview for this format requires the MacUnzip app."))
+        lines.append(L("右键点击文件 → 打开方式 → MacUnzip", "Right-click the file → Open With → MacUnzip"))
         lines.append("")
-        lines.append("── 由 ArchiveWorkbench 生成预览 ──")
+        lines.append(L("── 由 MacUnzip 生成预览 ──", "── Preview generated by MacUnzip ──"))
         return lines.joined(separator: "\n")
     }
 
@@ -361,12 +374,12 @@ struct PreviewTextBuilder: Sendable {
         lines.append("│  \(fileName)")
         lines.append("└─────────────────────────────────────────┘")
         lines.append("")
-        lines.append("文件大小：\(formatBytes(fileSize))")
+        lines.append(L("文件大小：", "File size: ") + formatBytes(fileSize))
         lines.append("")
-        lines.append("无法读取此压缩包的内容。")
-        lines.append("文件可能已损坏或使用了不支持的加密方式。")
+        lines.append(L("无法读取此压缩包的内容。", "Cannot read the contents of this archive."))
+        lines.append(L("文件可能已损坏或使用了不支持的加密方式。", "The file may be corrupted or use an unsupported encryption method."))
         lines.append("")
-        lines.append("── 由 ArchiveWorkbench 生成预览 ──")
+        lines.append(L("── 由 MacUnzip 生成预览 ──", "── Preview generated by MacUnzip ──"))
         return lines.joined(separator: "\n")
     }
 

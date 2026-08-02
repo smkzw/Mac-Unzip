@@ -153,7 +153,9 @@ public struct SevenZipBinaryDiscovery: Equatable, Sendable {
             return nil
         }
         guard result.exitStatus == 0 else { return nil }
-        return parseBanner(String(decoding: result.stdout, as: UTF8.self))
+        guard let probe = parseBanner(String(decoding: result.stdout, as: UTF8.self)),
+              probe.architecture == "arm64" else { return nil }
+        return probe
     }
 
     /// Parses the leading 7-Zip (z) <version> (<arch>) banner line.
@@ -336,7 +338,7 @@ struct SevenZipProcessRunner: Sendable {
         let stderrDrain = SevenZipBoundedDrain(descriptor: stderrPipe[0], capacity: maximumStderrBytes)
         let drainGroup = DispatchGroup()
         let drainQueue = DispatchQueue(
-            label: "com.smkzw.ArchiveWorkbench.sevenzip-drain",
+            label: "com.smkzw.MacUnzip.sevenzip-drain",
             attributes: .concurrent
         )
         drainGroup.enter()
@@ -362,6 +364,8 @@ struct SevenZipProcessRunner: Sendable {
                 break
             }
             if waited == -1 {
+                if errno == EINTR { continue }
+                Self.terminateProcessGroup(childPID)
                 terminal = .drainFailure
                 break
             }
@@ -675,74 +679,28 @@ public actor SevenZipProvider: ArchiveProvider {
     public var isMultipartVolume: Bool { looksLikeMultipartVolume }
 
     public func open(url: URL) throws -> ArchiveDocumentSnapshot {
-        archiveURL = nil
-        entriesByID = [:]
-        isSolidArchive = false
-        currentPassword = nil
-        looksLikeMultipartVolume = Self.looksLikeSplitVolume(url)
-
-        let result = try invoke(
-            arguments: ["l", "-slt", url.path],
-            timeoutSeconds: listingTimeoutSeconds,
-            maximumStdoutBytes: maximumStdoutListingBytes
-        )
-        guard result.exitStatus == 0 else {
-            throw mapError(result: result, forListing: true)
-        }
-        guard !result.stdoutExceeded else { throw ArchiveError.resourceLimit }
-
-        let parse = SevenZipListingParser().parse(String(decoding: result.stdout, as: UTF8.self))
-        isSolidArchive = parse.signals.isSolid
-        looksLikeMultipartVolume = parse.signals.isMultipart || looksLikeMultipartVolume
-
-        guard parse.entries.count <= listingEntryLimit else {
-            throw ArchiveError.resourceLimit
-        }
-
-        var snapshots: [ArchiveEntrySnapshot] = []
-        snapshots.reserveCapacity(parse.entries.count)
-        for parsed in parse.entries {
-            let normalized = parsed.path.replacingOccurrences(of: "\\", with: "/")
-            let isDirectory = parsed.isDirectory || normalized.hasSuffix("/")
-            let validationPath = isDirectory && normalized.hasSuffix("/")
-                ? String(normalized.dropLast())
-                : normalized
-            do {
-                try ArchivePathPolicy().validate(validationPath)
-            } catch {
-                throw ArchiveError.unsafePath
-            }
-            let entry = ArchiveEntry(
-                id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(normalized.utf8)),
-                displayPath: validationPath
-            )
-            snapshots.append(ArchiveEntrySnapshot(
-                entry: entry,
-                compressedSize: parsed.packedSize,
-                uncompressedSize: parsed.size,
-                modifiedAt: parsed.modifiedAt,
-                isDirectory: isDirectory,
-                isSymbolicLink: false,
-                isEncrypted: parsed.encrypted,
-                usesUTF8FileName: true
-            ))
-        }
-
-        archiveURL = url
-        entriesByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.entry.id, $0) })
-        return ArchiveDocumentSnapshot(sourceURL: url, format: .sevenZip, entries: snapshots)
+        try openInternal(url: url, password: nil)
     }
 
     public func openWithPassword(url: URL, password: String) throws -> ArchiveDocumentSnapshot {
+        try openInternal(url: url, password: password)
+    }
+
+    private func openInternal(url: URL, password: String?) throws -> ArchiveDocumentSnapshot {
         archiveURL = nil
         entriesByID = [:]
         isSolidArchive = false
-        currentPassword = SecurePassword(password)
+        currentPassword = password.map { SecurePassword($0) }
         looksLikeMultipartVolume = Self.looksLikeSplitVolume(url)
 
+        var arguments = ["l", "-slt"]
+        if let password {
+            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
+            arguments.append("-p\(password)")
+        }
+        arguments.append(url.path)
         let result = try invoke(
-            arguments: ["l", "-slt", "-p\(password)", url.path],
+            arguments: arguments,
             timeoutSeconds: listingTimeoutSeconds,
             maximumStdoutBytes: maximumStdoutListingBytes
         )
@@ -774,7 +732,7 @@ public actor SevenZipProvider: ArchiveProvider {
             }
             let entry = ArchiveEntry(
                 id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(normalized.utf8)),
+                rawPath: ArchivePathBytes(Array(parsed.path.utf8)),
                 displayPath: validationPath
             )
             snapshots.append(ArchiveEntrySnapshot(
@@ -807,12 +765,13 @@ public actor SevenZipProvider: ArchiveProvider {
         let stdoutLimit = Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
         var arguments = ["x", "-so", "-y", "-spd", "-bso0", "-bsp0"]
         if let password = currentPassword {
+            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
             password.withCString { ptr in
                 arguments.append("-p" + String(cString: ptr))
             }
         }
         arguments.append(archiveURL.path)
-        arguments.append("-i!" + snapshot.entry.displayPath + "!")
+        arguments.append("-i!" + String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self))
         let result = try invoke(
             arguments: arguments,
             timeoutSeconds: extractionTimeoutSeconds,
@@ -1016,9 +975,10 @@ public actor SevenZipProvider: ArchiveProvider {
         var stagePublished = false
         defer { if !stagePublished { try? FileManager.default.removeItem(at: stageURL) } }
 
-        var arguments = ["a", "-t7z", "-mx=5"]
+        var arguments = ["a", "-t7z", "-mx=5", "-spd"]
         if let password, !password.isEmpty {
             arguments.append("-mhe=on")
+            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
             arguments.append("-p\(password)")
         }
         arguments.append(stageURL.path)
@@ -1078,6 +1038,12 @@ public actor SevenZipProvider: ArchiveProvider {
             || text.contains("enter password")
             || text.contains("cannot open encrypted archive") {
             return .passwordRequired
+        }
+        if text.contains("unsupported encryption") {
+            return .unsupportedEncryption
+        }
+        if text.contains("unsupported method") {
+            return .unsupportedMethod
         }
         if text.contains("cannot open archive")
             || text.contains("no more files")

@@ -237,7 +237,8 @@ Free tools hit a ceiling. Paid tools charge too much. Here's the landscape:
 ```bash
 git clone https://github.com/smkzw/Mac-Unzip.git
 cd Mac-Unzip/ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 In Xcode 26: select the **App** scheme → target your Mac → press **⌘R**. That's it. You're running.

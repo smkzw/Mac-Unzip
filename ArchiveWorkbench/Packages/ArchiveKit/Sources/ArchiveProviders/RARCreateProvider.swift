@@ -55,6 +55,9 @@ public enum RARCreateProviderError: Error, Equatable, Sendable {
     case cancelled
     /// The rar binary returned a non-zero exit status.
     case rarFailed(exitCode: Int32, message: String)
+    /// A source filename contains wildcard metacharacters (* or ?) that RARLAB rar
+    /// would glob-expand; rar has no switch to disable this, so the input is rejected.
+    case wildcardInFilename(name: String)
 }
 
 // MARK: - Binary discovery & validation
@@ -74,11 +77,6 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
         "/opt/homebrew/bin/rar",
     ]
 
-    /// Path to a rar binary embedded in the app bundle's Resources directory.
-    public static var bundleCandidatePath: String? {
-        Bundle.main.resourceURL?.appendingPathComponent("Binaries/rar").path
-    }
-
     /// UserDefaults key for user-configured rar path.
     public static let userPathDefaultsKey = "RARCreateProvider.rarPath"
 
@@ -86,17 +84,14 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
     public static let licenseConfirmedDefaultsKey = "RARCreateProvider.licenseConfirmed"
 
     /// Discovers and validates a rar binary, or returns nil when none qualifies.
-    /// Checks bundle-embedded binary first, then user-configured path, then standard locations.
+    /// Checks the user-configured path first, then standard install locations.
+    /// The app never bundles rar; it must be installed and licensed by the user.
     public static func discover(
         candidatePaths: [String]? = nil,
         defaults: UserDefaults = .standard
     ) -> RARBinaryDiscovery? {
         var paths: [String] = []
-        // Bundle-embedded binary takes highest priority
-        if let bundlePath = bundleCandidatePath {
-            paths.append(bundlePath)
-        }
-        // User-configured path takes next priority
+        // User-configured path takes priority
         if let userPath = defaults.string(forKey: userPathDefaultsKey), !userPath.isEmpty {
             paths.append(userPath)
         }
@@ -234,16 +229,18 @@ public struct RARBinaryDiscovery: Equatable, Sendable {
     private static func probeVersion(resolvedPath: String) -> VersionProbe? {
         let result: SevenZipProcessResult
         do {
+            // RARLAB's rar has no --version flag; invoking it with no arguments
+            // prints the version banner ("RAR 7.23 ...") and exits 0.
             result = try SevenZipProcessRunner().run(
                 executablePath: resolvedPath,
-                arguments: ["--version"],
+                arguments: [],
                 timeoutSeconds: 10,
                 maximumStdoutBytes: 1 << 16
             )
         } catch {
             return nil
         }
-        // rar --version may exit 0 or non-zero depending on version; accept both
+        // rar may exit 0 or non-zero depending on version; accept both
         let output = String(decoding: result.stdout, as: UTF8.self)
             + "\n"
             + String(decoding: result.stderr, as: UTF8.self)
@@ -340,7 +337,7 @@ public struct RARLicenseConfirmation: @unchecked Sendable {
     }
 
     /// The alert message shown on first use.
-    public static let confirmationMessage = "RARLAB rar 是共享软件，需要合法许可。"
+    public static let confirmationMessage = "创建 RAR 将调用你自行安装的 RARLAB 官方 rar 工具。RARLAB rar 是共享软件，需要合法许可才能使用；MacUnzip 不随附该工具。"
     public static let confirmationTitle = "确认 RAR 许可"
     public static let confirmButton = "我已安装并拥有许可"
     public static let cancelButton = "取消"
@@ -432,6 +429,14 @@ public actor RARCreateProvider {
         try Task.checkCancellation()
         guard !sources.isEmpty else {
             throw RARCreateProviderError.rarFailed(exitCode: -1, message: "No source files specified")
+        }
+        // rar glob-expands * and ? in command-line filenames and cannot be told not to;
+        // reject such inputs rather than silently archiving unintended siblings.
+        for source in sources {
+            let name = (source as NSString).lastPathComponent
+            if name.contains("*") || name.contains("?") {
+                throw RARCreateProviderError.wildcardInFilename(name: name)
+            }
         }
 
         let stageURL = archiveURL.deletingLastPathComponent()

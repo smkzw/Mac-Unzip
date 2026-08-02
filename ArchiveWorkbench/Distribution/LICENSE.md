@@ -1,6 +1,6 @@
-# ArchiveWorkbench License
+# MacUnzip License
 
-> **STATUS: TBD** - The license for ArchiveWorkbench itself has not yet been
+> **STATUS: TBD** - The license for MacUnzip itself has not yet been
 > determined by the author. This file is a placeholder to be finalized before
 > public distribution.
 
@@ -10,7 +10,7 @@ Copyright (c) 2026 smkzw. All rights reserved.
 
 ## License Decision Notes
 
-When choosing a license for ArchiveWorkbench, consider the following
+When choosing a license for MacUnzip, consider the following
 third-party compatibility constraints:
 
 ### Bundled / Linked Dependencies (affect license choice)
@@ -35,19 +35,19 @@ third-party compatibility constraints:
   BSD, Apache-2.0, GPL, or any other license choice.
 
 - **7zz (LGPL-2.1)** is NOT bundled, linked, or distributed with
-  ArchiveWorkbench. It is an optional external tool that the user may
-  install independently. ArchiveWorkbench merely invokes it via a subprocess
+  MacUnzip. It is an optional external tool that the user may
+  install independently. MacUnzip merely invokes it via a subprocess
   call (`Process()`). This does not create a derivative work or combined
   work under LGPL, so no LGPL source-disclosure or linking obligations apply.
 
 - **Apple libcompression** is part of macOS and requires no separate
-  distribution or license grant from ArchiveWorkbench.
+  distribution or license grant from MacUnzip.
 
 ---
 
 ## Third-Party Attribution
 
-Regardless of the license chosen for ArchiveWorkbench, the following
+Regardless of the license chosen for MacUnzip, the following
 attributions must be included in distributions:
 
 1. **minizip-ng**: Retain the Zlib license notice (see THIRD_PARTY_NOTICES.md)
@@ -59,9 +59,9 @@ attributions must be included in distributions:
 
 - [ ] Author selects license (proprietary, MIT, Apache-2.0, etc.)
 - [ ] Replace this placeholder with final license text
-- [ ] Update SBOM.spdx.json `licenseConcluded` field for ArchiveWorkbench package
+- [ ] Update SBOM.spdx.json `licenseConcluded` field for MacUnzip package
 - [ ] Add LICENSE file to DMG / distribution package
 
 ---
 
-*Generated: 2026-07-27 | ArchiveWorkbench Distribution Preparation (Phase G)*
+*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*

@@ -198,7 +198,8 @@ final class CrashRecoveryJournalTests: XCTestCase {
         let archiveURL = tempDir.appending(path: "original.zip")
         let stagingURL = tempDir.appending(path: ".original.zip.editing-789")
         try Data("original content".utf8).write(to: archiveURL)
-        try Data("new content".utf8).write(to: stagingURL)
+        let stagingZIP = Self.makeMinimalStoredZIP(fileName: "a.txt", content: Data("hello".utf8))
+        try stagingZIP.write(to: stagingURL)
 
         let journal = CrashRecoveryJournal(
             sourceArchive: archiveURL,
@@ -210,8 +211,31 @@ final class CrashRecoveryJournalTests: XCTestCase {
         try CrashRecoveryJournalStore.recover(journal)
 
         let content = try Data(contentsOf: archiveURL)
-        XCTAssertEqual(String(data: content, encoding: .utf8), "new content")
+        XCTAssertEqual(content, stagingZIP)
         XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        let journalURL = CrashRecoveryJournalStore.journalURL(forArchiveAt: archiveURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: journalURL.path))
+    }
+
+    func testRecoverRefusesInvalidStagingAndPreservesOriginal() throws {
+        let archiveURL = tempDir.appending(path: "original.zip")
+        let stagingURL = tempDir.appending(path: ".original.zip.editing-bad")
+        try Data("original content".utf8).write(to: archiveURL)
+        // A partial/non-ZIP staging file (>= 22 bytes) must not clobber the original.
+        try Data("partial truncated staging bytes".utf8).write(to: stagingURL)
+
+        let journal = CrashRecoveryJournal(
+            sourceArchive: archiveURL,
+            stagingFile: stagingURL,
+            pendingChanges: []
+        )
+        try CrashRecoveryJournalStore.write(journal, forArchiveAt: archiveURL)
+
+        XCTAssertThrowsError(try CrashRecoveryJournalStore.recover(journal)) { error in
+            XCTAssertEqual(error as? CrashRecoveryError, .stagingFileInvalid)
+        }
+
+        XCTAssertEqual(String(data: try Data(contentsOf: archiveURL), encoding: .utf8), "original content")
         let journalURL = CrashRecoveryJournalStore.journalURL(forArchiveAt: archiveURL)
         XCTAssertFalse(FileManager.default.fileExists(atPath: journalURL.path))
     }
@@ -272,5 +296,86 @@ final class CrashRecoveryJournalTests: XCTestCase {
 
         let journalURL = CrashRecoveryJournalStore.journalURL(forArchiveAt: archiveURL)
         XCTAssertFalse(FileManager.default.fileExists(atPath: journalURL.path))
+    }
+
+    // MARK: - Helpers
+
+    /// Builds a minimal but structurally valid stored (uncompressed) ZIP
+    /// containing a single entry, for exercising recovery validation.
+    private static func makeMinimalStoredZIP(fileName: String, content: Data) -> Data {
+        let nameBytes = Array(fileName.utf8)
+        let crc = crc32(content)
+        let size = UInt32(content.count)
+
+        var data = Data()
+        func u16(_ value: UInt16) {
+            data.append(UInt8(value & 0xFF))
+            data.append(UInt8(value >> 8))
+        }
+        func u32(_ value: UInt32) {
+            data.append(UInt8(value & 0xFF))
+            data.append(UInt8((value >> 8) & 0xFF))
+            data.append(UInt8((value >> 16) & 0xFF))
+            data.append(UInt8((value >> 24) & 0xFF))
+        }
+
+        // Local file header
+        u32(0x0403_4b50)
+        u16(20)          // version needed
+        u16(0)           // flags
+        u16(0)           // method: stored
+        u16(0)           // mod time
+        u16(0)           // mod date
+        u32(crc)
+        u32(size)        // compressed size
+        u32(size)        // uncompressed size
+        u16(UInt16(nameBytes.count))
+        u16(0)           // extra length
+        data.append(contentsOf: nameBytes)
+        data.append(content)
+        let centralOffset = UInt32(data.count)
+
+        // Central directory header
+        u32(0x0201_4b50)
+        u16(20)          // version made by
+        u16(20)          // version needed
+        u16(0)           // flags
+        u16(0)           // method
+        u16(0)           // mod time
+        u16(0)           // mod date
+        u32(crc)
+        u32(size)
+        u32(size)
+        u16(UInt16(nameBytes.count))
+        u16(0)           // extra length
+        u16(0)           // comment length
+        u16(0)           // disk number start
+        u16(0)           // internal attrs
+        u32(0)           // external attrs
+        u32(0)           // local header offset
+        data.append(contentsOf: nameBytes)
+        let centralSize = UInt32(data.count) - centralOffset
+
+        // End of central directory record
+        u32(0x0605_4b50)
+        u16(0)           // disk number
+        u16(0)           // disk with central dir
+        u16(1)           // entries on disk
+        u16(1)           // total entries
+        u32(centralSize)
+        u32(centralOffset)
+        u16(0)           // comment length
+        return data
+    }
+
+    private static func crc32(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                crc = (crc & 1 != 0) ? (crc >> 1) ^ 0xEDB8_8320 : (crc >> 1)
+            }
+        }
+        return crc ^ 0xFFFF_FFFF
     }
 }

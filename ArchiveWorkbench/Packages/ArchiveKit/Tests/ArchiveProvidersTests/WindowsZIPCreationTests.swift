@@ -348,7 +348,7 @@ private final class InputTree {
 
     init(entries: [String: Data]) throws {
         rootURL = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchInput-" + UUID().uuidString,
+            path: "MacUnzipInput-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)

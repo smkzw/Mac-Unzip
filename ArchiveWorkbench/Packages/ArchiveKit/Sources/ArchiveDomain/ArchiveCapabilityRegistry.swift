@@ -7,7 +7,6 @@ public struct ArchiveCapabilityRegistry: Sendable {
             actions: [.list, .read, .preview, .create, .update],
             primaryProvider: .minizipNG,
             unavailableReasons: [
-                .encrypt: .notYetImplemented,
                 .split: .notYetImplemented,
                 .test: .notYetImplemented,
                 .repair: .notYetImplemented,
@@ -19,7 +18,6 @@ public struct ArchiveCapabilityRegistry: Sendable {
             unavailableReasons: [
                 .create: .notYetImplemented,
                 .update: .notYetImplemented,
-                .encrypt: .notYetImplemented,
                 .split: .notYetImplemented,
                 .test: .notYetImplemented,
                 .repair: .unsupportedByProvider,
@@ -106,7 +104,6 @@ public struct ArchiveCapabilityRegistry: Sendable {
                 primaryProvider: .sevenZZ,
                 unavailableReasons: [
                     .update: .notYetImplemented,
-                    .encrypt: .notYetImplemented,
                     .split: .notYetImplemented,
                     .test: .notYetImplemented,
                     .repair: .unsupportedByProvider,
@@ -199,41 +196,28 @@ public struct ArchiveCapabilityRegistry: Sendable {
         return .init(snapshots: copy)
     }
 
-    /// Runtime discovery: register RARLAB rar creation capabilities when the
-    /// external rar binary has been validated AND the user confirmed their license.
-    /// The primary provider is .rarLab (not .sevenZZ) since creation uses RARLAB's
-    /// proprietary binary. Reading still uses 7zz via withRARAvailable().
-    public func withValidatedRARLAB() -> Self {
-        var copy = snapshots
-        copy[.rar] = .init(
-            actions: [.list, .read, .preview, .create, .test],
-            primaryProvider: .rarLab,
-            unavailableReasons: [
-                .update: .notYetImplemented,
-                .repair: .unsupportedByProvider,
-            ]
-        )
-        return .init(snapshots: copy)
-    }
-
     /// Runtime discovery: gate RAR creation on whether the external RARLAB rar
     /// provider is available (binary validated + license confirmed). When false,
     /// creation is marked as externalProviderNotValidated; reading via 7zz is
     /// unaffected.
     public func withRARCreateAvailable(_ available: Bool) -> Self {
         var copy = snapshots
+        let existing = copy[.rar]
         if available {
+            var actions = existing?.actions ?? []
+            actions.insert(.create)
+            actions.insert(.test)
+            var reasons = existing?.unavailableReasons ?? [:]
+            reasons.removeValue(forKey: .create)
+            reasons.removeValue(forKey: .test)
+            reasons[.update] = .notYetImplemented
             copy[.rar] = .init(
-                actions: [.list, .read, .preview, .create, .test],
+                actions: actions,
                 primaryProvider: .rarLab,
-                unavailableReasons: [
-                    .update: .notYetImplemented,
-                    .repair: .unsupportedByProvider,
-                ]
+                unavailableReasons: reasons
             )
         } else {
             // Preserve read capabilities from 7zz but mark creation unavailable
-            let existing = copy[.rar]
             var actions = existing?.actions ?? []
             actions.remove(.create)
             actions.remove(.test)

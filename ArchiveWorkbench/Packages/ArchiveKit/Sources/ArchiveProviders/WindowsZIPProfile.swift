@@ -64,7 +64,8 @@ extension ZIPArchiveProvider {
             if stageExists { try? FileManager.default.removeItem(at: stageURL) }
         }
 
-        let writer = try ZIPBridgeWriter(url: stageURL, compressLevel: compressLevel, password: password, encryptMethod: encryptMethod)
+        let securePassword: SecurePassword? = password.map { SecurePassword($0) }
+        let writer = try ZIPBridgeWriter(url: stageURL, compressLevel: compressLevel, password: securePassword, encryptMethod: encryptMethod)
         stageExists = true
         var completedEntries = 0
         var completedBytes: UInt64 = 0
@@ -112,8 +113,8 @@ extension ZIPArchiveProvider {
         try Task.checkCancellation()
         try writer.finish()
         try syncFile(at: stageURL)
-        let isEncrypted = password.map { !$0.isEmpty } ?? false
-        try verify(stageURL: stageURL, expectedEntries: entries, expectEncrypted: isEncrypted, password: password)
+        let isEncrypted = securePassword.map { !$0.isEmpty } ?? false
+        try verify(stageURL: stageURL, expectedEntries: entries, expectEncrypted: isEncrypted, password: securePassword)
         try Task.checkCancellation()
         try publishExclusively(stageURL: stageURL, outputURL: outputURL)
         stageExists = false
@@ -129,10 +130,10 @@ extension ZIPArchiveProvider {
         guard fsync(descriptor) == 0 else { throw WindowsZIPProfileError.io(errno) }
     }
 
-    private func verify(stageURL: URL, expectedEntries: [WindowsZIPInputEntry], expectEncrypted: Bool, password: String?) throws {
+    private func verify(stageURL: URL, expectedEntries: [WindowsZIPInputEntry], expectEncrypted: Bool, password: SecurePassword?) throws {
         let reader: ZIPBridgeReader
         if expectEncrypted, let password {
-            reader = try ZIPBridgeReader(url: stageURL, password: SecurePassword(password))
+            reader = try ZIPBridgeReader(url: stageURL, password: password)
         } else {
             reader = try ZIPBridgeReader(url: stageURL)
         }
@@ -337,13 +338,15 @@ private struct WindowsZIPPreflight {
             throw WindowsZIPProfileError.unsupportedItem(root.lastPathComponent)
         }
         var result: [(url: URL, path: String, isDirectory: Bool, modifiedAt: Date?)] = []
-        let prefix = root.standardizedFileURL.path + "/"
+        // The enumerator yields symlink-resolved paths; resolve the root too so the
+        // prefix matches even when root sits under a symlinked component (/tmp -> /private/tmp).
+        let prefix = root.resolvingSymlinksInPath().path + "/"
         while let url = enumerator.nextObject() as? URL {
             let values = try url.resourceValues(forKeys: resourceKeys)
-            guard url.standardizedFileURL.path.hasPrefix(prefix) else {
+            guard url.path.hasPrefix(prefix) else {
                 throw WindowsZIPProfileError.unsupportedItem(url.lastPathComponent)
             }
-            let relativePath = String(url.standardizedFileURL.path.dropFirst(prefix.count))
+            let relativePath = String(url.path.dropFirst(prefix.count))
             if values.isSymbolicLink == true {
                 throw WindowsZIPProfileError.unsupportedItem(relativePath)
             }
@@ -396,11 +399,21 @@ private struct WindowsZIPPreflight {
 private final class ZIPBridgeWriter {
     private var handle: OpaquePointer?
 
-    init(url: URL, compressLevel: Int32 = AWB_MZ_LEVEL_NORMAL, password: String? = nil, encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE) throws {
+    init(url: URL, compressLevel: Int32 = AWB_MZ_LEVEL_NORMAL, password: SecurePassword? = nil, encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE) throws {
         var opened: OpaquePointer?
-        let status = url.withUnsafeFileSystemRepresentation { path in
-            guard let path else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
-            return awb_mz_writer_open_configured(path, compressLevel, password, encryptMethod, &opened)
+        let status: Int32
+        if let password {
+            status = password.withCString { passwordPtr in
+                url.withUnsafeFileSystemRepresentation { path in
+                    guard let path else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
+                    return awb_mz_writer_open_configured(path, compressLevel, passwordPtr, encryptMethod, &opened)
+                }
+            }
+        } else {
+            status = url.withUnsafeFileSystemRepresentation { path in
+                guard let path else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
+                return awb_mz_writer_open_configured(path, compressLevel, nil, encryptMethod, &opened)
+            }
         }
         guard status == AWB_MZ_OK, let opened else {
             throw ZIPProviderErrorMapper.archiveError(for: status)

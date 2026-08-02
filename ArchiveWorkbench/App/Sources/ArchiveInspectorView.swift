@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ArchiveInspectorView: View {
     let metadata: ArchiveEntryMetadata?
+    var folder: FolderSelectionInfo?
 
     var body: some View {
         AccessibleGroupHost(identifier: "归档信息检查器") {
@@ -10,11 +11,17 @@ struct ArchiveInspectorView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("信息")
                         .font(.headline)
-                    detailRow("类型", value: metadata?.type ?? "—")
-                    detailRow("大小", value: metadata?.size ?? "—")
-                    detailRow("压缩后大小", value: metadata?.compressedSize ?? "—")
-                    detailRow("修改日期", value: metadata?.modifiedDate ?? "—")
-                    detailRow("路径", value: metadata?.path ?? "—")
+                    if let folder {
+                        detailRow("类型", value: AppLocalization().string("文件夹"))
+                        detailRow("路径", value: folder.path)
+                        detailRow("包含项目", value: AppLocalization().format("%ld 项", folder.itemCount))
+                    } else {
+                        detailRow("类型", value: metadata?.type ?? "—")
+                        detailRow("大小", value: metadata?.size ?? "—")
+                        detailRow("压缩后大小", value: metadata?.compressedSize ?? "—")
+                        detailRow("修改日期", value: metadata?.modifiedDate ?? "—")
+                        detailRow("路径", value: metadata?.path ?? "—")
+                    }
                     Spacer()
                 }
                 .padding(16)

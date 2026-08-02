@@ -8,9 +8,17 @@ class FinderSync: FIFinderSync {
         "zip", "7z", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "dmg", "iso",
     ]
 
+    /// The extension target ships no .strings resources; select copy at runtime
+    /// from the user's preferred language instead of wiring a resource bundle.
+    nonisolated private static func L(_ zh: String, _ en: String) -> String {
+        let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
+        return preferred.hasPrefix("zh") ? zh : en
+    }
+
     override init() {
         super.init()
-        FIFinderSyncController.default().directoryURLs = [URL(fileURLWithPath: "/")]
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        FIFinderSyncController.default().directoryURLs = [home, URL(fileURLWithPath: "/Volumes")]
     }
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
@@ -23,7 +31,7 @@ class FinderSync: FIFinderSync {
         case .contextualMenuForItems, .contextualMenuForContainer:
             if hasArchives {
                 let extractItem = NSMenuItem(
-                    title: "用 Mac解霸 打开",
+                    title: Self.L("用 MacUnzip 打开", "Open with MacUnzip"),
                     action: #selector(extractWithApp(_:)),
                     keyEquivalent: ""
                 )
@@ -31,7 +39,7 @@ class FinderSync: FIFinderSync {
                 menu.addItem(extractItem)
 
                 let extractHereItem = NSMenuItem(
-                    title: "解压到当前文件夹",
+                    title: Self.L("解压到当前文件夹", "Extract Here"),
                     action: #selector(extractHere(_:)),
                     keyEquivalent: ""
                 )
@@ -43,7 +51,7 @@ class FinderSync: FIFinderSync {
 
             if hasAnyItems {
                 let compressItem = NSMenuItem(
-                    title: "用 Mac解霸 压缩",
+                    title: Self.L("用 MacUnzip 压缩", "Compress with MacUnzip"),
                     action: #selector(compressWithApp(_:)),
                     keyEquivalent: ""
                 )
@@ -51,7 +59,7 @@ class FinderSync: FIFinderSync {
                 menu.addItem(compressItem)
 
                 let zipItem = NSMenuItem(
-                    title: "压缩为 ZIP…",
+                    title: Self.L("压缩为 ZIP…", "Compress to ZIP…"),
                     action: #selector(compressAsZip(_:)),
                     keyEquivalent: ""
                 )
@@ -94,10 +102,10 @@ class FinderSync: FIFinderSync {
         let paths = urls.map { $0.path }
         let joined = paths.joined(separator: "\0")
 
-        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.smkzw.ArchiveWorkbench")
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.smkzw.MacUnzip")
         if !runningApps.isEmpty {
             DistributedNotificationCenter.default().postNotificationName(
-                NSNotification.Name("com.smkzw.ArchiveWorkbench.finderRequest"),
+                NSNotification.Name("com.smkzw.MacUnzip.finderRequest"),
                 object: nil,
                 userInfo: ["action": action, "paths": joined],
                 deliverImmediately: true
@@ -106,17 +114,20 @@ class FinderSync: FIFinderSync {
             return
         }
 
-        let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.smkzw.ArchiveWorkbench")
+        let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.smkzw.MacUnzip")
         guard let appURL else {
             let alert = NSAlert()
-            alert.messageText = "未找到 Mac解霸"
-            alert.informativeText = "请确认 Mac解霸 已安装在「应用程序」文件夹中。"
+            alert.messageText = Self.L("未找到 MacUnzip", "MacUnzip Not Found")
+            alert.informativeText = Self.L(
+                "请确认 MacUnzip 已安装在「应用程序」文件夹中。",
+                "Please make sure MacUnzip is installed in the Applications folder."
+            )
             alert.runModal()
             return
         }
 
         let tempFile = FileManager.default.temporaryDirectory
-            .appendingPathComponent("aw_finder_\(ProcessInfo.processInfo.globallyUniqueString).txt")
+            .appendingPathComponent("aw_finder_\(action)_\(UUID().uuidString).txt")
         try? joined.write(to: tempFile, atomically: true, encoding: .utf8)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tempFile.path)
 

@@ -24,7 +24,15 @@ final class LicenseManager {
     // MARK: - State
 
     /// Whether a valid Pro license is currently active.
-    private(set) var isProLicensed: Bool = false
+    /// In DEBUG builds, always returns true (developer bypass).
+    var isProLicensed: Bool {
+        #if DEBUG
+        return true
+        #else
+        return _isProLicensed
+        #endif
+    }
+    private var _isProLicensed: Bool = false
 
     /// The currently stored license key (nil if not activated).
     private(set) var storedKey: String?
@@ -44,7 +52,7 @@ final class LicenseManager {
         guard Self.verifySignature(normalized) else { return false }
         guard saveToKeychain(normalized) else { return false }
         storedKey = normalized
-        isProLicensed = true
+        _isProLicensed = true
         return true
     }
 
@@ -52,7 +60,7 @@ final class LicenseManager {
     func deactivateLicense() {
         deleteFromKeychain()
         storedKey = nil
-        isProLicensed = false
+        _isProLicensed = false
     }
 
     // MARK: - Key Format Validation
@@ -155,17 +163,17 @@ final class LicenseManager {
               let data = result as? Data,
               let key = String(data: data, encoding: .utf8)
         else {
-            isProLicensed = false
+            _isProLicensed = false
             storedKey = nil
             return
         }
         // Re-validate on load (guards against tampered keychain entries)
         if Self.validateFormat(key) && Self.verifySignature(key) {
             storedKey = key
-            isProLicensed = true
+            _isProLicensed = true
         } else {
             storedKey = nil
-            isProLicensed = false
+            _isProLicensed = false
         }
     }
 

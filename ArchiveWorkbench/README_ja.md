@@ -45,14 +45,15 @@ Electron 不使用。外部ランタイムの同梱なし。テレメトリも�
 ### ソースからビルド
 
 ```bash
-git clone https://github.com/smkzw/ArchiveWorkbench.git
+git clone https://github.com/smkzw/Mac-Unzip.git
 cd ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 Xcode 26 で **App** スキームを選択し、ターゲットデバイスを指定して **⌘R** を押してください。
 
-リポジトリのルートには、すぐに試せるビルド済み `ArchiveWorkbench-1.0.dmg` も用意しています。
+リポジトリのルートには、すぐに試せるビルド済み `MacUnzip-1.0.7.dmg` も用意しています。
 
 ## システム要件
 

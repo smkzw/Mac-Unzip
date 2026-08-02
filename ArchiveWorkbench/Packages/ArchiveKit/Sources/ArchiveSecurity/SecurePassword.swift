@@ -21,7 +21,7 @@ public final class SecurePassword: @unchecked Sendable {
         _count = utf8.count
         _bytes = UnsafeMutableRawBufferPointer.allocate(byteCount: max(_count, 1), alignment: 16)
         if _count > 0 {
-            _bytes.copyMemory(from: UnsafeRawBufferPointer(start: utf8, count: _count))
+            utf8.withUnsafeBytes { _bytes.copyMemory(from: $0) }
         }
         if mlock(_bytes.baseAddress, _bytes.count) != 0 {
             securePasswordLog.warning("mlock failed (errno \(errno)); password memory may be swappable")
@@ -71,7 +71,8 @@ public final class SecurePassword: @unchecked Sendable {
     }
 
     /// Provides temporary access to the raw password bytes.
-    /// The closure receives a buffer pointer that is valid only during the call.
+    /// The buffer aliases the live secret storage (no copy is made) and is valid
+    /// only during the call; do not retain or copy the pointer beyond the closure.
     public func withBytes<T>(_ body: (UnsafeRawBufferPointer) throws -> T) rethrows -> T {
         let view = UnsafeRawBufferPointer(start: _bytes.baseAddress, count: _count)
         return try body(view)

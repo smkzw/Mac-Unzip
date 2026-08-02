@@ -1,5 +1,4 @@
 import Testing
-import ArchiveDomain
 import ArchiveFixtures
 @testable import ArchiveSecurity
 
@@ -48,14 +47,4 @@ func multilingualFixturesAreStructurallySafe() throws {
     for path in MaliciousPaths.multilingual {
         try ArchivePathPolicy().validate(path)
     }
-}
-
-@Test
-func renameProposalNeverMutatesRawBytes() {
-    let raw = ArchivePathBytes(Array("CON".utf8))
-
-    let proposal = WindowsNamePolicy().proposal(displayPath: "CON", rawPath: raw)
-
-    #expect(proposal.outputPath == "CON_文件")
-    #expect(proposal.sourceRawPath == raw)
 }

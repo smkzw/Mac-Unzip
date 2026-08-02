@@ -45,14 +45,15 @@ Niente Electron. Nessun runtime esterno. Nessuna telemetria. Solo uno strumento 
 ### Compilazione dai sorgenti
 
 ```bash
-git clone https://github.com/smkzw/ArchiveWorkbench.git
+git clone https://github.com/smkzw/Mac-Unzip.git
 cd ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 Seleziona lo schema **App**, scegli il dispositivo di destinazione e premi **⌘R** in Xcode 26.
 
-Nella radice del repository è disponibile anche un `ArchiveWorkbench-1.0.dmg` precompilato per una valutazione rapida.
+Nella radice del repository è disponibile anche un `MacUnzip-1.0.7.dmg` precompilato per una valutazione rapida.
 
 ## Requisiti di sistema
 

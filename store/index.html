@@ -13,12 +13,12 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="MacUnzip — Native macOS Archive Utility">
     <meta property="og:description" content="Built-in preview • Military-grade security • 40+ formats • One-time payment">
-    <meta property="og:url" content="https://gerymk.qd.je/">
+    <meta property="og:url" content="https://gerymk.qd.je/en.html">
     <meta property="og:image" content="https://gerymk.qd.je/mockups/app-interface-dark.svg">
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="alternate" hreflang="en" href="https://gerymk.qd.je/en.html">
+    <link rel="alternate" hreflang="zh" href="https://gerymk.qd.je/">
+    <link rel="alternate" hreflang="x-default" href="https://gerymk.qd.je/">
 
     <script type="application/ld+json">
     {
@@ -58,6 +58,7 @@
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; font-size: 16px; -webkit-font-smoothing: antialiased; }
+        section[id] { scroll-margin-top: 80px; }
         
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -230,7 +231,7 @@
 </head>
 <body>
     <nav class="nav" role="navigation" aria-label="Main navigation">
-        <a href="/" class="nav-brand" aria-label="MacUnzip Home">MacUnzip</a>
+        <a href="en.html" class="nav-brand" aria-label="MacUnzip Home">MacUnzip</a>
         <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
             <span></span><span></span><span></span>
         </button>
@@ -276,7 +277,7 @@
                         <div class="chrome-dot"></div>
                     </div>
                     <div class="window-content">
-                        <img src="mockups/app-interface-dark.svg" alt="MacUnzip Pro interface showing archive browser with file list, preview panel, and sidebar navigation" class="app-mockup" id="mainMockup">
+                        <img src="mockups/app-interface-dark.svg" alt="MacUnzip Pro interface showing archive browser with file list, preview panel, and sidebar navigation" class="app-mockup" id="mainMockup" width="800" height="600">
                     </div>
                     <div class="mode-switcher" role="group" aria-label="Interface theme preview">
                         <button class="mode-btn active" data-mode="dark" aria-pressed="true">Dark</button>
@@ -370,7 +371,7 @@
                         <li>Priority email support</li>
                         <li>All future updates free</li>
                     </ul>
-                    <a href="mailto:support@gerymk.qd.je?subject=MacUnzip%20Pro%20Purchase" class="btn btn-primary" style="width: 100%; justify-content: center;">Buy Pro — $1.99</a>
+                    <a href="mailto:smkzw@163.com?subject=MacUnzip%20Pro%20Purchase" class="btn btn-primary" style="width: 100%; justify-content: center;">Buy Pro — $1.99</a>
                 </div>
             </div>
         </div>
@@ -420,7 +421,7 @@
                         <span>Can I get a refund?</span>
                         <span class="faq-icon" aria-hidden="true">▼</span>
                     </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">Yes. If you're not satisfied within 30 days, email support@gerymk.qd.je for a full refund. No questions asked.</div></div>
+                    <div class="faq-answer"><div class="faq-answer-inner">Yes. If you're not satisfied within 30 days, email smkzw@163.com for a full refund. No questions asked.</div></div>
                 </div>
                 
                 <div class="faq-item">
@@ -437,11 +438,11 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
-                <div class="footer-copy">© 2025 MacUnzip. Built for macOS with Swift.</div>
+                <div class="footer-copy">© 2026 MacUnzip. Built for macOS with Swift.</div>
                 <div class="footer-links">
                     <a href="https://github.com/smkzw/MacUnzip-Lite" target="_blank" rel="noopener">GitHub (Lite)</a>
-                    <a href="mailto:support@gerymk.qd.je">Support</a>
-                    <a href="index-zh.html">中文版</a>
+                    <a href="mailto:smkzw@163.com">Support</a>
+                    <a href="index.html">中文版</a>
                 </div>
             </div>
         </div>
@@ -466,7 +467,7 @@
             btn.addEventListener('click', function() {
                 var lang = this.getAttribute('data-lang');
                 if (lang === 'zh') {
-                    window.location.href = 'index-zh.html';
+                    window.location.href = 'index.html';
                 }
             });
         });

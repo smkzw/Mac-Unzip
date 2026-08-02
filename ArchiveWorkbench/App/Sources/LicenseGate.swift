@@ -9,24 +9,17 @@ enum ProFeature: String, CaseIterable, Sendable {
     case create
     case edit
     case encrypt
-
-    /// User-facing Chinese name for the feature.
-    var displayName: String {
-        switch self {
-        case .extract: return "解压缩"
-        case .create: return "创建压缩包"
-        case .edit: return "编辑压缩包"
-        case .encrypt: return "加密"
-        }
-    }
+    case openExternal
 
     /// Short description shown in the upgrade prompt.
     var upgradeDescription: String {
+        let localization = AppLocalization()
         switch self {
-        case .extract: return "解压缩文件需要 MacUnzip Pro"
-        case .create: return "创建压缩包需要 MacUnzip Pro"
-        case .edit: return "编辑压缩包（添加、删除、重命名）需要 MacUnzip Pro"
-        case .encrypt: return "加密压缩包需要 MacUnzip Pro"
+        case .extract: return localization.string("解压缩文件需要 MacUnzip Pro")
+        case .create: return localization.string("创建压缩包需要 MacUnzip Pro")
+        case .edit: return localization.string("编辑压缩包（添加、删除、重命名）需要 MacUnzip Pro")
+        case .encrypt: return localization.string("加密压缩包需要 MacUnzip Pro")
+        case .openExternal: return localization.string("用其他应用打开文件需要先将其解压缩，此功能需要 MacUnzip Pro")
         }
     }
 }

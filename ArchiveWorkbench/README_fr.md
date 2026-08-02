@@ -45,14 +45,15 @@ Pas d'Electron. Pas d'environnement d'exécution tiers. Pas de télémétrie. Un
 ### Compilation depuis les sources
 
 ```bash
-git clone https://github.com/smkzw/ArchiveWorkbench.git
+git clone https://github.com/smkzw/Mac-Unzip.git
 cd ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 Sélectionnez le schéma **App**, choisissez votre appareil cible, puis appuyez sur **⌘R** dans Xcode 26.
 
-Une image `ArchiveWorkbench-1.0.dmg` précompilée est également disponible à la racine du dépôt pour une évaluation rapide.
+Une image `MacUnzip-1.0.7.dmg` précompilée est également disponible à la racine du dépôt pour une évaluation rapide.
 
 ## Configuration requise
 

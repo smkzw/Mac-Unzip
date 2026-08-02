@@ -16,7 +16,6 @@ public enum ArchiveEditorError: Error, Equatable, Sendable {
     case sourceUnreadable(String)
     case sourceArchiveChanged
     case unsupportedEntry(String)
-    case outputExists
     case io(Int32)
 }
 
@@ -212,7 +211,7 @@ public actor ArchiveEditor {
     @discardableResult
     public func save() throws -> URL {
         guard let sourceURL else { throw ArchiveEditorError.noSourceArchive }
-        return try publish(to: sourceURL, allowOverwrite: true)
+        return try publish(to: sourceURL)
     }
 
     /// Saves the staged changes to a new location, atomically replacing any
@@ -220,10 +219,10 @@ public actor ArchiveEditor {
     @discardableResult
     public func saveAs(to targetURL: URL) throws -> URL {
         guard sourceURL != nil else { throw ArchiveEditorError.noSourceArchive }
-        return try publish(to: targetURL, allowOverwrite: true)
+        return try publish(to: targetURL)
     }
 
-    private func publish(to targetURL: URL, allowOverwrite: Bool) throws -> URL {
+    private func publish(to targetURL: URL) throws -> URL {
         guard let sourceURL else { throw ArchiveEditorError.noSourceArchive }
         try Task.checkCancellation()
         try verifySourceUnchanged()
@@ -270,7 +269,7 @@ public actor ArchiveEditor {
         try EditorAtomic.syncFile(at: stageURL)
         try verify(stageURL: stageURL, plan: plan, fileHashesByOrdinal: fileHashesByOrdinal)
         try Task.checkCancellation()
-        try EditorAtomic.publish(stageURL: stageURL, targetURL: targetURL, allowOverwrite: allowOverwrite)
+        try EditorAtomic.publish(stageURL: stageURL, targetURL: targetURL)
         stageExists = false
 
         try open(url: targetURL)
@@ -553,12 +552,15 @@ private final class EditorWriter {
 
     func openEntryRaw(nameBytes: [UInt8], usesUTF8: Bool, uncompressedSize: UInt64, modifiedUnixTime: Int64) throws {
         guard let handle else { throw ArchiveError.helperFailed }
+        guard let nameLength = UInt16(exactly: nameBytes.count) else {
+            throw ArchiveError.helperFailed
+        }
         let status = nameBytes.withUnsafeBufferPointer { buffer -> Int32 in
             guard let baseAddress = buffer.baseAddress else { return Int32(AWB_MZ_INVALID_ARGUMENT) }
             return awb_mz_writer_open_entry_raw(
                 handle,
                 baseAddress,
-                UInt16(nameBytes.count),
+                nameLength,
                 usesUTF8 ? 1 : 0,
                 uncompressedSize,
                 modifiedUnixTime
@@ -627,34 +629,14 @@ enum EditorAtomic {
         guard fsync(descriptor) == 0 else { throw ArchiveEditorError.io(errno) }
     }
 
-    static func publish(stageURL: URL, targetURL: URL, allowOverwrite: Bool) throws {
-        if allowOverwrite {
-            let renameResult = stageURL.withUnsafeFileSystemRepresentation { stagePath in
-                targetURL.withUnsafeFileSystemRepresentation { targetPath in
-                    guard let stagePath, let targetPath else { return Int32(-1) }
-                    return Darwin.rename(stagePath, targetPath)
-                }
-            }
-            guard renameResult == 0 else { throw ArchiveEditorError.io(errno) }
-            try syncDirectory(at: targetURL.deletingLastPathComponent())
-        } else {
-            let linkResult = stageURL.withUnsafeFileSystemRepresentation { stagePath in
-                targetURL.withUnsafeFileSystemRepresentation { targetPath in
-                    guard let stagePath, let targetPath else { return Int32(-1) }
-                    return Darwin.link(stagePath, targetPath)
-                }
-            }
-            guard linkResult == 0 else {
-                if errno == EEXIST { throw ArchiveEditorError.outputExists }
-                throw ArchiveEditorError.io(errno)
-            }
-            do {
-                try FileManager.default.removeItem(at: stageURL)
-                try syncDirectory(at: targetURL.deletingLastPathComponent())
-            } catch {
-                try? FileManager.default.removeItem(at: targetURL)
-                throw error
+    static func publish(stageURL: URL, targetURL: URL) throws {
+        let renameResult = stageURL.withUnsafeFileSystemRepresentation { stagePath in
+            targetURL.withUnsafeFileSystemRepresentation { targetPath in
+                guard let stagePath, let targetPath else { return Int32(-1) }
+                return Darwin.rename(stagePath, targetPath)
             }
         }
+        guard renameResult == 0 else { throw ArchiveEditorError.io(errno) }
+        try syncDirectory(at: targetURL.deletingLastPathComponent())
     }
 }

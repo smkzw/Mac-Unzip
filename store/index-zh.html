@@ -16,15 +16,13 @@
     <meta property="og:url" content="https://gerymk.qd.je/">
     <meta property="og:image" content="https://gerymk.qd.je/mockups/app-interface-light.svg">
     
-    <!-- Preconnect to fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Hreflang -->
+    <link rel="alternate" hreflang="zh" href="https://gerymk.qd.je/">
+    <link rel="alternate" hreflang="en" href="https://gerymk.qd.je/en.html">
+    <link rel="alternate" hreflang="x-default" href="https://gerymk.qd.je/">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
-    
-    <!-- Google Fonts for Chinese -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E">
     
     <style>
         /* ===== CSS Variables ===== */
@@ -100,6 +98,8 @@
             scroll-behavior: smooth;
             font-size: 16px;
         }
+        
+        section[id] { scroll-margin-top: 80px; }
         
         body {
             font-family: var(--font-family-sans);
@@ -555,16 +555,21 @@
         
         .comparison__header {
             display: grid;
-            grid-template-columns: 2fr 1fr 1.5fr;
+            grid-template-columns: 1fr 120px 120px;
             background-color: var(--primary-red);
             color: white;
             padding: var(--spacing-md) var(--spacing-lg);
             font-weight: 700;
         }
         
+        .comparison__header span:nth-child(2),
+        .comparison__header span:nth-child(3) {
+            text-align: center;
+        }
+        
         .comparison__row {
             display: grid;
-            grid-template-columns: 2fr 1fr 1.5fr;
+            grid-template-columns: 1fr 120px 120px;
             padding: var(--spacing-md) var(--spacing-lg);
             border-bottom: 1px solid var(--border-color);
             align-items: center;
@@ -1090,8 +1095,9 @@
             
             .comparison__header,
             .comparison__row {
-                grid-template-columns: 1fr;
-                gap: var(--spacing-sm);
+                grid-template-columns: 1fr 80px 80px;
+                padding: var(--spacing-sm) var(--spacing-md);
+                font-size: var(--font-size-sm);
             }
         }
         
@@ -1230,7 +1236,7 @@
                 <li><a href="#comparison" class="nav__link">对比优势</a></li>
                 <li><a href="#pricing" class="nav__link">价格方案</a></li>
                 <li><a href="#faq" class="nav__link">常见问题</a></li>
-                <li><a href="index.html" class="nav__link">EN</a></li>
+                <li><a href="en.html" class="nav__link">EN</a></li>
                 <li><a href="https://github.com/smkzw/MacUnzip-Lite" class="nav__link btn btn--primary nav__cta" target="_blank" rel="noopener">GitHub 开源版</a></li>
             </ul>
         </div>
@@ -1290,7 +1296,7 @@
             
             <div class="hero__image fade-in">
                 <!-- Light Mode Mockup for Chinese Version -->
-                <img src="mockups/app-interface-light.svg" alt="MacUnzip Pro - 界面展示" class="hero__screenshot">
+                <img src="mockups/app-interface-light.svg" alt="MacUnzip Pro - 界面展示" class="hero__screenshot" width="800" height="600">
                 <div class="hero__badge">全新升级</div>
             </div>
         </div>
@@ -1360,67 +1366,63 @@
                 <p class="features__subtitle">根据您的需求选择合适的版本</p>
             </div>
             
-            <table class="comparison__table fade-in">
-                <thead>
-                    <tr class="comparison__header">
-                        <th>功能特性</th>
-                        <th>Lite（免费版）</th>
-                        <th>Pro（专业版）</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">解压 ZIP / TAR / GZ</td>
-                        <td class="comparison__check">✓</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">解压 RAR / 7Z / DMG / ISO</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">崩溃恢复（断点续传）</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">密码解压支持</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">创建压缩文件</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">加密压缩包创建</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">媒体文件预览</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">嵌套文件夹浏览</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">高级压缩选项</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                    <tr class="comparison__row">
-                        <td class="comparison__feature">优先技术支持</td>
-                        <td class="comparison__cross">×</td>
-                        <td class="comparison__check">✓</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="comparison__table fade-in">
+                <div class="comparison__header">
+                    <span>功能特性</span>
+                    <span>Lite（免费版）</span>
+                    <span>Pro（专业版）</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">解压 ZIP / TAR / GZ</span>
+                    <span class="comparison__check">✓</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">解压 RAR / 7Z / DMG / ISO</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">崩溃恢复（断点续传）</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">密码解压支持</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">创建压缩文件</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">加密压缩包创建</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">媒体文件预览</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">嵌套文件夹浏览</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">高级压缩选项</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+                <div class="comparison__row">
+                    <span class="comparison__feature">优先技术支持</span>
+                    <span class="comparison__cross">×</span>
+                    <span class="comparison__check">✓</span>
+                </div>
+            </div>
             
             <div class="text-center" style="margin-top: var(--spacing-xl);">
                 <span class="comparison__highlight">比 BetterZip 节省约 ¥240</span>
@@ -1519,7 +1521,7 @@
                         </li>
                     </ul>
                     
-                    <a href="mailto:support@gerymk.qd.je?subject=MacUnzip%20Pro%20购买" class="btn btn--primary btn--lg pricing-card__cta">立即获取 · 限时¥9.99</a>
+                    <a href="mailto:smkzw@163.com?subject=MacUnzip%20Pro%20购买" class="btn btn--primary btn--lg pricing-card__cta">立即获取 · 限时¥9.99</a>
                     
                     <div class="pricing-card__installments">
                         <span>💳</span>
@@ -1623,7 +1625,7 @@
                         </button>
                         <div class="faq__answer">
                             <div class="faq__answer-content">
-                                支持。购买成功后，请通过邮件（support@gerymk.qd.je）申请开票，通常 1-2 个工作日内即可收到 PDF 格式的电子发票。
+                                支持。购买成功后，请通过邮件（smkzw@163.com）申请开票，通常 1-2 个工作日内即可收到 PDF 格式的电子发票。
                             </div>
                         </div>
                     </div>
@@ -1671,7 +1673,7 @@
                         </button>
                         <div class="faq__answer">
                             <div class="faq__answer-content">
-                                Lite 版用户可通过 GitHub Issues 获取社区支持。Pro 版用户享有优先邮件技术支持（support@gerymk.qd.je），通常 1-2 个工作日内回复。
+                                Lite 版用户可通过 GitHub Issues 获取社区支持。Pro 版用户享有优先邮件技术支持（smkzw@163.com），通常 1-2 个工作日内回复。
                             </div>
                         </div>
                     </div>
@@ -1720,7 +1722,7 @@
                     <h4>联系我们</h4>
                     <div class="footer__contact-item">
                         <span>✉️</span>
-                        <span>support@gerymk.qd.je</span>
+                        <span>smkzw@163.com</span>
                     </div>
                     <div class="footer__contact-item">
                         <span>📍</span>
@@ -1730,8 +1732,8 @@
             </div>
             
             <div class="footer__compliance">
-                <p>© 2025 MacUnzip. All rights reserved.</p>
-                <p style="font-size: var(--font-size-xs); color: #666; margin-top: var(--spacing-sm);">开源版 GitHub：github.com/smkzw/MacUnzip-Lite · 联系：support@gerymk.qd.je</p>
+                <p>© 2026 MacUnzip. All rights reserved.</p>
+                <p style="font-size: var(--font-size-xs); color: #666; margin-top: var(--spacing-sm);">开源版 GitHub：github.com/smkzw/MacUnzip-Lite · 联系：smkzw@163.com</p>
             </div>
         </div>
     </footer>

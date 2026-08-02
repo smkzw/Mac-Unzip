@@ -45,14 +45,15 @@ Electron도, 번들된 런타임도, 원격 측정도 없습니다. 오직 한 �
 ### 소스에서 빌드
 
 ```bash
-git clone https://github.com/smkzw/ArchiveWorkbench.git
+git clone https://github.com/smkzw/Mac-Unzip.git
 cd ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+xcodegen generate
+open MacUnzip.xcodeproj
 ```
 
 Xcode 26에서 **App** 스킴을 선택하고 대상 기기를 지정한 뒤 **⌘R**을 누르세요.
 
-저장소 루트에는 빠른 체험을 위한 빌드된 `ArchiveWorkbench-1.0.dmg`도 함께 제공됩니다.
+저장소 루트에는 빠른 체험을 위한 빌드된 `MacUnzip-1.0.7.dmg`도 함께 제공됩니다.
 
 ## 시스템 요구 사항
 

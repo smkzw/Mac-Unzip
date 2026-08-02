@@ -1,0 +1,4 @@
+/* Info.plist 键的本地化值（系统级显示名 + 服务菜单）。 */
+"CFBundleDisplayName" = "Mac解霸";
+"CFBundleName" = "Mac解霸";
+"NSServices.0.NSMenuItem.default" = "用 Mac解霸 打开";

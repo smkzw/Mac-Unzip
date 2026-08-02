@@ -16,6 +16,7 @@ final class RecentArchivesManager {
 
     private init() {
         load()
+        pruneMissing()
     }
 
     /// The maximum number of recent archives to keep, read from Settings.
@@ -30,7 +31,7 @@ final class RecentArchivesManager {
     /// Records a newly opened archive URL at the front of the recent list.
     func noteRecentArchive(_ url: URL) {
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
-        recentURLs.removeAll { $0 == resolved }
+        recentURLs.removeAll { $0 == resolved || !FileManager.default.fileExists(atPath: $0.path) }
         recentURLs.insert(resolved, at: 0)
         let limit = maxCount
         if recentURLs.count > limit {

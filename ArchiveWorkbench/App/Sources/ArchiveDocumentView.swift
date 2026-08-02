@@ -15,6 +15,13 @@ struct ArchiveDocumentView: View {
     let onRemove: () -> Void
     let onRename: () -> Void
     let onReplace: () -> Void
+    let onOpenRecent: (URL) -> Void
+    let onOpen: (() -> Void)?
+    let onCreate: (() -> Void)?
+
+    /// The window hosting this document, captured so accessibility
+    /// notifications target the correct window in multi-window sessions.
+    @State private var hostingWindow: NSWindow?
 
     init(
         model: AppModel,
@@ -24,7 +31,10 @@ struct ArchiveDocumentView: View {
         onExtractSelected: @escaping () -> Void = {},
         onRemove: @escaping () -> Void,
         onRename: @escaping () -> Void,
-        onReplace: @escaping () -> Void
+        onReplace: @escaping () -> Void,
+        onOpenRecent: @escaping (URL) -> Void = { _ in },
+        onOpen: (() -> Void)? = nil,
+        onCreate: (() -> Void)? = nil
     ) {
         self.model = model
         self.visualCaptureStyle = visualCaptureStyle
@@ -34,6 +44,9 @@ struct ArchiveDocumentView: View {
         self.onRemove = onRemove
         self.onRename = onRename
         self.onReplace = onReplace
+        self.onOpenRecent = onOpenRecent
+        self.onOpen = onOpen
+        self.onCreate = onCreate
     }
 
     /// Bridges the model's sidebar visibility flag to NavigationSplitView.
@@ -55,10 +68,9 @@ struct ArchiveDocumentView: View {
                 model: model,
                 onExtract: onExtract,
                 onAdd: onAdd,
-                onOpenRecent: { url in
-                    RecentArchivesManager.shared.noteRecentArchive(url)
-                    Task { await model.openArchive(url: url) }
-                }
+                onOpenRecent: onOpenRecent,
+                onOpen: onOpen,
+                onCreate: onCreate
             )
                 .accessibilityIdentifier("归档侧栏")
                 .accessibilityElement(children: .contain)
@@ -99,8 +111,8 @@ struct ArchiveDocumentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("关闭格式警告")
-                        .accessibilityHint("点击此按钮可隐藏当前警告")
+                        .accessibilityLabel(AppLocalization().string("关闭格式警告"))
+                        .accessibilityHint(AppLocalization().string("点击此按钮可隐藏当前警告"))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -112,11 +124,16 @@ struct ArchiveDocumentView: View {
                     case .list:
                         ArchiveListView(
                             entries: model.visibleEntries,
+                            archiveSourceURL: model.currentSourceURL,
+                            isSearching: !model.activeSearchText.isEmpty,
                             metadataByEntryID: model.metadataByEntryID,
                             selection: $model.selectedEntryID,
                             nestedArchiveEntryIDs: model.nestedArchiveEntryIDs,
+                            pendingChanges: model.pendingChanges,
                             canEdit: model.canAdd,
                             canExtractSelected: model.canExtractSelected,
+                            canExtract: model.canExtract,
+                            isExtracting: model.isExtracting,
                             onDelete: onRemove,
                             onRename: onRename,
                             onOpenNestedArchive: { entryID in
@@ -126,9 +143,27 @@ struct ArchiveDocumentView: View {
                                 Task { await model.openFileExternally(entryID: entryID) }
                             },
                             onExtractSelected: onExtractSelected,
+                            onExtractFolder: { path in
+                                model.selectedEntryID = nil
+                                model.selectedFolderPath = path
+                                onExtractSelected()
+                            },
+                            onFolderSelectionChange: { path in
+                                model.selectedFolderPath = path
+                            },
                             onCopyPath: { path in
                                 NSPasteboard.general.clearContents()
                                 NSPasteboard.general.setString(path, forType: .string)
+                                model.transientStatusMessage = AppLocalization().string("已拷贝路径")
+                            },
+                            onAddFiles: { urls, destinationFolder in
+                                Task { await model.stageAdditions(from: urls, toFolder: destinationFolder) }
+                            },
+                            onMoveEntry: { sourcePath, destinationPath in
+                                Task { await model.moveEntry(from: sourcePath, to: destinationPath) }
+                            },
+                            onMaterializeEntry: { entryID, completion in
+                                model.materializeEntryForDrag(entryID: entryID, completion: completion)
                             }
                         )
                     case .media:
@@ -143,26 +178,47 @@ struct ArchiveDocumentView: View {
                             isCompact: model.compactToolbar,
                             reduceMotion: effectiveReduceMotion,
                             reduceTransparency: effectiveReduceTransparency,
-                            increaseContrast: effectiveIncreaseContrast
+                            increaseContrast: effectiveIncreaseContrast,
+                            isSearching: !model.activeSearchText.isEmpty
                         )
                     }
                 }
             }
+            .overlay {
+                if model.isLoading {
+                    ZStack {
+                        Color(nsColor: .windowBackgroundColor).opacity(0.6)
+                        ProgressView("正在读取压缩包…")
+                            .controlSize(.large)
+                            .accessibilityIdentifier("正在读取压缩包")
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .animation(accessibilityAnimation, value: model.isLoading)
             .animation(accessibilityAnimation, value: model.activeErrorPresentation)
             .task(id: model.viewMode == .media ? model.selectedEntryID : nil) {
                 guard model.viewMode == .media else { return }
                 await model.loadSelectedPreview()
             }
+            .onChange(of: model.viewMode) { _, newMode in
+                guard newMode == .media else { return }
+                model.selectFirstPreviewableEntry()
+            }
+            .onChange(of: model.activeSearchText) { _, _ in
+                guard model.viewMode == .media else { return }
+                model.selectFirstPreviewableEntry()
+            }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("预览区域")
-            .accessibilityLabel(previewAreaLabel)
-            .animation(accessibilityAnimation, value: model.viewMode)
             .inspector(isPresented: $model.inspectorVisible) {
-                ArchiveInspectorView(metadata: model.selectedMetadata)
+                ArchiveInspectorView(metadata: model.selectedMetadata, folder: model.selectedFolderInfo)
                     .inspectorColumnWidth(min: 265, ideal: 280, max: 340)
             }
         }
         .toolbar { DocumentToolbar(model: model, onAdd: onAdd, onExtract: onExtract, onExtractSelected: onExtractSelected, onRemove: onRemove, onRename: onRename, onReplace: onReplace) }
+        .toolbar(removing: .title)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             statusBarContent
             .frame(maxWidth: .infinity)
@@ -173,16 +229,12 @@ struct ArchiveDocumentView: View {
             .accessibilityIdentifier("状态栏")
             .accessibilityLabel(statusBarLabel)
             .onChange(of: model.lastExtractionURL) { _, newValue in
-                if newValue != nil {
-                    NSAccessibility.post(element: NSApp.mainWindow as Any, notification: .layoutChanged, userInfo: nil)
+                if newValue != nil, let hostingWindow {
+                    NSAccessibility.post(element: hostingWindow, notification: .layoutChanged, userInfo: nil)
                 }
             }
         }
-        .onDisappear {
-            // Explicit cleanup for NavigationSplitView binding references
-            // Prevents weak reference leaks when view disappears without deinit
-            _ = sidebarColumnVisibility.wrappedValue
-        }
+        .background(WindowCaptureView { hostingWindow = $0 })
         .background(
             effectiveReduceTransparency
                 ? Color(nsColor: .windowBackgroundColor)
@@ -284,5 +336,29 @@ struct ArchiveDocumentView: View {
             )
         }
         return localization.format("状态栏：%@", model.statusMessage)
+    }
+}
+
+/// Reports the NSWindow hosting the represented view, so callers can target
+/// window-specific behavior (e.g. accessibility notifications) correctly in
+/// multi-window sessions.
+struct WindowCaptureView: NSViewRepresentable {
+    let onWindowChange: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = WindowReportingView()
+        view.onWindowChange = onWindowChange
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class WindowReportingView: NSView {
+        var onWindowChange: ((NSWindow?) -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            onWindowChange?(window)
+        }
     }
 }

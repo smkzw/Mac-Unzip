@@ -1,4 +1,4 @@
-name: ArchiveWorkbench
+name: MacUnzip
 options:
   developmentLanguage: zh-Hans
   deploymentTarget:
@@ -23,7 +23,7 @@ targets:
       - HelperSpike
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.HelperSpike
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip.HelperSpike
         DEFINES_MODULE: YES
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
@@ -34,7 +34,7 @@ targets:
       - HelperFixture
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.HelperFixture
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip.HelperFixture
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Manual
@@ -48,7 +48,7 @@ targets:
       - target: HelperSpike
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.LowFDHarness
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip.LowFDHarness
         GENERATE_INFOPLIST_FILE: YES
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Manual
@@ -68,7 +68,7 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""
-  ArchiveWorkbench:
+  MacUnzip:
     type: application
     platform: macOS
     sources:
@@ -86,16 +86,16 @@ targets:
       - package: ArchiveKit
         product: ArchiveSecurity
       - package: MarkdownUI
-      - target: ArchiveWorkbenchQLExtension
-      - target: ArchiveWorkbenchFinderExtension
+      - target: MacUnzipQLExtension
+      - target: MacUnzipFinderExtension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip
         PRODUCT_NAME: MacUnzip
-        INFOPLIST_KEY_CFBundleDisplayName: Mac解霸
+        INFOPLIST_KEY_CFBundleDisplayName: MacUnzip
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_FILE: App/Resources/Info.plist
-        CODE_SIGN_ENTITLEMENTS: App/ArchiveWorkbench.entitlements
+        CODE_SIGN_ENTITLEMENTS: App/MacUnzip.entitlements
         ARCHS: arm64
         OTHER_CODE_SIGN_FLAGS: --options=runtime
         VALID_ARCHS: arm64
@@ -108,15 +108,21 @@ targets:
           ENABLE_DEBUG_DYLIB: NO
         Release:
           CODE_SIGN_STYLE: Automatic
-  ArchiveWorkbenchQLExtension:
+    postBuildScripts:
+      - name: Embed Homebrew dylibs (self-contained libarchive)
+        script: |
+          set -e
+          "$SRCROOT/Scripts/embed-dylibs.sh" "$BUILT_PRODUCTS_DIR/$FULL_PRODUCT_NAME"
+        basedOnDependencyAnalysis: false
+  MacUnzipQLExtension:
     type: app-extension
     platform: macOS
     sources:
       - QLExtension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.ql-extension
-        PRODUCT_NAME: ArchiveWorkbenchQLExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip.ql-extension
+        PRODUCT_NAME: MacUnzipQLExtension
         INFOPLIST_FILE: QLExtension/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         ARCHS: arm64
@@ -124,15 +130,15 @@ targets:
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
-  ArchiveWorkbenchFinderExtension:
+  MacUnzipFinderExtension:
     type: app-extension
     platform: macOS
     sources:
       - FinderExtension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.ArchiveWorkbench.finder-extension
-        PRODUCT_NAME: ArchiveWorkbenchFinderExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.smkzw.MacUnzip.finder-extension
+        PRODUCT_NAME: MacUnzipFinderExtension
         INFOPLIST_FILE: FinderExtension/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         ARCHS: arm64
@@ -140,7 +146,7 @@ targets:
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
-  ArchiveWorkbenchAppTests:
+  MacUnzipAppTests:
     type: bundle.ui-testing
     platform: macOS
     sources:
@@ -148,12 +154,12 @@ targets:
       - path: TestFixtures/PreviewDocuments
         buildPhase: resources
     dependencies:
-      - target: ArchiveWorkbench
+      - target: MacUnzip
     settings:
       base:
         ENABLE_HARDENED_RUNTIME: NO
         GENERATE_INFOPLIST_FILE: YES
-  ArchiveWorkbenchUnitTests:
+  MacUnzipUnitTests:
     type: bundle.unit-test
     platform: macOS
     sources:
@@ -182,10 +188,10 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: ""
 schemes:
-  ArchiveWorkbench:
+  MacUnzip:
     build:
       targets:
-        ArchiveWorkbench: all
+        MacUnzip: all
     run:
       config: Debug
     test:
@@ -193,8 +199,7 @@ schemes:
       debugEnabled: false
       targets:
         - HelperSpikeTests
-        - ArchiveWorkbenchUnitTests
-        - ArchiveWorkbenchAppTests
+        - MacUnzipAppTests
     profile:
       config: Release
     analyze:

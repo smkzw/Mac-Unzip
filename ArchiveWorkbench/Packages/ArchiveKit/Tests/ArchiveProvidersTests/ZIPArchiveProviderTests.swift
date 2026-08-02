@@ -25,7 +25,7 @@ final class ZIPArchiveProviderTests: XCTestCase {
 
     func testOpenRejectsNonZIPBytes() async throws {
         let directory = FileManager.default.temporaryDirectory
-            .appending(path: "ArchiveWorkbenchTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: "MacUnzipTests-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appending(path: "损坏.zip")
@@ -145,7 +145,7 @@ final class ZIPArchiveProviderTests: XCTestCase {
         let expected = Data("可安全预览".utf8)
         let fixture = try ZIPFixture(entries: ["文档/预览.txt": expected])
         let root = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchPreview-" + UUID().uuidString,
+            path: "MacUnzipPreview-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -167,7 +167,7 @@ final class ZIPArchiveProviderTests: XCTestCase {
             "图片/封面.bin": largePayload,
         ])
         let root = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchExtract-" + UUID().uuidString,
+            path: "MacUnzipExtract-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -195,7 +195,7 @@ final class ZIPArchiveProviderTests: XCTestCase {
         let payload = pseudoRandomData(count: 150_000)
         let fixture = try ZIPFixture(entries: ["数据/大文件.bin": payload])
         let root = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchProgress-" + UUID().uuidString,
+            path: "MacUnzipProgress-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -226,7 +226,7 @@ final class ZIPArchiveProviderTests: XCTestCase {
             with: Array("a.txt".utf8)
         )
         let root = FileManager.default.temporaryDirectory.appending(
-            path: "ArchiveWorkbenchCollisionScan-" + UUID().uuidString,
+            path: "MacUnzipCollisionScan-" + UUID().uuidString,
             directoryHint: .isDirectory
         )
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -273,7 +273,7 @@ private final class ZIPFixture {
 
     init(entries: [String: Data], password: String? = nil) throws {
         rootURL = FileManager.default.temporaryDirectory
-            .appending(path: "ArchiveWorkbenchTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: "MacUnzipTests-\(UUID().uuidString)", directoryHint: .isDirectory)
         let contentsURL = rootURL.appending(path: "contents", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
         for (path, data) in entries {

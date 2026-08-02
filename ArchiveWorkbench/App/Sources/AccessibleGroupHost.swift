@@ -26,7 +26,7 @@ struct AccessibleGroupHost<Content: View>: NSViewRepresentable {
         hostingView.setAccessibilityLabel(
             AppLocalization().format("%@内容", AppLocalization().string(identifier))
         )
-        hostingView.setAccessibilityIdentifier("\(identifier)内容")
+        hostingView.setAccessibilityIdentifier("\(identifier)_content")
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         box.contentView = hostingView
         NSLayoutConstraint.activate([
