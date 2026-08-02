@@ -334,7 +334,7 @@ c2fe4fd feat: 接管优化 — 品牌本地化/UX 打磨/引擎引导/老名字�
 
 **关键事实**：现有 `build/MacUnzip-1.0.7.dmg`（sha256 `825987c5…`）= 已发布的旧 v1.0.7，**不含**本轮任何改动。发版**必须重建 DMG**，不可复用。
 
-**只读预演结果**：gh 已登录 smkzw；Pro 仓库最新 tag=v1.0.7；Lite README 用 `releases/latest` 徽章且无硬编码版本字面（1.0.6/7/8 全 0），发版后徽章自动指向 v1.0.8，**Lite 无需任何改动**（符合红线：不拷 Pro 源码、不覆盖）。本地领先 origin = **6 commit** 未 push（c2fe4fd/c5af774/e6f788c/8661be2/a61667f/ea78284），远程领先 0 → 可 fast-forward，零冲突；远程 v1.0.8 tag 不存在 → 可创建。变更规模 98 文件 +10376/-3928（含 2 rename + 删除遗留 xcodeproj）。
+**只读预演结果**：gh 已登录 smkzw；Pro 仓库最新 tag=v1.0.7；Lite README 用 `releases/latest` 徽章且无硬编码版本字面（1.0.6/7/8 全 0），发版后徽章自动指向 v1.0.8，**Lite 无需任何改动**（符合红线：不拷 Pro 源码、不覆盖）。本地领先 origin 的全部 commit 未 push（**快照**：截至 de3591f 共 7 个；push 前务必 `git log --oneline @{u}..HEAD` 复核，文档数字不随后续 commit 自动更新），远程领先 0 → 可 fast-forward，零冲突；远程 v1.0.8 tag 不存在 → 可创建。变更规模（**快照**：`git diff --shortstat @{u}..HEAD` 在 de3591f 时为 98 文件 +10376/-3928，含 2 rename + 删除遗留 xcodeproj；push 前以命令复核）。
 
 **发版步骤（已固化为脚本，授权后执行）**：
 1. `./Scripts/package_release.sh --skip-sign --version 1.0.8` —— 已跑过，`build/MacUnzip-1.0.8.dmg`+sha256 就绪（ad-hoc 未公证）。
@@ -388,5 +388,7 @@ $1.99 一次性买断，终身免费更新。Free 版可浏览 / 搜索 / 预览
 | 5 语言（ja/ko/es/fr/it） | 缺失 = **既有现状非回归**（xcstrings 历史仅 zh-Hans+en，从未翻译；v1.0.7 同两语） | 不阻断发版，作后续国际化增量 |
 | Lite | 自动徽章 + 无硬编码版本 → 免改 | gh api 只读 |
 | /tmp 残留 | 无 | 项9 彻底收尾 |
+| git push 协议层 | `git push --dry-run origin release` 握手成功，`a945452..de3591f release -> release`，认证 + fast-forward 干净 | 协议层预演，不实际推送 |
+| gh release create 签名 | `--target`/`--notes-file`/`--title`/`--repo` + 尾部 assets 位置参数与官方 `gh release create --help` 逐一核对一致 | 只读 help 核对；dry-run 不执行故此前未触达 |
 
-> 发版待命态：`/Applications/MacUnzip.app` = Release 1.0.8 可直接用；`build/MacUnzip-1.0.8.dmg` 就绪；6 commit 待 push。回「发版」或自跑 `publish_release.sh --version 1.0.8 --yes` 即发布。
+> 发版待命态：`/Applications/MacUnzip.app` = Release 1.0.8 可直接用；`build/MacUnzip-1.0.8.dmg` 就绪；本地领先 origin 的全部 commit 待 push（快照 7，以 `git rev-list --count @{u}..HEAD` 实时值为准）。发版链已零未验证环节（dry-run 5 项 + git push 协议层 + gh 签名核对全绿）。回「发版」或自跑 `publish_release.sh --version 1.0.8 --yes` 即发布。
