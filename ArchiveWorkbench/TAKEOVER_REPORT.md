@@ -290,3 +290,84 @@ app 内下载替换外部可执行引擎 = 供应链攻击入口 + 违背零网�
 - `/Applications/MacUnzip.app` = 含 9 项+M3+R38→R44 的工作区构建，Pro 已激活。
 - 构建缓存已清（1.43GB）；发布 DMG 保留。
 - 待用户拍板：发版 / 落库策略 / 项7 安全项。
+
+---
+
+## 十、落库与遗留清理（2026-08-03 本地提交，未 push）
+
+> 落库是 HANDOVER §8.1 明确委派给接手 agent 的任务（"建议先整体 review 再决定如何落库"），本地 commit 可逆、不 push 不对外，属接管授权内的 routine 操作，故直接执行而非挂起待批。
+
+### 10.1 收口 commit
+
+| commit | 范围 | 文件 |
+|---|---|---|
+| `c2fe4fd` feat: 接管优化… | 接管前 78 未提交（R38→R44 + 更名）+ 本轮 9 项 + Phase 1 M3，整体一次性 | 95（+10313/-2368），含 2 rename（entitlements、App.swift） |
+| `c5af774` chore: 移除遗留 ArchiveWorkbench.xcodeproj | 删除无任何构建依赖的遗留项目 | 4（-1695） |
+
+### 10.2 落库前 review 结论
+
+- 未跟踪 13 项全为必需源/文档（MacUnzipApp.swift、MacUnzip.xcodeproj、InfoPlist.strings、ZIPStagingValidator、embed-dylibs、3 份交接/报告），无垃圾。
+- 无密钥/证书/调试标记/二进制产物误入。
+- `.xcodeproj` 未列 gitignore，旧项目入库是历史事实；CI 已被项8 改用 MacUnzip.xcodeproj，故**入库 MacUnzip.xcodeproj** 使 clone 无需 xcodegen 即可 build。
+- **排除未入库**：`../store/mockups.zip`（损坏占位，内容是 "base64 placeholder" 文本）、`../store/test.html`（临时测试页）。
+
+### 10.3 遗留项目删除核验
+
+`package_release.sh` 用 `${APP_NAME}.xcodeproj`=MacUnzip、CI 用 MacUnzip.xcodeproj——**无任何构建/打包/CI 路径依赖遗留项目**。删除后 grep 确认源码/脚本/CI 零引用遗留项目。HANDOVER/Docs 中的描述性引用保留为历史记录。删除后未触发重建（无新缓存），构建能力由 c2fe4fd 的 BUILD SUCCEEDED 背书（c5af774 不触碰构建链任何字节）。
+
+### 10.4 最终 git 状态
+
+```
+c5af774 chore: 移除遗留 ArchiveWorkbench.xcodeproj
+c2fe4fd feat: 接管优化 — 品牌本地化/UX 打磨/引擎引导/老名字清理 + 落库 R38–R44
+```
+工作区干净，仅余 2 个有意排除的 store 临时文件（`mockups.zip`/`test.html`）。
+
+### 10.5 仍需用户授权/决策（对外/不可逆/安全方向，未擅自执行）
+
+1. **发 v1.0.8**：`git push` + `gh release create` + 核对 Lite = 真实外部副作用，需授权。
+2. **项7 安全项**：app 内自动更新外部引擎是否单独立项做安全设计（HTTPS pinning+签名校验+许可确认+审计日志）。
+
+> 全部不需授权的实质工作已完成：9 项+M3 落地/构建/实测/测试、落库 c2fe4fd、遗留清理 c5af774、缓存回收 1.43GB。`/Applications/MacUnzip.app` 为含全部修复的最终构建。
+
+### 10.6 发版 v1.0.8 就绪（待用户授权；release notes 草稿 + 步骤）
+
+**关键事实**：现有 `build/MacUnzip-1.0.7.dmg`（sha256 `825987c5…`）= 已发布的旧 v1.0.7，**不含**本轮任何改动。发版**必须重建 DMG**，不可复用。
+
+**只读预演结果**：gh 已登录 smkzw；Pro 仓库最新 tag=v1.0.7；Lite 默认分支 main（README 用 `releases/latest` 徽章，通常无需改）；本地领先 origin = c2fe4fd + c5af774 两 commit 未 push。
+
+**发版步骤（授权后执行）**：
+1. `./Scripts/package_release.sh --skip-sign --version 1.0.8`（清空 build/ 重建 → 新 dmg + sha256；ad-hoc 未公证）
+2. 本地装新构建自验黄金路径（打开/浏览/搜索/展开/切换/解压/创建/拖出 + 中文品牌 + inspector 默认收起 + 左栏新入口）
+3. `git push origin release`
+4. `gh release create v1.0.8 --repo smkzw/Mac-Unzip --title "Mac解霸 v1.0.8" --notes "<下方草稿>" build/MacUnzip-1.0.8.dmg build/MacUnzip-1.0.8.dmg.sha256`
+5. 核对 Lite：只读 clone 看 README；`releases/latest` 徽章自动指向 v1.0.8，通常无需改；若改则另开 PR 到 Lite，**绝不拷 Pro 源码**。
+
+**release notes 草稿（中文）**：
+```
+# Mac解霸 (MacUnzip) v1.0.8
+
+## 本次更新
+- 中文系统全面显示「Mac解霸」（菜单栏 / 标题 / 关于 / 服务菜单），英文系统仍为 MacUnzip
+- 信息检查器默认收起，界面更简洁（「更多操作」中可开关）
+- 左侧栏新增「打开其他压缩包」「新建压缩包」快捷入口
+- 文件列表的大小 / 日期 / 类型列垂直居中对齐
+- 工具栏重设计：去除与内容重叠的圆角装饰，对齐 macOS 原生平面风格
+- 修复「设为默认解压缩软件」误报无法设置的问题
+- 引擎状态新增更新引导：内置引擎随应用更新，外部引擎一键前往官网
+- 修复列表空白区条纹瑕疵；修复 DOS 零时间显示为 1979 年
+- 打开压缩包后自动展开根目录，避免「看似空白」
+- 清理工程遗留命名，修正 CI 构建链
+
+## 首次打开提示
+本版本为 ad-hoc 签名、未经 Apple 公证。若提示无法打开，请在 Finder 右键 → 打开，或终端执行：
+xattr -dr com.apple.quarantine /Applications/Mac解霸.app
+
+## 校验
+SHA-256 见随附 MacUnzip-1.0.8.dmg.sha256。
+
+## Pro
+$1.99 一次性买断，终身免费更新。Free 版可浏览 / 搜索 / 预览 ZIP·TAR·GZ。
+```
+
+**待用户确认**：① 版本号 1.0.8（建议 patch：均为修复/打磨，无破坏性变更）是否 OK；② 授权执行 push + release create（真实外部副作用）。Lite 核对为只读，可一并执行。
