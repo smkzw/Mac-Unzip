@@ -334,14 +334,16 @@ c2fe4fd feat: 接管优化 — 品牌本地化/UX 打磨/引擎引导/老名字�
 
 **关键事实**：现有 `build/MacUnzip-1.0.7.dmg`（sha256 `825987c5…`）= 已发布的旧 v1.0.7，**不含**本轮任何改动。发版**必须重建 DMG**，不可复用。
 
-**只读预演结果**：gh 已登录 smkzw；Pro 仓库最新 tag=v1.0.7；Lite 默认分支 main（README 用 `releases/latest` 徽章，通常无需改）；本地领先 origin = c2fe4fd + c5af774 两 commit 未 push。
+**只读预演结果**：gh 已登录 smkzw；Pro 仓库最新 tag=v1.0.7；Lite README 用 `releases/latest` 徽章且无硬编码版本字面（1.0.6/7/8 全 0），发版后徽章自动指向 v1.0.8，**Lite 无需任何改动**（符合红线：不拷 Pro 源码、不覆盖）。本地领先 origin = **6 commit** 未 push（c2fe4fd/c5af774/e6f788c/8661be2/a61667f/ea78284），远程领先 0 → 可 fast-forward，零冲突；远程 v1.0.8 tag 不存在 → 可创建。变更规模 98 文件 +10376/-3928（含 2 rename + 删除遗留 xcodeproj）。
 
-**发版步骤（授权后执行）**：
-1. `./Scripts/package_release.sh --skip-sign --version 1.0.8`（清空 build/ 重建 → 新 dmg + sha256；ad-hoc 未公证）
-2. 本地装新构建自验黄金路径（打开/浏览/搜索/展开/切换/解压/创建/拖出 + 中文品牌 + inspector 默认收起 + 左栏新入口）
-3. `git push origin release`
-4. `gh release create v1.0.8 --repo smkzw/Mac-Unzip --title "Mac解霸 v1.0.8" --notes "<下方草稿>" build/MacUnzip-1.0.8.dmg build/MacUnzip-1.0.8.dmg.sha256`
-5. 核对 Lite：只读 clone 看 README；`releases/latest` 徽章自动指向 v1.0.8，通常无需改；若改则另开 PR 到 Lite，**绝不拷 Pro 源码**。
+**发版步骤（已固化为脚本，授权后执行）**：
+1. `./Scripts/package_release.sh --skip-sign --version 1.0.8` —— 已跑过，`build/MacUnzip-1.0.8.dmg`+sha256 就绪（ad-hoc 未公证）。
+2. 本地装 Release 构建自验黄金路径 —— 已做（打开/浏览/搜索/展开/切换/解压/创建/拖出 + 中文品牌 + inspector 默认收起 + 左栏新入口 + 版本号 1.0.8）。
+3. `./Scripts/publish_release.sh --version 1.0.8` —— **先 dry-run**：校验产物/校验和/工作区干净/fast-forward/tag 不冲突，只打印命令不碰网络（实测 5 项预检全绿）。
+4. `./Scripts/publish_release.sh --version 1.0.8 --yes` —— 真正执行 `git push origin release` + `gh release create v1.0.8 --target <HEAD> --notes-file Distribution/RELEASE_NOTES_v1.0.8.md <dmg> <sha>`，并打印发布页验证 JSON。
+5. Lite 核对为只读，已确认免改，发布流程不含 Lite 写操作。
+
+> 发布脚本把确认门内置为 `--yes`（默认 dry-run），与 `package_release.sh` 构成 构建→发布 闭环，避免手敲命令出错或误触外部写操作。
 
 **release notes 草稿（中文）**：
 ```
@@ -370,4 +372,21 @@ SHA-256 见随附 MacUnzip-1.0.8.dmg.sha256。
 $1.99 一次性买断，终身免费更新。Free 版可浏览 / 搜索 / 预览 ZIP·TAR·GZ。
 ```
 
-**待用户确认**：① 版本号 1.0.8（建议 patch：均为修复/打磨，无破坏性变更）是否 OK；② 授权执行 push + release create（真实外部副作用）。Lite 核对为只读，可一并执行。
+**待用户确认**：① 版本号 1.0.8（patch：均为修复/打磨，无破坏性变更）是否 OK；② 授权执行 `publish_release.sh --yes`（push 公共仓库 + 公开 release = 以操作者身份的不可逆外部动作，故不擅自执行、亦不用会挂起的弹窗索取，由操作者一句话或自跑脚本给出）。
+
+### 10.7 发版质检终检（全维度绿，零阻断）
+
+| 维度 | 结果 | 方法 |
+|---|---|---|
+| 本地化编译产物 | zh-Hans / en 的 Localizable.strings 均 `plutil -lint` OK | 与运行时同解析器；Xcode 编译 xcstrings 产 UTF-16 LE，须用 UTF-16/plutil 验，勿用 utf-8 grep（会假阳性报"损坏"） |
+| 中文品牌 | zh-Hans 含「Mac解霸」「打开压缩包」「解压缩全部」= True | UTF-16 解码复核 |
+| 系统显示名 | `CFBundleDisplayName="Mac解霸"`（zh）/`MacUnzip`（en） | InfoPlist.strings |
+| 版本号 | `CFBundleShortVersionString=1.0.8` | Release 构建 Info.plist |
+| 扩展嵌入 | QL + Finder 双 .appex 嵌入、签名 VALID、bundle id 正确 | codesign --verify --deep --strict |
+| 主 app 签名/架构 | VALID / arm64 | codesign + lipo |
+| DMG + 校验 | 9.6M / sha `8a12cb7a…` 自洽 | shasum 复核 |
+| 5 语言（ja/ko/es/fr/it） | 缺失 = **既有现状非回归**（xcstrings 历史仅 zh-Hans+en，从未翻译；v1.0.7 同两语） | 不阻断发版，作后续国际化增量 |
+| Lite | 自动徽章 + 无硬编码版本 → 免改 | gh api 只读 |
+| /tmp 残留 | 无 | 项9 彻底收尾 |
+
+> 发版待命态：`/Applications/MacUnzip.app` = Release 1.0.8 可直接用；`build/MacUnzip-1.0.8.dmg` 就绪；6 commit 待 push。回「发版」或自跑 `publish_release.sh --version 1.0.8 --yes` 即发布。
