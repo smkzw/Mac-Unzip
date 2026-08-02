@@ -92,6 +92,8 @@ if [[ "${SKIP_SIGN}" == "true" ]]; then
     CODE_SIGN_IDENTITY="-" \
     CODE_SIGN_STYLE=Manual \
     DEVELOPMENT_TEAM="" \
+    MARKETING_VERSION="${VERSION}" \
+    CURRENT_PROJECT_VERSION="1" \
     -quiet
 else
   echo "  Signing: ${SIGNING_IDENTITY}"
@@ -105,6 +107,8 @@ else
     CODE_SIGN_IDENTITY="${SIGNING_IDENTITY}" \
     DEVELOPMENT_TEAM="${TEAM_ID}" \
     ENABLE_HARDENED_RUNTIME=YES \
+    MARKETING_VERSION="${VERSION}" \
+    CURRENT_PROJECT_VERSION="1" \
     -quiet
 fi
 

@@ -101,6 +101,8 @@ targets:
         VALID_ARCHS: arm64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS: YES
+        MARKETING_VERSION: "1.0.8"
+        CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug:
           CODE_SIGN_STYLE: Manual
