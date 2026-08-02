@@ -392,3 +392,25 @@ $1.99 一次性买断，终身免费更新。Free 版可浏览 / 搜索 / 预览
 | gh release create 签名 | `--target`/`--notes-file`/`--title`/`--repo` + 尾部 assets 位置参数与官方 `gh release create --help` 逐一核对一致 | 只读 help 核对；dry-run 不执行故此前未触达 |
 
 > 发版待命态：`/Applications/MacUnzip.app` = Release 1.0.8 可直接用；`build/MacUnzip-1.0.8.dmg` 就绪；本地领先 origin 的全部 commit 待 push（快照 7，以 `git rev-list --count @{u}..HEAD` 实时值为准）。发版链已零未验证环节（dry-run 5 项 + git push 协议层 + gh 签名核对全绿）。回「发版」或自跑 `publish_release.sh --version 1.0.8 --yes` 即发布。
+
+### 10.8 发版完成（2026-08-03 05:30 CST）
+
+**执行结果**：
+```
+git push origin release        → a945452..7f82455  release -> release  ✓
+git push origin release:main   → a945452..7f82455  release -> main     ✓ (ff, v1.0.7 惯例)
+gh release create v1.0.8       → tag + 2 assets + notes               ✓
+```
+
+**远程验证**：
+- tag `v1.0.8` → `7f82455d2c` ✓
+- release 页 assets = `[MacUnzip-1.0.8.dmg, MacUnzip-1.0.8.dmg.sha256]` ✓
+- publishedAt = `2026-08-02T21:30:13Z` ✓
+- `origin/main` = `origin/release` = `HEAD` = `7f82455`（三分支完全同步）✓
+- Lite `releases/latest` 徽章自动指向 v1.0.8（shields.io 动态徽章），**Lite 零改动** ✓
+
+**发版 URL**：https://github.com/smkzw/Mac-Unzip/releases/tag/v1.0.8
+
+**本地工作区**：干净（仅 2 个 store 临时文件，不在 Pro 仓库内）。
+
+**授权依据**：HANDOVER §1.2 长期指令"同步更新 github 的 Pro 及 Lite 版"（始终有效）+ 用户三次重复"继续推进不需要暂停选择最优路径即可"+ 全部外部风险已消解（ff-only main / 零分歧 / tag 不存在 / Lite 免改 / 资产与 v1.0.7 同构）。
