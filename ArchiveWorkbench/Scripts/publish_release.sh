@@ -66,8 +66,16 @@ echo "  OK: 可创建"
 
 echo "================ 将执行的命令 ================"
 run git push origin "${BRANCH}"
+# Fast-forward main to release tip (v1.0.7 convention: tag sat on main tip).
+# Safe only when origin/main ⊂ HEAD (strict ancestor = zero divergence).
+if git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+  echo "  origin/main ⊂ HEAD → fast-forward main"
+  run git push origin "${BRANCH}:main"
+else
+  echo "  ⚠ origin/main 非 HEAD 祖先（diverged）→ 跳过 main 同步，需手动处理"
+fi
 run gh release create "v${VERSION}" --repo "${REPO}" --target "${TARGET}" \
-    --title "Mac解霸 v${VERSION}" --notes-file "${NOTES}" "${DMG}" "${SHA}"
+    --title "MacUnzip v${VERSION}" --notes-file "${NOTES}" "${DMG}" "${SHA}"
 
 if $YES; then
   echo "================ 发布后验证 ================"
