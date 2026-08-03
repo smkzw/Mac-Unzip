@@ -553,3 +553,15 @@ GitHub API（base64 解码 `.content`），任一 200 且可解析即用，保�
 **发版**：tag `v1.1.3` → `ad6468a`，assets = dmg+sha256（`fcdb8883…`）；
 https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.3 ；release+main 同步。
 本地目录更新为 1.1.3 两版（旧 1.1.2 移除）；`/Applications` 装回 Debug。
+
+---
+
+## 十七、v1.1.4 引擎更新提示方向性比较（2026-08-04）
+
+修复 `current != latest` 在 manifest 落后时误导"更新"到更旧版本：改
+`isNewer` 数值点分比较（newer-only）。manifest 同步为实际版本
+（7zz 26.02 / rar 7.23），无更新时显示"引擎均为最新"。
+
+**发版**：tag `v1.1.4` → `05fac60`，assets = dmg+sha256（`57d2140c…`）；
+https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.4 ；release+main 同步。
+本地目录更新为 1.1.4 两版（旧 1.1.3 移除）；`/Applications` 装回 Debug。
