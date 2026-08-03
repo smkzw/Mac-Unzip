@@ -77,6 +77,9 @@ struct ArchiveDocumentView: View {
                 .accessibilityLabel(AppLocalization().string("归档目录"))
         } detail: {
             VStack(spacing: 0) {
+                // 自定义扁平头栏（无 Liquid Glass）：仅覆盖内容列，不入侵侧栏；
+                // 文件名占该列顶部 40%，其余按键在剩余 60% 同一高度平均分布
+                DocumentToolbar(model: model, onAdd: onAdd, onExtract: onExtract, onExtractSelected: onExtractSelected, onRemove: onRemove, onRename: onRename, onReplace: onReplace)
                 // Inline error banner
                 if let errorPresentation = model.activeErrorPresentation {
                     ArchiveErrorBanner(
@@ -216,9 +219,6 @@ struct ArchiveDocumentView: View {
                     .inspectorColumnWidth(min: 265, ideal: 280, max: 340)
             }
         }
-        .toolbar { DocumentToolbar(model: model, onAdd: onAdd, onExtract: onExtract, onExtractSelected: onExtractSelected, onRemove: onRemove, onRename: onRename, onReplace: onReplace) }
-        .toolbar(removing: .title)
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             statusBarContent
             .frame(maxWidth: .infinity)

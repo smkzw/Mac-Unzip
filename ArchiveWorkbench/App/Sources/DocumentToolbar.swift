@@ -4,7 +4,9 @@ extension Notification.Name {
     static let focusArchiveSearch = Notification.Name("focusArchiveSearch")
 }
 
-struct DocumentToolbar: ToolbarContent {
+/// 自定义扁平顶部头栏（彻底移除原生 Liquid Glass 工具栏）。
+/// 文件名占顶部横向 40%（≥2/5），其余功能按键在剩余 60% 内平均分布。
+struct DocumentToolbar: View {
     @Bindable var model: AppModel
     let onAdd: () -> Void
     let onExtract: () -> Void
@@ -50,47 +52,51 @@ struct DocumentToolbar: ToolbarContent {
             : AppLocalization().string("此格式不支持解压缩")
     }
 
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            HStack(spacing: 8) {
-                archiveTitle
+    var body: some View {
+        GeometryReader { geo in
+            HStack(spacing: 0) {
+                // 文件名区：占顶部横向 40%（≥2/5）
+                HStack(spacing: 8) {
+                    archiveTitle
+                    if model.isNestedSession {
+                        breadcrumbBar
+                    }
+                }
+                .frame(width: geo.size.width * 0.4, alignment: .leading)
 
-                if model.isNestedSession {
-                    breadcrumbBar
+                // 功能按键区：剩余 60%，平均分布
+                HStack(spacing: 0) {
+                    Spacer(minLength: 8)
+                    toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
+                        Task { await model.saveArchive() }
+                    }
+                    Spacer()
+                    toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
+                        onAdd()
+                    }
+                    Spacer()
+                    toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
+                        onExtract()
+                    }
+                    Spacer()
+                    viewToggle
+                    Spacer()
+                    operationMenu
+                    Spacer()
+                    ToolbarSearchField(text: $model.searchText, placeholder: "搜索")
+                        .frame(width: 140)
+                    Spacer(minLength: 8)
                 }
+                .frame(width: geo.size.width * 0.6)
             }
-            .padding(.leading, 4)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(AppLocalization().string("归档工具栏"))
+            .padding(.horizontal, 12)
+            .frame(height: 44)
         }
-
-        ToolbarItem(placement: .principal) {
-            HStack(spacing: 16) {
-                toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
-                    Task { await model.saveArchive() }
-                }
-                toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
-                    onAdd()
-                }
-                toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
-                    onExtract()
-                }
-            }
-        }
-        ToolbarItem(placement: .primaryAction) {
-            viewToggle
-        }
-        ToolbarItem(placement: .primaryAction) {
-            operationMenu
-        }
-        ToolbarItem(placement: .primaryAction) {
-            ToolbarSearchField(
-                text: $model.searchText,
-                placeholder: "搜索"
-            )
-            .frame(minWidth: 100, maxWidth: 180)
-            .padding(.trailing, 4)
-        }
+        .frame(height: 44)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(AppLocalization().string("归档工具栏"))
     }
 
     private var archiveTitle: some View {
@@ -109,7 +115,6 @@ struct DocumentToolbar: ToolbarContent {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: 160, alignment: .leading)
         .help(model.documentTitle)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
@@ -159,7 +164,6 @@ struct DocumentToolbar: ToolbarContent {
                 }
             }
         }
-        .frame(maxWidth: 160)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("嵌套路径")
     }
@@ -285,7 +289,6 @@ struct DocumentToolbar: ToolbarContent {
                         .clipShape(RoundedRectangle(cornerRadius: 3))
                 }
             }
-            .padding(.trailing, 12)
         }
         .buttonStyle(.borderless)
         .labelStyle(.titleAndIcon)

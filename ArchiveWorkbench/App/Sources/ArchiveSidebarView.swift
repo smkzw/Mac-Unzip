@@ -44,7 +44,7 @@ struct ArchiveSidebarView: View {
             infoRow("文件名", value: model.documentTitle)
         } header: {
             Label("压缩包信息", systemImage: "info.circle")
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(.secondary)
         }
     }
@@ -100,7 +100,7 @@ struct ArchiveSidebarView: View {
             .help(extractHelp)
         } header: {
             Label("快捷操作", systemImage: "bolt")
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(.secondary)
         }
     }
@@ -122,7 +122,7 @@ struct ArchiveSidebarView: View {
             Section {
                 if recent.isEmpty {
                     Text("暂无最近打开的压缩包")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
                 } else {
                     ForEach(recent.prefix(maxCount), id: \.self) { url in
@@ -131,7 +131,7 @@ struct ArchiveSidebarView: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "archivebox")
-                                    .font(.caption)
+                                    .font(.body)
                                     .foregroundStyle(.secondary)
                                 Text(url.lastPathComponent)
                                     .lineLimit(1)
@@ -144,7 +144,7 @@ struct ArchiveSidebarView: View {
                 }
             } header: {
                 Label("最近打开", systemImage: "clock")
-                    .font(.caption)
+                    .font(.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -153,11 +153,11 @@ struct ArchiveSidebarView: View {
     private func infoRow(_ label: String, value: String) -> some View {
         HStack {
             Text(AppLocalization().string(label))
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.caption)
+                .font(.body)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }

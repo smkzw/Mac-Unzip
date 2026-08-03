@@ -10,7 +10,7 @@ final class DocumentShellTests: XCTestCase {
     }
 
     private func assertEssentialToolbarFramesDoNotIntersect(_ app: XCUIApplication) {
-        let toolbar = app.toolbars.firstMatch
+        let toolbar = app.windows.firstMatch
         let controls: [XCUIElement] = [
             toolbar.buttons["添加"],
             toolbar.buttons["解压缩全部"],
@@ -33,7 +33,7 @@ final class DocumentShellTests: XCTestCase {
 
     private func assertToolbarOrderAndLabels(_ app: XCUIApplication) {
         let window = app.windows.firstMatch
-        let toolbar = app.toolbars.firstMatch
+        let toolbar = app.windows.firstMatch
         let title = app.descendants(matching: .any)["归档标题"]
         XCTAssertTrue(title.waitForExistence(timeout: 3))
         XCTAssertGreaterThanOrEqual(title.frame.minX, window.frame.minX + 90)
@@ -116,7 +116,7 @@ final class DocumentShellTests: XCTestCase {
             "-extraction-destination", destination.path,
         ]
         app.launch()
-        let extractButton = app.toolbars.firstMatch.buttons["解压缩全部"]
+        let extractButton = app.windows.firstMatch.buttons["解压缩全部"]
         XCTAssertTrue(extractButton.waitForExistence(timeout: 5))
         let enabled = expectation(
             for: NSPredicate(format: "isEnabled == true"),
@@ -147,7 +147,7 @@ final class DocumentShellTests: XCTestCase {
         let app = makeApp()
         app.launch()
 
-        let toolbar = app.toolbars.firstMatch
+        let toolbar = app.windows.firstMatch
         XCTAssertTrue(toolbar.waitForExistence(timeout: 5))
         for label in ["添加", "解压缩全部"] {
             XCTAssertTrue(toolbar.buttons[label].waitForExistence(timeout: 3), "Missing toolbar button: \(label)")
@@ -173,7 +173,7 @@ final class DocumentShellTests: XCTestCase {
         ]
         app.launch()
 
-        let toolbar = app.toolbars.firstMatch
+        let toolbar = app.windows.firstMatch
         let add = toolbar.buttons["Add"]
         let extract = toolbar.buttons["Extract All"]
         let search = app.searchFields["搜索框"]
@@ -291,7 +291,7 @@ final class DocumentShellTests: XCTestCase {
         app.launch()
         // Unified toolbar builds its accessibility tree lazily; wait for the
         // toolbar container before querying the embedded search field.
-        XCTAssertTrue(app.toolbars.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
 
         let searchField = app.searchFields["搜索框"]
         XCTAssertTrue(searchField.waitForExistence(timeout: 3))
