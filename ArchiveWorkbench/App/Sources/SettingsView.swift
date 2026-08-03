@@ -258,15 +258,29 @@ struct ProviderSettingsTab: View {
             return
         }
         var hints: [String] = []
-        if let latest = manifest["7zz"], let current = cachedDiscovery?.version, current != latest {
+        if let latest = manifest["7zz"], let current = cachedDiscovery?.version, Self.isNewer(latest, than: current) {
             hints.append(AppLocalization().format("7zz 最新 %@，当前 %@，请前往官网更新", latest, current))
         }
-        if let latest = manifest["rar"], let current = cachedRARDiscovery?.version, current != latest {
+        if let latest = manifest["rar"], let current = cachedRARDiscovery?.version, Self.isNewer(latest, than: current) {
             hints.append(AppLocalization().format("rar 最新 %@，当前 %@，请前往官网更新", latest, current))
         }
         updateHint = hints.isEmpty
             ? AppLocalization().string("引擎均为最新")
             : hints.joined(separator: "；")
+    }
+
+    /// True when `latest` is strictly newer than `current` (numeric dotted compare).
+    /// Prevents a stale manifest from prompting a downgrade as an "update".
+    private static func isNewer(_ latest: String, than current: String) -> Bool {
+        let l = latest.split(separator: ".").compactMap { Int($0) }
+        let c = current.split(separator: ".").compactMap { Int($0) }
+        guard !l.isEmpty, !c.isEmpty else { return false }
+        for i in 0..<max(l.count, c.count) {
+            let lv = i < l.count ? l[i] : 0
+            let cv = i < c.count ? c[i] : 0
+            if lv != cv { return lv > cv }
+        }
+        return false
     }
 
     private func refreshEngines() {
