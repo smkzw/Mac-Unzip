@@ -228,28 +228,45 @@ struct ProviderSettingsTab: View {
         isChecking = true
         defer { isChecking = false }
         updateHint = nil
-        guard let url = URL(string: "https://smkzw.github.io/Mac-Unzip/store/engine-versions.json") else { return }
-        do {
+        // 多端点容错：官网 VPS → GitHub raw → GitHub API（base64）。任一成功即用。
+        let endpoints: [(String, Bool)] = [
+            ("https://gerymk.qd.je/store/engine-versions.json", false),
+            ("https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/store/engine-versions.json", false),
+            ("https://api.github.com/repos/smkzw/Mac-Unzip/contents/store/engine-versions.json", true),
+        ]
+        var manifest: [String: String]?
+        for (urlString, isAPI) in endpoints {
+            guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.timeoutInterval = 8
-            let (data, _) = try await URLSession.shared.data(for: request)
-            guard let manifest = try? JSONDecoder().decode([String: String].self, from: data) else {
-                updateHint = AppLocalization().string("无法解析更新信息")
-                return
+            if isAPI { request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept") }
+            guard let (data, response) = try? await URLSession.shared.data(for: request),
+                  (response as? HTTPURLResponse)?.statusCode == 200 else { continue }
+            if isAPI {
+                struct ContentsResponse: Decodable { let content: String }
+                if let cr = try? JSONDecoder().decode(ContentsResponse.self, from: data),
+                   let decoded = Data(base64Encoded: cr.content.replacingOccurrences(of: "\n", with: "")) {
+                    manifest = try? JSONDecoder().decode([String: String].self, from: decoded)
+                }
+            } else {
+                manifest = try? JSONDecoder().decode([String: String].self, from: data)
             }
-            var hints: [String] = []
-            if let latest = manifest["7zz"], let current = cachedDiscovery?.version, current != latest {
-                hints.append(AppLocalization().format("7zz 最新 %@，当前 %@，请前往官网更新", latest, current))
-            }
-            if let latest = manifest["rar"], let current = cachedRARDiscovery?.version, current != latest {
-                hints.append(AppLocalization().format("rar 最新 %@，当前 %@，请前往官网更新", latest, current))
-            }
-            updateHint = hints.isEmpty
-                ? AppLocalization().string("引擎均为最新")
-                : hints.joined(separator: "；")
-        } catch {
-            updateHint = AppLocalization().string("无法获取更新信息（离线或地址不可用）")
+            if manifest != nil { break }
         }
+        guard let manifest else {
+            updateHint = AppLocalization().string("无法获取更新信息（离线或地址不可用）")
+            return
+        }
+        var hints: [String] = []
+        if let latest = manifest["7zz"], let current = cachedDiscovery?.version, current != latest {
+            hints.append(AppLocalization().format("7zz 最新 %@，当前 %@，请前往官网更新", latest, current))
+        }
+        if let latest = manifest["rar"], let current = cachedRARDiscovery?.version, current != latest {
+            hints.append(AppLocalization().format("rar 最新 %@，当前 %@，请前往官网更新", latest, current))
+        }
+        updateHint = hints.isEmpty
+            ? AppLocalization().string("引擎均为最新")
+            : hints.joined(separator: "；")
     }
 
     private func refreshEngines() {
