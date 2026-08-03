@@ -78,6 +78,7 @@ targets:
       - path: App/Binaries
         buildPhase: resources
         type: folder
+        optional: true
     dependencies:
       - package: ArchiveKit
         product: ArchiveDomain
