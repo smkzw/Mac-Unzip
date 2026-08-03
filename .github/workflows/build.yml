@@ -28,6 +28,8 @@ jobs:
       - name: Build MacUnzip
         working-directory: ArchiveWorkbench
         run: |
+          # App/Binaries（bundled 7zz）gitignored 不入库；CI 建空目录使资源拷贝通过
+          mkdir -p App/Binaries
           DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer \
             xcodebuild -project MacUnzip.xcodeproj \
                        -scheme MacUnzip \
