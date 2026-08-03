@@ -457,3 +457,15 @@ LicenseManager 双验证：Ed25519 签名 ‖ 哈希白名单 → Keychain 存�
 v1.0.9 → https://github.com/smkzw/Mac-Unzip/releases/tag/v1.0.9
 （push release + ff main，assets = dmg+sha256，target c744b10）。
 本地已装回 Debug（铁律1）。
+
+### 11.5 CI 修复（run 30776115969 → 30776781953 转绿）
+
+**根因链**（三层）：
+1. CI 读**仓库根** `.github/workflows/build.yml`（旧版：ArchiveWorkbench.xcodeproj + Xcode_16.4），而项8 只改了子目录 `ArchiveWorkbench/.github/` 副本（CI 不读）→ 首层失败。
+2. `project.yml` 引用的 7 个源目录被 gitignore，仓库缺失 → xcodegen 校验失败（HelperSpike/HelperFixture/HelperSpikeTests/LowFDHarness/TestFixtures 入库 172K；`App/Binaries` 的 bundled 7zz 保持不入库，`optional: true`）。
+3. `optional` 只跳 xcodegen 校验，构建仍拷贝 `App/Binaries`（CI 无此目录 lstat 错）→ workflow 加 `mkdir -p App/Binaries`。
+
+**修复 commits**：fec5282（入库 5 目录+gitignore 解除）、57bb22b（根 workflow 重写：xcodegen+MacUnzip.xcodeproj+Xcode_26+免签名+brew 依赖）、c3958b8（mkdir App/Binaries）。
+**验证**：run 30776781953 `completed|success`。
+
+**取码工具**：`~/.local/bin/muz-codes`（`muz-codes` 列全部 / `gen n` 补发 / `verify 码` 验证），底层 `Scripts/license_vault.swift`。
