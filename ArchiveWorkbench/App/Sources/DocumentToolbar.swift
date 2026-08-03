@@ -64,19 +64,17 @@ struct DocumentToolbar: ToolbarContent {
             .accessibilityLabel(AppLocalization().string("归档工具栏"))
         }
 
-        ToolbarItem(placement: .primaryAction) {
-            toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
-                Task { await model.saveArchive() }
-            }
-        }
-        ToolbarItem(placement: .primaryAction) {
-            toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
-                onAdd()
-            }
-        }
-        ToolbarItem(placement: .primaryAction) {
-            toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
-                onExtract()
+        ToolbarItem(placement: .principal) {
+            HStack(spacing: 16) {
+                toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
+                    Task { await model.saveArchive() }
+                }
+                toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
+                    onAdd()
+                }
+                toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
+                    onExtract()
+                }
             }
         }
         ToolbarItem(placement: .primaryAction) {
@@ -198,7 +196,7 @@ struct DocumentToolbar: ToolbarContent {
             Button {
                 NotificationCenter.default.post(name: .createArchiveRequest, object: nil)
             } label: {
-                Label(proLabel("新建压缩包"), systemImage: "archivebox.badge.plus")
+                Label(proLabel("新建压缩包"), systemImage: "externaldrive.badge.plus")
             }
 
             Divider()

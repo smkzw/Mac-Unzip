@@ -187,13 +187,26 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let url = urls.first else { return }
         let skipped = max(0, urls.count - 1)
-        if application.isActive {
-            Self.deliverOpenURL(url, skippedCount: skipped)
-        } else {
-            RecentArchivesManager.shared.noteRecentArchive(url)
-            Self.pendingLaunchURL = url
-            Self.pendingSkippedOpenCount = skipped
+        // 无论 active 与否都走 deliverOpenURL：app 在运行但主窗口已关闭时，
+        // 它会开新窗口并投递 URL；旧实现 inactive 分支只 stash pending 而
+        // 无 RootWindowView 消费，导致双击压缩包"毫无反应"。
+        Self.deliverOpenURL(url, skippedCount: skipped)
+    }
+
+    /// Dock 图标点击（app 在运行但无窗口）：重开主窗口，避免"点了没反应"。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag || !Self.hasMainWindow {
+            MainAppWindowOpener.openMainWindow()
         }
+        return true
+    }
+
+    /// 单主窗口 app 的标准行为：最后一个窗口关闭后退出进程。
+    /// 根治"app 在运行但无窗口时双击压缩包无反应"——双击将作为新进程
+    /// 启动并走 application(_:open:) 启动路径开窗加载归档。未保存更改的
+    /// 关窗确认由 UnsavedChangesWindowDelegate.windowShouldClose 先行拦截。
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
     }
 
     /// Routes an open-archive request to a live window, or stashes it and opens

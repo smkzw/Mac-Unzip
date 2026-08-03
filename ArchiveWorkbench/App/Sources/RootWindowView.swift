@@ -212,24 +212,31 @@ struct RootWindowView: View {
                             HStack(spacing: 12) {
                                 Button("打开压缩包") { presentOpenPanel() }
                                     .buttonStyle(.borderedProminent)
+                                    .controlSize(.large)
                                     .keyboardShortcut(.defaultAction)
                                     .accessibilityIdentifier("打开压缩包")
                                 Button {
                                     presentCreationInputPanel()
                                 } label: {
-                                    HStack(spacing: 4) {
-                                        Text("新建压缩包")
-                                        if !LicenseManager.shared.isProLicensed {
-                                            Text("Pro")
-                                                .font(.caption2.weight(.semibold))
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(.purple.opacity(0.15))
-                                                .foregroundStyle(.purple)
-                                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                                    Label {
+                                        HStack(spacing: 4) {
+                                            Text("新建压缩包")
+                                            if !LicenseManager.shared.isProLicensed {
+                                                Text("Pro")
+                                                    .font(.caption2.weight(.semibold))
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 1)
+                                                    .background(.purple.opacity(0.15))
+                                                    .foregroundStyle(.purple)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                                            }
                                         }
+                                    } icon: {
+                                        Image(systemName: "externaldrive.badge.plus")
                                     }
                                 }
+                                .buttonStyle(.bordered)
+                                .controlSize(.large)
                                 .help(AppLocalization().string(LicenseManager.shared.isProLicensed
                                     ? "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包"
                                     : "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包（需要 Pro）"))

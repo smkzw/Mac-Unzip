@@ -71,7 +71,7 @@ struct ArchiveSidebarView: View {
                 onCreate?()
             } label: {
                 HStack(spacing: 4) {
-                    Label(AppLocalization().string("新建压缩包"), systemImage: "archivebox.badge.plus")
+                    Label(AppLocalization().string("新建压缩包"), systemImage: "externaldrive.badge.plus")
                     if !LicenseManager.shared.isProLicensed { proBadge }
                 }
             }
