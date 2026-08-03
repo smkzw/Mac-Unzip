@@ -122,6 +122,23 @@ final class WindowsZIPCreationTests: XCTestCase {
         }
     }
 
+    func testRejectsLeadingSpaceComponent() async throws {
+        // Windows Explorer/legacy tools trim or fail on leading-space names;
+        // block at creation so the archive stays openable on Windows.
+        let input = try InputTree(entries: [" 报告.txt": Data("x".utf8)])
+        let output = input.rootURL.deletingLastPathComponent()
+            .appending(path: UUID().uuidString + ".zip")
+        defer { try? FileManager.default.removeItem(at: output) }
+        let provider = ZIPArchiveProvider()
+        do {
+            try await provider.createWindowsZIP(at: output, inputs: [input.rootURL])
+            XCTFail("Expected rejection for leading-space component")
+        } catch is WindowsZIPProfileError {
+            // Leading-space names are trimmed/fail on Windows; must never be published.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+    }
+
     func testRejectsCaseInsensitiveCollision() async throws {
         let first = try InputTree(entries: ["Readme.txt": Data("one".utf8)])
         let second = try InputTree(entries: ["README.TXT": Data("two".utf8)])

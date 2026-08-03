@@ -386,6 +386,7 @@ private struct WindowsZIPPreflight {
                 || component.utf16.count > 255
                 || component.hasSuffix(".")
                 || component.hasSuffix(" ")
+                || component.hasPrefix(" ")
                 || component.unicodeScalars.contains { scalar in
                     scalar.value < 0x20 || forbidden.contains(scalar)
                 }
