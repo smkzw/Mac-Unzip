@@ -104,6 +104,10 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleLaunchArguments() {
         let args = ProcessInfo.processInfo.arguments
+        // 深链激活：`MacUnzip -activate-license <key>`（官网/邮件引导与 E2E 共用）。
+        if let i = args.firstIndex(of: "-activate-license"), i + 1 < args.count {
+            _ = LicenseManager.shared.activateLicense(key: args[i + 1])
+        }
         guard let filesIndex = args.firstIndex(of: "-finder-files"),
               filesIndex + 1 < args.count else { return }
         let tempPath = args[filesIndex + 1]

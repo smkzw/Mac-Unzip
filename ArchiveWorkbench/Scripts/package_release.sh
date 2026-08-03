@@ -74,6 +74,14 @@ echo "  Project: ${PROJECT_DIR}"
 echo "  Version: ${VERSION}"
 echo "  SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH}"
 
+
+# 嵌入最新激活码哈希白名单（非明文）。若本地无码库则跳过（用已提交的白名单）。
+if command -v swift >/dev/null 2>&1 && [[ -f "$HOME/.macunzip/license_vault.json" ]]; then
+  echo "  Embedding license code hashes..."
+  swift "${PROJECT_DIR}/Scripts/license_vault.swift" embed --out "${PROJECT_DIR}/App/Sources/EmbeddedLicenseCodes.swift" || true
+else
+  echo "  No local license vault; using committed EmbeddedLicenseCodes.swift"
+fi
 # Clean previous build (safe: only removes our build directory)
 if [[ -d "${BUILD_DIR}" ]]; then
   echo "  Cleaning previous build directory..."

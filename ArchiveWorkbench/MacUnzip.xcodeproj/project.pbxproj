@@ -69,6 +69,7 @@
 		B4C91FF90F0B47CE805D456D /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3E1B4EABCD58986E65751BD9 /* Info.plist */; };
 		B776F4523AF29CA5713F6AF8 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 2243C85AC1AC6A5028416BEF /* MarkdownUI */; };
 		BB50A41FB2C5F0E14A988B0C /* ArchiveDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 01C49164EEFF59F5272FD491 /* ArchiveDomain */; };
+		BD0A5BD5BA38E149BA77D382 /* EmbeddedLicenseCodes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F595C28BF7728166D71670 /* EmbeddedLicenseCodes.swift */; };
 		BDD3274D6B9722D934FB75C7 /* HelperSpike.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9877597E417B2D432608417F /* HelperSpike.framework */; };
 		BE491073281C1A224D42A861 /* LicenseActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A94CF3D13B926B25B208339 /* LicenseActivationView.swift */; };
 		C1EF6A06AF63CED2DB0F7253 /* ArchiveProviders in Frameworks */ = {isa = PBXBuildFile; productRef = 7340EC294F71C7328DCC7A18 /* ArchiveProviders */; };
@@ -90,6 +91,7 @@
 		F65C83DBD5E521B9C442BBCA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB443432C3DEF1736039A10F /* main.swift */; };
 		F6A7B04EC07624947BB2CD07 /* ArchiveProviders in Frameworks */ = {isa = PBXBuildFile; productRef = 2FDF13ABCBE609C04F1A3119 /* ArchiveProviders */; };
 		F765CC47C23C5565108AF10E /* 示例.pdf in Resources */ = {isa = PBXBuildFile; fileRef = FBC8DEB022D11C98C1275686 /* 示例.pdf */; };
+		FA40075D01198B0932C5B16F /* alipay-qr.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 092956C7DB0635143D912416 /* alipay-qr.jpg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -173,6 +175,7 @@
 /* Begin PBXFileReference section */
 		06718AC56CDAFAA4C61F7FFF /* 示例.pptx */ = {isa = PBXFileReference; path = "示例.pptx"; sourceTree = "<group>"; };
 		06D987BB3ACD8F95A65245C5 /* 示例.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "示例.png"; sourceTree = "<group>"; };
+		092956C7DB0635143D912416 /* alipay-qr.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = "alipay-qr.jpg"; sourceTree = "<group>"; };
 		0C5E435AF29E818AC96FC8C9 /* FinderSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderSync.swift; sourceTree = "<group>"; };
 		15886C97FDB2D33482F675CB /* ArchiveSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSidebarView.swift; sourceTree = "<group>"; };
 		1655D4D2FB41C305BEAAFB12 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -213,6 +216,7 @@
 		779D4CA42417BAC6A0F0B392 /* MacUnzipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacUnzipApp.swift; sourceTree = "<group>"; };
 		8281BEAC42720550632E78AD /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		875A8020C96E8E9AA46AF51B /* MacUnzipFinderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacUnzipFinderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		89F595C28BF7728166D71670 /* EmbeddedLicenseCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedLicenseCodes.swift; sourceTree = "<group>"; };
 		8CA3E6BD3B6154469CB17BAD /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
 		92A4FF7E38716A1639B48C5E /* MacUnzipQLExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacUnzipQLExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		948907C9325E70A7EC64C538 /* DocumentShellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentShellTests.swift; sourceTree = "<group>"; };
@@ -421,6 +425,7 @@
 		E036AB6D7CEF7AE1F579D39B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				092956C7DB0635143D912416 /* alipay-qr.jpg */,
 				1AA5D94FAECADD16ED5225EB /* Assets.xcassets */,
 				3E1B4EABCD58986E65751BD9 /* Info.plist */,
 				BCDE20CB96EB33F87A74EA70 /* Localizable.xcstrings */,
@@ -458,6 +463,7 @@
 				464AD549C0BA5ACA9BFAB2A7 /* ComponentsLicensesView.swift */,
 				F3F1EC06DA1D83CE3D654AA7 /* DiagnosticsExporter.swift */,
 				ADCA3D99AD32DB2A6DF5F6BD /* DocumentToolbar.swift */,
+				89F595C28BF7728166D71670 /* EmbeddedLicenseCodes.swift */,
 				B33A0AE5A57A40E877795B91 /* HelpMenuCommands.swift */,
 				4A94CF3D13B926B25B208339 /* LicenseActivationView.swift */,
 				722B7B130746F46610DBE619 /* LicenseGate.swift */,
@@ -738,6 +744,7 @@
 				B4C91FF90F0B47CE805D456D /* Info.plist in Resources */,
 				67726637E074FBF136BDE4F3 /* InfoPlist.strings in Resources */,
 				3E16EAE5A05816174359E3E1 /* Localizable.xcstrings in Resources */,
+				FA40075D01198B0932C5B16F /* alipay-qr.jpg in Resources */,
 				335193BB562FE5407C204E4A /* 首页主视觉.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -813,6 +820,7 @@
 				F50BB2C28FDB44260B7C77A3 /* ComponentsLicensesView.swift in Sources */,
 				90C10CEEAF72158844D5080F /* DiagnosticsExporter.swift in Sources */,
 				7F14B94F400E449EEF0449C1 /* DocumentToolbar.swift in Sources */,
+				BD0A5BD5BA38E149BA77D382 /* EmbeddedLicenseCodes.swift in Sources */,
 				1746D638478886B6081651A9 /* HelpMenuCommands.swift in Sources */,
 				BE491073281C1A224D42A861 /* LicenseActivationView.swift in Sources */,
 				7C252979659293C8C222A8B8 /* LicenseGate.swift in Sources */,

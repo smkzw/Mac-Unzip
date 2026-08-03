@@ -14,7 +14,9 @@ final class LicenseManager {
     static let shared = LicenseManager()
 
     // MARK: - Embedded Public Key (Ed25519, 32 bytes, base64-encoded)
-    private static let rawPublicKeyBase64 = "9ApYASCIL8eLSQIitq48CKF955M/ndcoAzBJEULTRRQ="
+    /// 公钥与码集哈希白名单由 Scripts/license_vault.swift embed 生成，
+    /// 明文码与私钥仅在发行者本地库，永不入包。
+    private static let rawPublicKeyBase64 = EmbeddedLicenseCodes.publicKeyBase64
 
     // MARK: - Keychain Constants
 
@@ -49,7 +51,7 @@ final class LicenseManager {
     func activateLicense(key: String) -> Bool {
         let normalized = Self.normalizeKey(key)
         guard Self.validateFormat(normalized) else { return false }
-        guard Self.verifySignature(normalized) else { return false }
+        guard Self.verifySignature(normalized) || Self.verifyHashAllowlist(normalized) else { return false }
         guard saveToKeychain(normalized) else { return false }
         storedKey = normalized
         _isProLicensed = true
@@ -133,6 +135,17 @@ final class LicenseManager {
         return publicKey.isValidSignature(signatureData, for: payloadData)
     }
 
+    /// 哈希白名单验证：码的 SHA-256 是否在嵌入式非明文白名单中。
+    /// 与签名路径并列，满足"码集以非明文绑定进安装包"；下期重新
+    /// gen/embed 即轮换吊销旧码集。
+    static func verifyHashAllowlist(_ key: String) -> Bool {
+        EmbeddedLicenseCodes.sha256HexHashes.contains(sha256Hex(key))
+    }
+
+    private static func sha256Hex(_ s: String) -> String {
+        SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
     // MARK: - Base64url Helpers
 
     private static func base64urlDecode(_ input: String) -> Data? {
@@ -168,7 +181,7 @@ final class LicenseManager {
             return
         }
         // Re-validate on load (guards against tampered keychain entries)
-        if Self.validateFormat(key) && Self.verifySignature(key) {
+        if Self.validateFormat(key) && (Self.verifySignature(key) || Self.verifyHashAllowlist(key)) {
             storedKey = key
             _isProLicensed = true
         } else {

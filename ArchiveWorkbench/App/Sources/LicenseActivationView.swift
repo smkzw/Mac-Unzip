@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct LicenseActivationView: View {
@@ -72,17 +73,48 @@ struct LicenseActivationView: View {
                         .accessibilityIdentifier("激活按钮")
                 }
 
-                VStack(spacing: 4) {
-                    Text("终身授权 · 一次购买 · 免费更新")
+                VStack(spacing: 10) {
+                    Text("终身授权 · 一次购买 · 免费更新 · ¥9.99")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
-                    Link("购买 Pro →", destination: URL(string: "https://smkzw.github.io/Mac-Unzip/store/")!)
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(spacing: 6) {
+                            Group {
+                                if let url = Bundle.main.url(forResource: "alipay-qr", withExtension: "jpg"),
+                                   let nsImage = NSImage(contentsOf: url) {
+                                    Image(nsImage: nsImage)
+                                        .resizable()
+                                        .scaledToFit()
+                                } else {
+                                    Image(systemName: "qrcode")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(width: 130, height: 195)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .accessibilityLabel("支付宝收款码")
+                            Text("支付宝扫码付款")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("购买方式").font(.caption.weight(.semibold))
+                            Text("① 支付宝扫码付款 ¥9.99")
+                            Text("② 加微信 15626066091 领取激活码")
+                            Text("③ 在上方输入激活码即可激活")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Link("或访问官网购买 →", destination: URL(string: "https://smkzw.github.io/Mac-Unzip/store/")!)
                         .font(.caption)
                 }
             }
         }
         .padding(32)
-        .frame(width: 460)
+        .frame(width: 560)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Pro 激活")
     }
