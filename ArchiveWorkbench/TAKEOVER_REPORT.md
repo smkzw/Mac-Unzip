@@ -540,3 +540,16 @@ https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.2 ；release+main 同步。
 
 > 项7 完整"app 内自动更新外部引擎"仍**不推荐**（供应链/卖点/许可），设计稿见
 > Distribution/ENGINE_UPDATE_SECURITY_DESIGN.md。若用户坚持，按 §3 全条件实施。
+
+---
+
+## 十六、v1.1.3 引擎检测多端点容错（2026-08-04）
+
+v1.1.2 的 opt-in 检测原用单一 GitHub Pages 地址，实测 Pages 未启用、
+raw 在部分网络 404，不可达。改为多端点容错：官网 VPS → GitHub raw →
+GitHub API（base64 解码 `.content`），任一 200 且可解析即用，保证真实
+网络下可用。仍只读版本号、不下载/不写可执行文件。
+
+**发版**：tag `v1.1.3` → `ad6468a`，assets = dmg+sha256（`fcdb8883…`）；
+https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.3 ；release+main 同步。
+本地目录更新为 1.1.3 两版（旧 1.1.2 移除）；`/Applications` 装回 Debug。
