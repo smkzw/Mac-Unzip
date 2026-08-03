@@ -469,3 +469,27 @@ v1.0.9 → https://github.com/smkzw/Mac-Unzip/releases/tag/v1.0.9
 **验证**：run 30776781953 `completed|success`。
 
 **取码工具**：`~/.local/bin/muz-codes`（`muz-codes` 列全部 / `gen n` 补发 / `verify 码` 验证），底层 `Scripts/license_vault.swift`。
+
+---
+
+## 十二、Windows/多语言（重点中文）兼容机制（2026-08-03）
+
+调研 7 维度 15 项 Windows 打开 Mac 创建压缩包的已知问题（MAX_PATH 260、
+UTF-8 flag(bit11) 支持差异、NFD/NFC、非法字符/保留名、大小写冲突、Zip64、
+GBK 代码页）。创建端 `WindowsZIPPreflight.validate` 已机械规避：
+
+| 问题 | 创建端机制 | 状态 |
+|---|---|---|
+| 超长路径（MAX_PATH 260） | 总长 ≤180 utf16 + 组件 ≤255 | ✓ 已有 |
+| 编码乱码 | 写 UTF-8 flag(bit11)，名称 NFC 归一 | ✓ 已有 |
+| NFD 组合字符异常 | `precomposedStringWithCanonicalMapping` 归一 | ✓ 已有 |
+| 非法字符 `<>:"/\|?*`+控制符 | 逐组件拦截 | ✓ 已有 |
+| 保留名 CON/PRN/AUX/NUL/COM1-9/LPT1-9（含上标别名） | 拦截 | ✓ 已有 |
+| 结尾点/结尾空格 | 拦截 | ✓ 已有 |
+| **开头空格**（Explorer/旧中文工具裁剪或失败） | `hasPrefix(" ")` 拦截 | **本轮新增** |
+| 大小写不敏感冲突（a.txt/A.txt） | 小写键碰撞检测 | ✓ 已有 |
+| .DS_Store/__MACOSX/._ 元数据 | 抑制不写入 | ✓ 已有 |
+
+新增测试 `testRejectsLeadingSpaceComponent`（断言拒绝且无产物）。
+注：本机 swift test 环境性失败（基线 12/13，先于本轮改动），与代码无关；
+包 `swift build` 与 app xcodebuild 均通过。
