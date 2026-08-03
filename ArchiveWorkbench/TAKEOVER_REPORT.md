@@ -523,3 +523,20 @@ GBK 代码页）。创建端 `WindowsZIPPreflight.validate` 已机械规避：
 **发版**：tag `v1.1.1` → `f89adf0`，assets = dmg+sha256（`61d96f0e…`）；
 https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.1 ；release+main 同步。
 本地目录更新为 1.1.1 两版（旧 1.1.0 本地包移除）；`/Applications` 装回 Debug。
+
+---
+
+## 十五、v1.1.2 引擎更新 opt-in 检测（2026-08-04，项7 低风险增量）
+
+按安全设计稿推荐增量实施（**不**做 app 内下载替换）：
+- 设置→引擎新增「检测引擎更新」开关（默认关）+「检测更新」按钮
+- 开启后拉取静态 `store/engine-versions.json`（仅版本号，8s 超时），与本地
+  检测版本比对，提示"请前往官网更新"/"引擎均为最新"
+- 绝不下载/写入可执行文件，保持零下载承诺与供应链安全
+
+**发版**：tag `v1.1.2` → `980fa3d`，assets = dmg+sha256（`839255e1…`）；
+https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.2 ；release+main 同步。
+本地目录更新为 1.1.2 两版（旧 1.1.1 移除）；`/Applications` 装回 Debug。
+
+> 项7 完整"app 内自动更新外部引擎"仍**不推荐**（供应链/卖点/许可），设计稿见
+> Distribution/ENGINE_UPDATE_SECURITY_DESIGN.md。若用户坚持，按 §3 全条件实施。
