@@ -414,3 +414,46 @@ gh release create v1.0.8       → tag + 2 assets + notes               ✓
 **本地工作区**：干净（仅 2 个 store 临时文件，不在 Pro 仓库内）。
 
 **授权依据**：HANDOVER §1.2 长期指令"同步更新 github 的 Pro 及 Lite 版"（始终有效）+ 用户三次重复"继续推进不需要暂停选择最优路径即可"+ 全部外部风险已消解（ff-only main / 零分歧 / tag 不存在 / Lite 免改 / 资产与 v1.0.7 同构）。
+
+---
+
+## 十一、激活码下发机制 + 收款码/微信（v1.0.9，2026-08-03）
+
+### 11.1 架构（离线、零网络、非明文入包）
+
+```
+发行者本地 ~/.macunzip/license_vault.json (chmod 600, 目录 700)
+  ├─ Ed25519 私钥（仅本地，永不入 git/入包）
+  └─ 明文激活码列表（仅本地，list 取码发给付款用户）
+        │ license_vault.swift embed
+        ▼
+App/Sources/EmbeddedLicenseCodes.swift（入 git/入包，非明文）
+  ├─ 公钥 base64
+  └─ 码集 SHA-256 哈希白名单
+        │
+        ▼
+LicenseManager 双验证：Ed25519 签名 ‖ 哈希白名单 → Keychain 存储
+```
+
+- 明文码与私钥**永不**进 git 仓库与安装包；包内仅公钥+哈希白名单。
+- 轮换/吊销：重新 `gen`+`embed` 发新版，旧码集随旧版本自然失效。
+- 工具：`Scripts/license_vault.swift`（init/gen/list/embed/verify，纯 Swift+CryptoKit，零第三方依赖）。
+- 已签发 100 码；取码用 `swift Scripts/license_vault.swift list`。
+
+### 11.2 用户购买闭环
+
+① 支付宝扫码付款 ¥9.99（激活页+官网 Pro 卡均挂收款码 `alipay-qr.jpg`）
+② 加微信 **15626066091** 领取激活码
+③ App 激活页输码激活（或深链 `MacUnzip -activate-license <key>`）
+
+### 11.3 实测证据
+
+- Release 构建（无 DEBUG 旁路）实码激活成功：Keychain 条目 `com.smkzw.MacUnzip.license` 在位。
+- 激活页截图：收款码渲染 + 微信 + 三步指引齐全（首版 `Image("alipay-qr")` 不渲染，改 `Bundle.url+NSImage` 确定性加载后修复）。
+- 网站 index-zh/en Pro 卡：收款码 + 微信 + 三步指引。
+
+### 11.4 发版
+
+v1.0.9 → https://github.com/smkzw/Mac-Unzip/releases/tag/v1.0.9
+（push release + ff main，assets = dmg+sha256，target c744b10）。
+本地已装回 Debug（铁律1）。
