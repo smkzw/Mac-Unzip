@@ -2,40 +2,44 @@ name: Build & Test
 
 on:
   push:
-    branches: [main, release]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Install XcodeGen
-      run: brew install xcodegen
+      - name: Install build dependencies
+        working-directory: ArchiveWorkbench
+        run: |
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          # embed-dylibs.sh 需要 libarchive 及其 Homebrew 依赖以构建自包含 app
+          brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
 
-    - name: Generate Xcode project
-      working-directory: ArchiveWorkbench
-      run: xcodegen generate
+      - name: Generate Xcode project
+        working-directory: ArchiveWorkbench
+        run: xcodegen generate
 
-    - name: Build ArchiveWorkbench
-      working-directory: ArchiveWorkbench
-      run: |
-        xcodebuild \
-          -project ArchiveWorkbench.xcodeproj \
-          -scheme ArchiveWorkbench \
-          -configuration Release \
-          -destination 'platform=macOS' \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          build
+      - name: Build MacUnzip
+        working-directory: ArchiveWorkbench
+        run: |
+          DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer \
+            xcodebuild -project MacUnzip.xcodeproj \
+                       -scheme MacUnzip \
+                       -configuration Release \
+                       -destination 'platform=macOS' \
+                       CODE_SIGN_IDENTITY="" \
+                       CODE_SIGNING_REQUIRED=NO \
+                       CODE_SIGNING_ALLOWED=NO \
+                       build
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ArchiveWorkbench-${{ github.sha }}
-        path: ArchiveWorkbench/Build/Products/Release/ArchiveWorkbench.app
-        if-no-files-found: ignore
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacUnzip-${{ github.sha }}
+          path: ArchiveWorkbench/build/Products/Release/MacUnzip.app
