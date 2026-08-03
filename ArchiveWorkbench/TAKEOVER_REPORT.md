@@ -509,3 +509,17 @@ GBK 代码页）。创建端 `WindowsZIPPreflight.validate` 已机械规避：
 **v1.1.0 内容**：彻底移除 Liquid Glass 工具栏改自定义扁平头栏（文件名 40%、
 按键同高均布、不入侵侧栏）；侧栏字号与表头统一；Windows/多语言兼容
 （开头空格拦截，§12）；双击无反应根治与新建图标修复（v1.0.9 后累积）。
+
+---
+
+## 十四、v1.1.1 编码自动修复可视化（2026-08-04）
+
+让 CJK 编码自动修复卖点可见（路线图 F2）：
+- `ArchiveEntrySnapshot.legacyEncodingRepaired`：无 UTF-8 标志且检测器
+  high 置信度从 GBK/Shift-JIS/EUC-KR 修复
+- 头栏文件名旁绿色胶囊徽标「编码已自动修复 N 项」+ tooltip；en 翻译同步
+- 实测 GBK zip 显示「编码已自动修复 3 项」，中文文件名正确
+
+**发版**：tag `v1.1.1` → `f89adf0`，assets = dmg+sha256（`61d96f0e…`）；
+https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.1 ；release+main 同步。
+本地目录更新为 1.1.1 两版（旧 1.1.0 本地包移除）；`/Applications` 装回 Debug。
