@@ -6174,6 +6174,83 @@
           }
         }
       }
+    },
+    "检测引擎更新（联网，仅读取版本号）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check engine updates (online, version numbers only)"
+          }
+        }
+      }
+    },
+    "检测更新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for updates"
+          }
+        }
+      }
+    },
+    "无法解析更新信息": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't parse update info"
+          }
+        }
+      }
+    },
+    "7zz 最新 %@，当前 %@，请前往官网更新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7zz latest %@ (you have %@); update via the official site"
+          }
+        }
+      }
+    },
+    "rar 最新 %@，当前 %@，请前往官网更新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "rar latest %@ (you have %@); update via the official site"
+          }
+        }
+      }
+    },
+    "引擎均为最新": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All engines are up to date"
+          }
+        }
+      }
+    },
+    "无法获取更新信息（离线或地址不可用）": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't fetch update info (offline or URL unavailable)"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

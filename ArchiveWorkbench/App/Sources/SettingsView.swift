@@ -139,6 +139,9 @@ struct ProviderSettingsTab: View {
     @State private var cachedDiscovery: SevenZipBinaryDiscovery?
     @State private var cachedRARDiscovery: RARBinaryDiscovery?
     @State private var discoveryLoaded = false
+    @AppStorage("settings.engines.checkUpdates") private var checkUpdatesEnabled = false
+    @State private var updateHint: String?
+    @State private var isChecking = false
 
     var body: some View {
         Form {
@@ -184,6 +187,29 @@ struct ProviderSettingsTab: View {
                         .accessibilityIdentifier("刷新引擎状态")
                 }
             }
+            Section {
+                Toggle(AppLocalization().string("检测引擎更新（联网，仅读取版本号）"), isOn: $checkUpdatesEnabled)
+                    .accessibilityIdentifier("引擎更新开关")
+                if checkUpdatesEnabled {
+                    HStack {
+                        Button {
+                            Task { await checkEngineUpdates() }
+                        } label: {
+                            if isChecking { ProgressView().controlSize(.small) }
+                            else { Text(AppLocalization().string("检测更新")) }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(isChecking)
+                        .accessibilityIdentifier("检测引擎更新")
+                        if let updateHint {
+                            Text(updateHint)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .padding(.top, 8)
@@ -191,6 +217,38 @@ struct ProviderSettingsTab: View {
             guard !discoveryLoaded else { return }
             discoveryLoaded = true
             refreshEngines()
+        }
+    }
+
+    /// Opt-in, read-only update detection. Fetches a static versions-only manifest
+    /// and shows a hint pointing to the official site. Never downloads or writes
+    /// any executable (supply-chain safe, preserves the zero-download promise).
+    @MainActor
+    private func checkEngineUpdates() async {
+        isChecking = true
+        defer { isChecking = false }
+        updateHint = nil
+        guard let url = URL(string: "https://smkzw.github.io/Mac-Unzip/store/engine-versions.json") else { return }
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let manifest = try? JSONDecoder().decode([String: String].self, from: data) else {
+                updateHint = AppLocalization().string("无法解析更新信息")
+                return
+            }
+            var hints: [String] = []
+            if let latest = manifest["7zz"], let current = cachedDiscovery?.version, current != latest {
+                hints.append(AppLocalization().format("7zz 最新 %@，当前 %@，请前往官网更新", latest, current))
+            }
+            if let latest = manifest["rar"], let current = cachedRARDiscovery?.version, current != latest {
+                hints.append(AppLocalization().format("rar 最新 %@，当前 %@，请前往官网更新", latest, current))
+            }
+            updateHint = hints.isEmpty
+                ? AppLocalization().string("引擎均为最新")
+                : hints.joined(separator: "；")
+        } catch {
+            updateHint = AppLocalization().string("无法获取更新信息（离线或地址不可用）")
         }
     }
 
