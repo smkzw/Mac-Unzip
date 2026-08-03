@@ -483,6 +483,9 @@ final class AppModel {
     var documentTitle = ""
     var documentItemCount = 0
     var archiveFormatName = "—"
+    /// 无 UTF-8 标志、被自动从 GBK/Shift-JIS/EUC-KR 修复的文件名数量。
+    /// >0 时头栏显示「编码已自动修复」徽标，让卖点可见。
+    var legacyRepairedCount = 0
     var canAdd = false
     var canRemoveSelectedEntry: Bool { hasDocument && selectedEntryID != nil && !isNestedSession && canAdd }
     var canRenameSelectedEntry: Bool { hasDocument && selectedEntryID != nil && !isNestedSession && canAdd }
@@ -2649,6 +2652,7 @@ final class AppModel {
         documentTitle = snapshot.sourceURL.lastPathComponent
         documentItemCount = snapshot.entries.count
         archiveFormatName = snapshot.format.rawValue.uppercased()
+        legacyRepairedCount = snapshot.entries.filter(\.legacyEncodingRepaired).count
         let mediaExtensions = Set(["png", "jpg", "jpeg", "heic", "gif", "webp", "svg", "mp4", "mov", "m4v"])
         let safeMediaCount = snapshot.entries.filter { item in
             !item.isDirectory && !item.isSymbolicLink

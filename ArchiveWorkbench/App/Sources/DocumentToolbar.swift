@@ -111,6 +111,16 @@ struct DocumentToolbar: View {
                     .frame(width: 6, height: 6)
                     .help(AppLocalization().string("尚未保存"))
             }
+            if model.legacyRepairedCount > 0 {
+                Text(AppLocalization().format("编码已自动修复 %ld 项", model.legacyRepairedCount))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.green.opacity(0.12), in: Capsule())
+                    .help(AppLocalization().string("压缩包内文件名未带 UTF-8 标志，已自动从 GBK/Shift-JIS/EUC-KR 修复，Windows 来源压缩包可正常显示中文。"))
+                    .accessibilityIdentifier("编码修复徽标")
+            }
             Text(AppLocalization().format("%ld 项", model.visibleEntries.count))
                 .font(.caption)
                 .foregroundStyle(.secondary)

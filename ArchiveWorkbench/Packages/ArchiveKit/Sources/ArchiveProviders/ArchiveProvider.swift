@@ -10,6 +10,10 @@ public struct ArchiveEntrySnapshot: Equatable, Sendable {
     public let isSymbolicLink: Bool
     public let isEncrypted: Bool
     public let usesUTF8FileName: Bool
+    /// True when the entry name had no UTF-8 flag and was auto-repaired from a
+    /// legacy CJK encoding (GBK/Shift-JIS/EUC-KR) by the detector. Surfaced in
+    /// the UI so the auto-fix selling point is visible.
+    public let legacyEncodingRepaired: Bool
 
     public init(
         entry: ArchiveEntry,
@@ -19,7 +23,8 @@ public struct ArchiveEntrySnapshot: Equatable, Sendable {
         isDirectory: Bool,
         isSymbolicLink: Bool,
         isEncrypted: Bool,
-        usesUTF8FileName: Bool
+        usesUTF8FileName: Bool,
+        legacyEncodingRepaired: Bool = false
     ) {
         self.entry = entry
         self.compressedSize = compressedSize
@@ -29,6 +34,7 @@ public struct ArchiveEntrySnapshot: Equatable, Sendable {
         self.isSymbolicLink = isSymbolicLink
         self.isEncrypted = isEncrypted
         self.usesUTF8FileName = usesUTF8FileName
+        self.legacyEncodingRepaired = legacyEncodingRepaired
     }
 }
 

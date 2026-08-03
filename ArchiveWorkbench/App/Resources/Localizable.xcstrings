@@ -6152,6 +6152,28 @@
           }
         }
       }
+    },
+    "编码已自动修复 %ld 项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld names auto-repaired"
+          }
+        }
+      }
+    },
+    "压缩包内文件名未带 UTF-8 标志，已自动从 GBK/Shift-JIS/EUC-KR 修复，Windows 来源压缩包可正常显示中文。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entry names lacked the UTF-8 flag and were auto-repaired from GBK/Shift-JIS/EUC-KR, so Chinese displays correctly for Windows-made archives."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

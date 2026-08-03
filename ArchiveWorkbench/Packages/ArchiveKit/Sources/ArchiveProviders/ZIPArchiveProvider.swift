@@ -341,10 +341,19 @@ public actor ZIPArchiveProvider: ArchiveProvider {
                 isDirectory: bridgeEntry.isDirectory,
                 isSymbolicLink: bridgeEntry.isSymbolicLink,
                 isEncrypted: bridgeEntry.isEncrypted,
-                usesUTF8FileName: bridgeEntry.usesUTF8FileName
+                usesUTF8FileName: bridgeEntry.usesUTF8FileName,
+                legacyEncodingRepaired: Self.isLegacyRepaired(detection)
             ))
         }
         return snapshots
+    }
+
+    /// An entry counts as auto-repaired when it carried no UTF-8 flag and the
+    /// detector resolved a legacy CJK encoding with high confidence (not the
+    /// CP437 fallback). This is the visible "GBK 已自动修复" selling point.
+    private static func isLegacyRepaired(_ detection: EncodingDetectionResult) -> Bool {
+        !detection.decodedName.isEmpty
+            && detection.confidence == .high
     }
 
     /// Re-decodes all entry display names using the current encoding override.
