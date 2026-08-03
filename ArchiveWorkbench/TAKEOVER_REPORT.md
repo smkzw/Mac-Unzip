@@ -493,3 +493,19 @@ GBK 代码页）。创建端 `WindowsZIPPreflight.validate` 已机械规避：
 新增测试 `testRejectsLeadingSpaceComponent`（断言拒绝且无产物）。
 注：本机 swift test 环境性失败（基线 12/13，先于本轮改动），与代码无关；
 包 `swift build` 与 app xcodebuild 均通过。
+
+---
+
+## 十三、v1.1.0 发版（2026-08-04）
+
+**版本线**：v1.0.9（激活码机制+收款码）→ v1.1.0（扁头栏+侧栏字号+Windows 兼容）。
+
+- tag `v1.1.0` → `de7ab86`，assets = `MacUnzip-1.1.0.dmg` + sha256（`04f6d93f…`）
+- https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.0 ；release+main 同步，ahead=0
+- 本地 `/Users/smkzw/Documents/AI Products/MacUnzip/`：`MacUnzip-1.1.0-正式版.dmg`+sha256、
+  `MacUnzip-1.1.0-已激活版.dmg`（旧 1.0.9 本地包已移除）
+- `project.yml` MARKETING_VERSION=1.1.0；`/Applications` 装回 Debug 激活版（铁律1）
+
+**v1.1.0 内容**：彻底移除 Liquid Glass 工具栏改自定义扁平头栏（文件名 40%、
+按键同高均布、不入侵侧栏）；侧栏字号与表头统一；Windows/多语言兼容
+（开头空格拦截，§12）；双击无反应根治与新建图标修复（v1.0.9 后累积）。
