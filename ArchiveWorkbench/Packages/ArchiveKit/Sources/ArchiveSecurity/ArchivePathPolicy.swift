@@ -37,7 +37,10 @@ public struct ArchivePathPolicy: Sendable {
         if components.contains(".") {
             throw ArchiveSecurityError.emptyComponent
         }
-        if components.contains(where: { $0.utf8.count > 255 }) {
+        if components.contains(where: { $0.unicodeScalars.count > 255 }) {
+            // macOS (APFS) limits a name component to 255 Unicode scalars,
+            // not 255 bytes — a byte-based check falsely rejects legal long
+            // CJK filenames (e.g. 110 Chinese characters = 330 bytes).
             throw ArchiveSecurityError.componentTooLong
         }
     }

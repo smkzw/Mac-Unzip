@@ -48,3 +48,18 @@ func multilingualFixturesAreStructurallySafe() throws {
         try ArchivePathPolicy().validate(path)
     }
 }
+
+@Test
+func componentLengthLimitCountsScalarsNotBytes() throws {
+    // macOS (APFS) allows 255 Unicode scalars per component. A byte-based
+    // limit falsely rejects long CJK names (3 UTF-8 bytes per character).
+    let policy = ArchivePathPolicy()
+    try policy.validate("dir/" + String(repeating: "a", count: 255))
+    try policy.validate("dir/" + String(repeating: "测", count: 255)) // 765 UTF-8 bytes
+    #expect(throws: ArchiveSecurityError.componentTooLong) {
+        try policy.validate("dir/" + String(repeating: "a", count: 256))
+    }
+    #expect(throws: ArchiveSecurityError.componentTooLong) {
+        try policy.validate("dir/" + String(repeating: "测", count: 256))
+    }
+}

@@ -242,6 +242,33 @@ final class ZIPArchiveProviderTests: XCTestCase {
         }
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
     }
+
+    func testOpenAndExtractLongCJKNameOver255UTF8Bytes() async throws {
+        // Regression: macOS allows 255 Unicode scalars per name component, so
+        // a Chinese name of 110 characters (330 UTF-8 bytes) is legal and the
+        // archive must open instead of being rejected as "unsafe".
+        let longName = String(repeating: "试", count: 110) + ".doc"
+        let payload = Data("长文件名内容".utf8)
+        let fixture = try ZIPFixture(entries: ["下载/\(longName)": payload])
+        let provider = ZIPArchiveProvider()
+
+        let snapshot = try await provider.open(url: fixture.archiveURL)
+        XCTAssertTrue(snapshot.entries.contains { $0.entry.displayPath.hasSuffix(longName) })
+
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "MacUnzipLongName-" + UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let result = try await provider.extractAll(under: root)
+        XCTAssertEqual(result.completedEntries, 2)
+        XCTAssertEqual(
+            try Data(contentsOf: root.appending(path: "下载/\(longName)")),
+            payload
+        )
+    }
 }
 
 private final class ProgressRecorder: @unchecked Sendable {
