@@ -167,6 +167,10 @@ struct ArchiveDocumentView: View {
                             },
                             onMaterializeEntry: { entryID, completion in
                                 model.materializeEntryForDrag(entryID: entryID, completion: completion)
+                            },
+                            onIsSupportedArchive: { ArchiveFileTypes.isSupportedArchive($0) },
+                            onMaterializeFolder: { path, stagingDir in
+                                try await model.materializeFolderForDrag(folderPath: path, stagingDir: stagingDir)
                             }
                         )
                     case .media:

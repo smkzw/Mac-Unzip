@@ -17,7 +17,14 @@ enum MainAppWindowOpener {
 
     static func openMainWindow() {
         openWindow?(id: "main")
+        // 冷启动时 openWindow 尚未注入可能为 nil，窗口由 SwiftUI 创建但不会
+        // 自动前置；显式激活并置前，保证双击/Finder 打开时窗口到最前。
         NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
+            window.makeKeyAndOrderFront(nil)
+        } else if let window = NSApp.windows.first(where: { $0.isVisible }) {
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 }
 
@@ -213,16 +220,19 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
     /// a new window when none exists (e.g. app running with all windows closed).
     static func deliverOpenURL(_ url: URL, skippedCount: Int = 0) {
         RecentArchivesManager.shared.noteRecentArchive(url)
-        if hasMainWindow {
-            NotificationCenter.default.post(
-                name: .openArchiveURL,
-                object: url,
-                userInfo: skippedCount > 0 ? ["skippedCount": skippedCount] : nil
-            )
-        } else {
-            pendingLaunchURL = url
-            pendingSkippedOpenCount = skippedCount
-            MainAppWindowOpener.openMainWindow()
+        // 统一设 pending + 双通道通知：无论 hasMainWindow 与否都设
+        // pendingLaunchURL，供冷启动轮询兜底；post openArchiveURL 供已
+        // 挂载视图即时打开（消费时以 pending 去重）。
+        pendingLaunchURL = url
+        pendingSkippedOpenCount = skippedCount
+        NotificationCenter.default.post(
+            name: .openArchiveURL,
+            object: url,
+            userInfo: skippedCount > 0 ? ["skippedCount": skippedCount] : nil
+        )
+        MainAppWindowOpener.openMainWindow()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .pendingOpenRequest, object: nil)
         }
     }
 

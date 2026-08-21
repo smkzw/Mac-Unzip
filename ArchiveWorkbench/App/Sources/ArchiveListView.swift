@@ -10,6 +10,8 @@ import SwiftUI
 private struct EntryDragInfo: Sendable {
     let id: ArchiveEntryID
     let name: String
+    let isDirectory: Bool
+    let fullPath: String
 }
 
 /// Wraps the non-Sendable promise completion handler so it can be captured by
@@ -165,6 +167,10 @@ struct ArchiveListView: NSViewRepresentable {
     var onAddFiles: ((_ urls: [URL], _ destinationFolder: String?) -> Void)? = nil
     var onMoveEntry: ((_ sourcePath: String, _ destinationPath: String) -> Void)? = nil
     var onMaterializeEntry: ((_ entryID: ArchiveEntryID, _ completion: @escaping @Sendable (Result<(file: URL, stagingRoot: URL), Error>) -> Void) -> Void)? = nil
+    /// Whether a dropped URL is a supported archive; drives "drop archive to open".
+    var onIsSupportedArchive: ((URL) -> Bool)? = nil
+    /// Materializes an entire folder subtree for drag-out (folder path → stagingDir → folder URL).
+    var onMaterializeFolder: ((_ folderPath: String, _ stagingDir: URL) async throws -> URL)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -943,11 +949,11 @@ struct ArchiveListView: NSViewRepresentable {
         // MARK: Drag Source (drag-out to Finder)
 
         func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-            guard let node = item as? FileTreeNode, let entry = node.entry, !node.isDirectory else {
+            guard let node = item as? FileTreeNode, let entry = node.entry else {
                 return nil
             }
             let provider = NSFilePromiseProvider(fileType: fileTypeIdentifier(for: node), delegate: self)
-            provider.userInfo = EntryDragInfo(id: entry.id, name: node.name)
+            provider.userInfo = EntryDragInfo(id: entry.id, name: node.name, isDirectory: node.isDirectory, fullPath: node.fullPath)
             return provider
         }
 
@@ -1007,6 +1013,13 @@ struct ArchiveListView: NSViewRepresentable {
                 forClasses: [NSURL.self],
                 options: [.urlReadingFileURLsOnly: true]
             ) as? [URL], !urls.isEmpty else { return false }
+            // 拖入的是压缩包 → 打开它，而不是作为文件添加进当前归档。
+            // 投递 openArchiveURL（RootWindowView 监听并打开），与 Finder
+            // 双击/拖入欢迎页行为一致。
+            if let firstArchive = urls.first(where: { parent.onIsSupportedArchive?($0) ?? false }) {
+                NotificationCenter.default.post(name: .openArchiveURL, object: firstArchive)
+                return true
+            }
             parent.onAddFiles?(urls, destinationFolder)
             return true
         }
@@ -1058,6 +1071,37 @@ struct ArchiveListView: NSViewRepresentable {
             let entryID = info.id
             let fileName = info.name
             Task { @MainActor [weak self] in
+                if info.isDirectory {
+                    guard let materializeFolder = self?.parent.onMaterializeFolder else {
+                        completion.call(NSError(domain: "MacUnzip", code: 2))
+                        return
+                    }
+                    let stagingDir = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("MacUnzip_drag_\(UUID().uuidString)", isDirectory: true)
+                    do {
+                        try FileManager.default.createDirectory(
+                            at: stagingDir,
+                            withIntermediateDirectories: true,
+                            attributes: [.posixPermissions: 0o700]
+                        )
+                        let folderURL = try await materializeFolder(info.fullPath, stagingDir)
+                        let target = destinationDirectoryURL.appendingPathComponent(folderURL.lastPathComponent)
+                        Task.detached(priority: .userInitiated) {
+                            do {
+                                try FileManager.default.copyItem(at: folderURL, to: target)
+                                try? FileManager.default.removeItem(at: stagingDir)
+                                completion.call(nil)
+                            } catch {
+                                try? FileManager.default.removeItem(at: stagingDir)
+                                completion.call(error)
+                            }
+                        }
+                    } catch {
+                        try? FileManager.default.removeItem(at: stagingDir)
+                        completion.call(error)
+                    }
+                    return
+                }
                 guard let materialize = self?.parent.onMaterializeEntry else {
                     completion.call(NSError(domain: "MacUnzip", code: 2))
                     return

@@ -115,7 +115,7 @@ struct GeneralSettingsTab: View {
 // MARK: - Extraction Tab
 
 struct ExtractionSettingsTab: View {
-    @AppStorage(SettingsKeys.extractionDestination) private var destination = "ask"
+    @AppStorage(SettingsKeys.extractionDestination) private var destination = "same"
 
     var body: some View {
         Form {
@@ -130,6 +130,13 @@ struct ExtractionSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding(.top, 8)
+        .onAppear {
+            // 迁移历史默认值：v1.1.4 前默认 ask，用户诉求为默认解压到
+            // 压缩包所在文件夹，故一次性把 ask 迁移为 same。
+            if UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) == "ask" {
+                destination = "same"
+            }
+        }
     }
 }
 

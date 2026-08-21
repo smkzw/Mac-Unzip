@@ -25,6 +25,7 @@ private final class URLCollectionBox: @unchecked Sendable {
 extension Notification.Name {
     static let openArchiveRequest = Notification.Name("openArchiveRequest")
     static let openArchiveURL = Notification.Name("openArchiveURL")
+    static let pendingOpenRequest = Notification.Name("pendingOpenRequest")
     static let createArchiveRequest = Notification.Name("createArchiveRequest")
     static let removeSelectedRequest = Notification.Name("removeSelectedRequest")
     static let renameSelectedRequest = Notification.Name("renameSelectedRequest")
@@ -330,6 +331,22 @@ struct RootWindowView: View {
             guard shouldHandleNotification(for: model) else { return }
             presentOpenPanel()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .pendingOpenRequest)) { _ in
+            guard shouldHandleNotification(for: model), !model.hasDocument else { return }
+            guard let pendingURL = MacUnzipAppDelegate.pendingLaunchURL else { return }
+            MacUnzipAppDelegate.pendingLaunchURL = nil
+            let skipped = MacUnzipAppDelegate.pendingSkippedOpenCount
+            MacUnzipAppDelegate.pendingSkippedOpenCount = 0
+            Task {
+                await model.openArchive(url: pendingURL)
+                if skipped > 0, model.hasDocument {
+                    model.statusMessage = AppLocalization().format(
+                        "已打开首个压缩包，其余 %ld 个已跳过",
+                        skipped
+                    )
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .createArchiveRequest)) { _ in
             guard shouldHandleNotification(for: model) else { return }
             presentCreationInputPanel()
@@ -337,6 +354,15 @@ struct RootWindowView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openArchiveURL)) { notification in
             guard let url = notification.object as? URL else { return }
             guard shouldHandleNotification(for: model) else { return }
+            // Finder 双击/拖入到达：前置窗口，用户立即看到归档被打开
+            NSApp.activate(ignoringOtherApps: true)
+            if let window = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
+                window.makeKeyAndOrderFront(nil)
+            }
+            // 已被 pending 兜底消费则跳过（防止双通道重复打开）
+            if MacUnzipAppDelegate.pendingLaunchURL == url {
+                MacUnzipAppDelegate.pendingLaunchURL = nil
+            }
             let skipped = (notification.userInfo?["skippedCount"] as? Int) ?? 0
             if skipped > 0 {
                 model.transientStatusMessage = AppLocalization().format(
@@ -372,6 +398,7 @@ struct RootWindowView: View {
         }
         .task {
             await handleLaunchArguments()
+            await consumeLateOpenEvent()
         }
         .modifier(EditNotificationHandler(
             model: model,
@@ -586,6 +613,7 @@ struct RootWindowView: View {
                     guard let first = urls.first else { return }
                     RecentArchivesManager.shared.noteRecentArchive(first)
                     await model.openArchive(url: first)
+                    bringMainWindowToFront()
                     let ignoredCount = urls.count - 1
                     if ignoredCount > 0, model.hasDocument {
                         model.statusMessage = AppLocalization().format("已打开第一个压缩包，其余 %ld 个文件未处理。", ignoredCount)
@@ -603,6 +631,7 @@ struct RootWindowView: View {
             }
         } else if let initialArchiveURL, !model.hasDocument, !model.isLoading {
             await model.openArchive(url: initialArchiveURL)
+            bringMainWindowToFront()
         } else if let pendingURL = MacUnzipAppDelegate.pendingLaunchURL, !model.hasDocument, !model.isLoading {
             MacUnzipAppDelegate.pendingLaunchURL = nil
             let skipped = MacUnzipAppDelegate.pendingSkippedOpenCount
@@ -614,6 +643,33 @@ struct RootWindowView: View {
                 )
             }
             await model.openArchive(url: pendingURL)
+            bringMainWindowToFront()
+        }
+    }
+
+    /// Brings the app and its main window to the front (after a launch-open event).
+    private func bringMainWindowToFront() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
+            window.makeKeyAndOrderFront(nil)
+        } else if let window = NSApp.windows.first(where: { $0.isVisible }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    /// Consumes an open event that arrived after the launch task ran (cold-start
+    /// race between application(_:open:) and SwiftUI view subscription). Polls
+    /// briefly until a document opens or the window is past the open-event window.
+    private func consumeLateOpenEvent() async {
+        let deadline = Date().addingTimeInterval(2.5)
+        while Date() < deadline && !model.hasDocument {
+            if let pendingURL = MacUnzipAppDelegate.pendingLaunchURL {
+                MacUnzipAppDelegate.pendingLaunchURL = nil
+                await model.openArchive(url: pendingURL)
+                bringMainWindowToFront()
+            } else {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
         }
     }
 
@@ -755,6 +811,10 @@ struct RootWindowView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
+        // 默认定位到压缩包所在目录，减少手动跳转。
+        if let sourceURL = model.currentSourceURL {
+            panel.directoryURL = sourceURL.deletingLastPathComponent()
+        }
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.startExtraction(to: url)
     }
@@ -780,7 +840,7 @@ struct RootWindowView: View {
     /// The directory the user configured as the default extraction destination,
     /// or nil when they chose to be asked each time (or it cannot be resolved).
     private var preferredExtractionDirectory: URL? {
-        let setting = UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) ?? "ask"
+        let setting = UserDefaults.standard.string(forKey: SettingsKeys.extractionDestination) ?? "same"
         switch setting {
         case "same":
             // In a nested session currentSourceURL is a temporary materialized

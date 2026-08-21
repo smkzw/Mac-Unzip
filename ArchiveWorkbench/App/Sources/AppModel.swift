@@ -905,6 +905,40 @@ final class AppModel {
         }
     }
 
+    /// Materializes an entire folder subtree into `stagingDir` (each file entry
+    /// materialized to its relative subpath), so dragging a folder out of the
+    /// archive to Finder extracts that folder precisely.
+    /// Returns the folder URL inside stagingDir.
+    func materializeFolderForDrag(folderPath: String, stagingDir: URL) async throws -> URL {
+        let folderPrefix = folderPath.hasSuffix("/") ? folderPath : folderPath + "/"
+        let files = entries.filter { entry in
+            !entry.displayPath.hasSuffix("/")
+                && entry.displayPath.hasPrefix(folderPrefix)
+        }
+        let folderName = (folderPath as NSString).lastPathComponent
+        let folderURL = stagingDir.appendingPathComponent(folderName, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: folderURL,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        for entry in files {
+            try Task.checkCancellation()
+            let relative = String(entry.displayPath.dropFirst(folderPrefix.count))
+            let target = folderURL.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(
+                at: target.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let materialized = try await loader.materializeEntryForExtraction(
+                entryID: entry.id,
+                under: stagingDir.appendingPathComponent("_tmp", isDirectory: true)
+            )
+            try FileManager.default.moveItem(at: materialized, to: target)
+        }
+        return folderURL
+    }
+
     /// Stages a removal for the currently selected entry.
     func removeSelectedEntry() async {
         guard LicenseGate.requirePro(for: .edit) else { return }
