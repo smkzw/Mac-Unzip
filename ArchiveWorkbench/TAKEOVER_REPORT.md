@@ -565,3 +565,29 @@ https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.3 ；release+main 同步。
 **发版**：tag `v1.1.4` → `05fac60`，assets = dmg+sha256（`57d2140c…`）；
 https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.4 ；release+main 同步。
 本地目录更新为 1.1.4 两版（旧 1.1.3 移除）；`/Applications` 装回 Debug。
+
+---
+
+## 十八、v1.1.5 Finder 集成四项 + 长中文文件名修正（2026-08-04）
+
+**Finder 集成四项**（用户实测反馈）：
+1. **双击/Finder 打开不前置、不打开**：`deliverOpenURL` 统一设 pendingLaunchURL
+   + 双通道通知（openArchiveURL + pendingOpenRequest）；冷启动视图就绪后
+   `consumeLateOpenEvent` 短轮询兜底消费；openMainWindow/bringMainWindowToFront
+   补 makeKeyAndOrderFront 强制前置。实测冷启动双击 → 窗口前置 + 文档打开。
+2. **拖入压缩包打开**：列表 `acceptDrop` 识别归档文件时 post openArchiveURL
+   （打开）而非 onAddFiles（添加进当前归档）。
+3. **拖出目录精确解压**：`pasteboardWriterForItem` 允许目录；目录走
+   `onMaterializeFolder` → `materializeFolderForDrag` 物化目录子树到 staging → Finder。
+4. **解压默认同目录**：ExtractionSettingsTab 迁移旧 ask→same；ask 时保存面板
+   默认定位到压缩包所在目录。
+
+**长中文文件名**：ArchivePathPolicy 组件长度改 unicodeScalars.count（APFS 255
+字符而非 255 字节），修复长中文名被误判非法。
+
+**发版**：tag `v1.1.5` → `ee7608a`，assets = dmg+sha256（`6dbc9b8f…`）；
+https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.5 ；release+main 同步。
+本地目录更新为 1.1.5 两版（旧 1.1.4 移除）；`/Applications` 装回 Debug。
+
+> 已知技术债：扁平头栏后 2 个 UI 测试（testToolbarHasChineseAccessibleControls /
+> testViewSwitching...）存在 AX 多匹配与布局断言失败，与本次修复无关，后续单独修。
