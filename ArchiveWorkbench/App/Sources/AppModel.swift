@@ -922,6 +922,15 @@ final class AppModel {
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
+        // 物化 staging（_tmp）必须先创建；materializeEntryForExtraction 把
+        // 该目录当 root 做 open(O_DIRECTORY)，不存在会 invalidRoot 抛错，
+        // 导致文件夹拖出失败。
+        let tmpRoot = stagingDir.appendingPathComponent("_tmp", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: tmpRoot,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
         for entry in files {
             try Task.checkCancellation()
             let relative = String(entry.displayPath.dropFirst(folderPrefix.count))
@@ -932,7 +941,7 @@ final class AppModel {
             )
             let materialized = try await loader.materializeEntryForExtraction(
                 entryID: entry.id,
-                under: stagingDir.appendingPathComponent("_tmp", isDirectory: true)
+                under: tmpRoot
             )
             try FileManager.default.moveItem(at: materialized, to: target)
         }

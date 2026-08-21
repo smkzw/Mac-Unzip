@@ -16,6 +16,13 @@ enum MainAppWindowOpener {
     static var openWindow: OpenWindowAction?
 
     static func openMainWindow() {
+        // 复用已有主窗口：WindowGroup 的 openWindow 每次调用会开新窗口，
+        // 双击/Finder 反复打开会堆积多个窗口，拖拽时内容窗口被淹没。
+        if let existing = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
+            NSApp.activate(ignoringOtherApps: true)
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
         openWindow?(id: "main")
         // 冷启动时 openWindow 尚未注入可能为 nil，窗口由 SwiftUI 创建但不会
         // 自动前置；显式激活并置前，保证双击/Finder 打开时窗口到最前。

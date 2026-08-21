@@ -8,7 +8,7 @@ import SwiftUI
 /// Sendable payload stored in a drag promise's userInfo so the nonisolated
 /// promise-delegate callbacks can identify the entry without main-actor state.
 private struct EntryDragInfo: Sendable {
-    let id: ArchiveEntryID
+    let id: ArchiveEntryID?
     let name: String
     let isDirectory: Bool
     let fullPath: String
@@ -949,11 +949,17 @@ struct ArchiveListView: NSViewRepresentable {
         // MARK: Drag Source (drag-out to Finder)
 
         func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-            guard let node = item as? FileTreeNode, let entry = node.entry else {
-                return nil
-            }
+            guard let node = item as? FileTreeNode else { return nil }
+            // 合成目录（zip 无显式目录条目，由文件路径隐含）entry 为 nil，
+            // 但目录拖出只依赖 fullPath + isDirectory，不依赖 entry。
+            guard node.entry != nil || node.isDirectory else { return nil }
             let provider = NSFilePromiseProvider(fileType: fileTypeIdentifier(for: node), delegate: self)
-            provider.userInfo = EntryDragInfo(id: entry.id, name: node.name, isDirectory: node.isDirectory, fullPath: node.fullPath)
+            provider.userInfo = EntryDragInfo(
+                id: node.entry?.id,
+                name: node.name,
+                isDirectory: node.isDirectory,
+                fullPath: node.fullPath
+            )
             return provider
         }
 
@@ -1068,7 +1074,6 @@ struct ArchiveListView: NSViewRepresentable {
                 return
             }
             let completion = PromiseCompletion(completionHandler)
-            let entryID = info.id
             let fileName = info.name
             Task { @MainActor [weak self] in
                 if info.isDirectory {
@@ -1085,7 +1090,12 @@ struct ArchiveListView: NSViewRepresentable {
                             attributes: [.posixPermissions: 0o700]
                         )
                         let folderURL = try await materializeFolder(info.fullPath, stagingDir)
-                        let target = destinationDirectoryURL.appendingPathComponent(folderURL.lastPathComponent)
+                        // destinationDirectoryURL 可能已是文件夹同名路径，去重
+                        var destDir = destinationDirectoryURL
+                        if destDir.lastPathComponent == folderURL.lastPathComponent {
+                            destDir = destDir.deletingLastPathComponent()
+                        }
+                        let target = destDir.appendingPathComponent(folderURL.lastPathComponent)
                         Task.detached(priority: .userInitiated) {
                             do {
                                 try FileManager.default.copyItem(at: folderURL, to: target)
@@ -1102,7 +1112,8 @@ struct ArchiveListView: NSViewRepresentable {
                     }
                     return
                 }
-                guard let materialize = self?.parent.onMaterializeEntry else {
+                guard let materialize = self?.parent.onMaterializeEntry,
+                      let entryID = info.id else {
                     completion.call(NSError(domain: "MacUnzip", code: 2))
                     return
                 }
@@ -1114,7 +1125,14 @@ struct ArchiveListView: NSViewRepresentable {
                         // The copy can be multi-GB; run it off the main thread so
                         // the UI stays responsive during the drag-out write.
                         Task.detached(priority: .userInitiated) {
-                            var destination = destinationDirectoryURL.appendingPathComponent(fileName)
+                            // destinationDirectoryURL 可能已是 fileName 同名路径
+                            // （Finder 把 promise 目标解析为同名文件/目录时），
+                            // 此时不再拼 fileName，直接作为目标目录。
+                            var destDir = destinationDirectoryURL
+                            if destDir.lastPathComponent == fileName {
+                                destDir = destDir.deletingLastPathComponent()
+                            }
+                            var destination = destDir.appendingPathComponent(fileName)
                             do {
                                 var counter = 2
                                 while FileManager.default.fileExists(atPath: destination.path) {
