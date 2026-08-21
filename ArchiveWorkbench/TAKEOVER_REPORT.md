@@ -591,3 +591,35 @@ https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.5 ；release+main 同步。
 
 > 已知技术债：扁平头栏后 2 个 UI 测试（testToolbarHasChineseAccessibleControls /
 > testViewSwitching...）存在 AX 多匹配与布局断言失败，与本次修复无关，后续单独修。
+
+---
+
+## 十九、v1.1.6 拖出到 Finder 修复（2026-08-21 实测通过）
+
+用户实测反馈：拖入 OK、**拖出仍不行**（v1.1.5 遗留）。加 TEMP-DIAG（append
+模式）逐段定位，完整链路 `writer → writePromise → materializedAt →
+materializeSuccess → copied` 确认**文件拖出卡在拷贝阶段、文件夹拖出卡在物化阶段**。
+
+**根因与修复**（commit `e0cde13`）：
+1. **文件拖出目标路径重复**：`destinationDirectoryURL` 在 Finder 已有同名
+   目标时含 fileName（如 `.../03_Protocols/README.md`），再
+   `appendingPathComponent(fileName)` 得到 `README.md/README.md` 无意义路径，
+   copyItem 失败。修复：`lastPathComponent == fileName` 时去掉尾组件再拼。
+2. **文件夹拖出物化失败**：`materializeFolderForDrag` 物化到
+   `staging/_tmp` 但 `_tmp` 从未创建，SecureFileMaterializer 对不存在根目录
+   `open(O_DIRECTORY)` 失败 invalidRoot 抛错 → 文件夹拖出失败。修复：显式
+   创建 `_tmp`。
+3. **合成目录拖不出**：zip 无显式目录条目、由文件路径隐含的文件夹
+   `node.entry == nil`，`pasteboardWriterForItem` 旧 guard 直接返回 nil。
+   修复：`node.entry != nil || node.isDirectory`；`EntryDragInfo.id` 改可选。
+4. **窗口堆积**：`openMainWindow` 每次 `openWindow(id: "main")` 都新开窗口
+   （WindowGroup 非单例），反复双击/Finder 打开堆积多个重叠窗口，干扰拖拽
+   目标。修复：已有主窗口时 `makeKeyAndOrderFront` 复用。
+
+**验证**：用户真机实测——文件拖出 ✓、文件夹拖出 ✓、窗口不再堆积 ✓。
+TEMP-DIAG 全部移除，工作区无 diag 残留。
+
+**发版**：tag `v1.1.6` → `eecf042`，assets = dmg+sha256
+（`5fe08aa4…`）；https://github.com/smkzw/Mac-Unzip/releases/tag/v1.1.6 ；
+release+main 同步。本地目录更新为 1.1.6 两版（旧 1.1.5 移除）；
+`/Applications` 装回 Debug 激活版。
