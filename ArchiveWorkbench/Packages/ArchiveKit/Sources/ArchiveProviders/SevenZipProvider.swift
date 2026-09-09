@@ -507,6 +507,7 @@ private final class SevenZipBoundedDrain: @unchecked Sendable {
 struct SevenZipParsedEntry: Equatable, Sendable {
     var path = ""
     var isDirectory = false
+    var isSymbolicLink = false
     var size: UInt64 = 0
     var packedSize: UInt64 = 0
     var modifiedAt: Date?
@@ -570,6 +571,14 @@ struct SevenZipListingParser: Sendable {
             entry.attributes = fields["Attributes"] ?? ""
             entry.encrypted = fields["Encrypted"] == "+"
             entry.method = fields["Method"] ?? ""
+            // 7zz technical listing flags symlinks via a Symbolic Link field.
+            // Unix attributes may also appear as mode-like tokens (e.g. lrwxrwxrwx).
+            let attributes = entry.attributes
+            entry.isSymbolicLink =
+                fields["Symbolic Link"] != nil
+                || fields["Symbolik Link"] != nil
+                || attributes.hasPrefix("l")
+                || attributes.contains(" lrwx")
             entries.append(entry)
         }
         return SevenZipListingParse(entries: entries, signals: signals)
@@ -730,6 +739,12 @@ public actor SevenZipProvider: ArchiveProvider {
             } catch {
                 throw ArchiveError.unsafePath
             }
+            // Reject symlink members at open so listing never presents an entry
+            // that extractAll would refuse, and so `7zz x` never gets a chance
+            // to write through a symlink before post-hoc verification.
+            if parsed.isSymbolicLink {
+                throw ArchiveError.unsafePath
+            }
             let entry = ArchiveEntry(
                 id: ArchiveEntryID(),
                 rawPath: ArchivePathBytes(Array(parsed.path.utf8)),
@@ -741,7 +756,7 @@ public actor SevenZipProvider: ArchiveProvider {
                 uncompressedSize: parsed.size,
                 modifiedAt: parsed.modifiedAt,
                 isDirectory: isDirectory,
-                isSymbolicLink: false,
+                isSymbolicLink: parsed.isSymbolicLink,
                 isEncrypted: parsed.encrypted,
                 usesUTF8FileName: true
             ))
@@ -827,6 +842,8 @@ public actor SevenZipProvider: ArchiveProvider {
         if snapshots.contains(where: { $0.isEncrypted }) && currentPassword == nil {
             throw ArchiveError.passwordRequired
         }
+        // Refuse to start a tree extract when any member is a symlink: `7zz x`
+        // would write through it before post-hoc verification could run.
         guard !snapshots.contains(where: { $0.isSymbolicLink }) else {
             throw ArchiveError.unsafePath
         }
