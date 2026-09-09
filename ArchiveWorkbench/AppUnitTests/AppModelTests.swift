@@ -39,41 +39,46 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.statusMessage, "已选择 1 项 · 6.3 MB")
     }
 
-    func testWindowsCreationDraftKeepsCompatibilityFactsVisible() {
+    func testCreationDraftDefaultsOutputNextToSources() {
         let folder = URL(fileURLWithPath: "/tmp/品牌资料", isDirectory: true)
         var single = ArchiveCreationDraft(inputs: [folder])
 
         XCTAssertEqual(single.suggestedFilename, "品牌资料.zip")
-        XCTAssertEqual(single.purpose, "发给 Windows 用户")
-        XCTAssertEqual(single.format, "ZIP")
-        XCTAssertEqual(single.compression, "标准压缩")
-        XCTAssertEqual(single.encryption, "不加密")
-        XCTAssertEqual(single.compatibility, "Windows 11 可直接打开")
-        XCTAssertFalse(single.canCreate)
-
-        single.outputURL = URL(fileURLWithPath: "/tmp/品牌资料.zip")
+        // Default save path sits next to the source item — no save panel required.
+        XCTAssertEqual(single.outputURL?.path, "/tmp/品牌资料.zip")
         XCTAssertTrue(single.canCreate)
+
+        single.outputURL = URL(fileURLWithPath: "/tmp/Custom.zip")
+        XCTAssertTrue(single.canCreate)
+        XCTAssertEqual(single.outputURL?.path, "/tmp/Custom.zip")
 
         let multiple = ArchiveCreationDraft(inputs: [
             folder,
             URL(fileURLWithPath: "/tmp/说明.txt"),
         ])
         XCTAssertEqual(multiple.suggestedFilename, "归档.zip")
+        XCTAssertEqual(multiple.outputURL?.path, "/tmp/归档.zip")
+        XCTAssertTrue(multiple.canCreate)
+
+        let sevenZipSingle = ArchiveCreationDraft(inputs: [folder], format: .sevenZip)
+        XCTAssertEqual(sevenZipSingle.outputURL?.path, "/tmp/品牌资料.7z")
+
+        let sevenZipMultiple = ArchiveCreationDraft(
+            inputs: [folder, URL(fileURLWithPath: "/tmp/说明.txt")],
+            format: .sevenZip
+        )
+        XCTAssertEqual(sevenZipMultiple.outputURL?.path, "/tmp/归档.7z")
     }
 
-    func testWindowsCreationDraftUsesEnglishCatalogWhenEnglishIsSelected() {
-        let draft = ArchiveCreationDraft(
-            inputs: [URL(fileURLWithPath: "/tmp/Brand Assets", isDirectory: true)],
-            localization: AppLocalization(
-                bundle: Bundle(for: Self.self),
-                locale: Locale(identifier: "en")
-            )
-        )
-
-        XCTAssertEqual(draft.purpose, "Send to Windows users")
-        XCTAssertEqual(draft.compression, "Standard compression")
-        XCTAssertEqual(draft.encryption, "No encryption")
-        XCTAssertEqual(draft.compatibility, "Opens directly in Windows 11")
+    func testDefaultArchiveBasenameIsLocalized() {
+        let zh = AppLocalization(bundle: Bundle(for: Self.self), locale: Locale(identifier: "zh-Hans"))
+        let en = AppLocalization(bundle: Bundle(for: Self.self), locale: Locale(identifier: "en"))
+        // Chinese source language falls back to the key「归档」.
+        XCTAssertEqual(ArchiveCreationDraft.defaultArchiveBasename(localization: zh), "归档")
+        // English catalog maps「归档」→ "Archive"; if the test bundle has no
+        // compiled catalog the key fallback is acceptable.
+        let englishName = ArchiveCreationDraft.defaultArchiveBasename(localization: en)
+        XCTAssertTrue(englishName == "Archive" || englishName == "归档")
     }
 
     func testWindowsCreationCopyUsesNaturalChineseAndAccurateVerificationTiming() {

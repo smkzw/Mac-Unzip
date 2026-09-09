@@ -220,9 +220,39 @@ struct ArchiveCreationDraft: Equatable, Sendable {
     var inputs: [URL]
     var outputURL: URL?
 
+    /// Creates a draft. When `outputURL` is omitted, defaults to a file next to
+    /// the source items so users can create without opening a save panel.
     init(inputs: [URL], outputURL: URL? = nil) {
+        self.init(inputs: inputs, format: .zip, outputURL: outputURL)
+    }
+
+    init(inputs: [URL], format: CreationFormat, outputURL: URL? = nil) {
         self.inputs = inputs
-        self.outputURL = outputURL
+        self.outputURL = outputURL ?? Self.defaultOutputURL(for: inputs, format: format)
+    }
+
+    /// Default save location: the folder containing the source items.
+    /// Single item → `<parent>/<item>.<ext>`; multiple items →
+    /// first item's parent + localized default name (`归档.<ext>`).
+    static func defaultOutputURL(
+        for inputs: [URL],
+        format: CreationFormat,
+        localization: AppLocalization = AppLocalization()
+    ) -> URL? {
+        guard let first = inputs.first else { return nil }
+        let parent = first.deletingLastPathComponent()
+        let filename: String
+        if inputs.count == 1, !first.lastPathComponent.isEmpty {
+            filename = retaggedFilename(first.lastPathComponent, for: format)
+        } else {
+            filename = defaultArchiveBasename(localization: localization) + "." + format.fileExtension
+        }
+        return parent.appendingPathComponent(filename)
+    }
+
+    /// Native default archive basename: 中文「归档」/ English "Archive".
+    static func defaultArchiveBasename(localization: AppLocalization = AppLocalization()) -> String {
+        localization.string("归档")
     }
 
     var suggestedFilename: String {
@@ -250,7 +280,7 @@ struct ArchiveCreationDraft: Equatable, Sendable {
     }
 
     private func defaultFilename(for format: CreationFormat) -> String {
-        "Archive." + format.fileExtension
+        Self.defaultArchiveBasename() + "." + format.fileExtension
     }
 
     var canCreate: Bool { !inputs.isEmpty && outputURL != nil }

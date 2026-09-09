@@ -393,7 +393,7 @@ struct RootWindowView: View {
             if model.hasUnsavedChanges {
                 pendingCreationInputs = urls
             } else {
-                creationDraft = ArchiveCreationDraft(inputs: urls)
+                creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
             }
         }
         .task {
@@ -626,7 +626,7 @@ struct RootWindowView: View {
                     if finderAction == "compress-zip" {
                         model.creationFormat = .zip
                     }
-                    creationDraft = ArchiveCreationDraft(inputs: urls)
+                    creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
                 }
             }
         } else if let initialArchiveURL, !model.hasDocument, !model.isLoading {
@@ -707,7 +707,7 @@ struct RootWindowView: View {
         if model.hasUnsavedChanges {
             pendingCreationInputs = panel.urls
         } else {
-            creationDraft = ArchiveCreationDraft(inputs: panel.urls)
+            creationDraft = ArchiveCreationDraft(inputs: panel.urls, format: model.creationFormat)
         }
     }
 
@@ -717,7 +717,9 @@ struct RootWindowView: View {
         panel.prompt = ArchiveCreationCopy.savePanelPrompt()
         panel.message = ArchiveCreationCopy.savePanelMessage()
         panel.nameFieldStringValue = suggestedFilename
-        if let firstInput = creationDraft?.inputs.first {
+        if let output = creationDraft?.outputURL {
+            panel.directoryURL = output.deletingLastPathComponent()
+        } else if let firstInput = creationDraft?.inputs.first {
             panel.directoryURL = firstInput.deletingLastPathComponent()
         }
         let ext = URL(fileURLWithPath: suggestedFilename).pathExtension
@@ -976,14 +978,14 @@ private struct RootAlertsModifier: ViewModifier {
                         Task {
                             let saved = await model.saveArchiveResolvingNested()
                             guard saved else { return }
-                            creationDraft = ArchiveCreationDraft(inputs: inputs)
+                            creationDraft = ArchiveCreationDraft(inputs: inputs, format: model.creationFormat)
                         }
                     }
                 }
                 Button("不保存并继续") {
                     if let inputs = pendingCreationInputs {
                         pendingCreationInputs = nil
-                        creationDraft = ArchiveCreationDraft(inputs: inputs)
+                        creationDraft = ArchiveCreationDraft(inputs: inputs, format: model.creationFormat)
                     }
                 }
                 Button("取消", role: .cancel) { pendingCreationInputs = nil }

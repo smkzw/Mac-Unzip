@@ -2627,6 +2627,17 @@
         }
       }
     },
+    "归档": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archive"
+          }
+        }
+      }
+    },
     "归档.zip": {
       "extractionState": "manual",
       "localizations": {

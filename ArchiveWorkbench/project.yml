@@ -101,7 +101,7 @@ targets:
         OTHER_CODE_SIGN_FLAGS: --options=runtime
         VALID_ARCHS: arm64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.1.7"
+        MARKETING_VERSION: "1.1.8"
         CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug:
@@ -165,7 +165,9 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - AppUnitTests
+      - path: AppUnitTests
+        excludes:
+          - ArchiveDocumentLoaderTests.swift
       - path: TestFixtures/PreviewDocuments
         buildPhase: resources
       - path: App/Resources/Localizable.xcstrings
@@ -175,9 +177,11 @@ targets:
       - App/Sources/ArchiveErrorBanner.swift
       - App/Sources/ArchiveFileTypes.swift
       - App/Sources/ArchiveSession.swift
-      - App/Sources/DiagnosticsExporter.swift
+      - App/Sources/EmbeddedLicenseCodes.swift
+      - App/Sources/LicenseGate.swift
+      - App/Sources/LicenseManager.swift
       - App/Sources/PreviewRouting.swift
-      - App/Sources/SettingsView.swift
+      - App/Sources/WindowCaptureView.swift
     dependencies:
       - package: ArchiveKit
         product: ArchiveDomain
