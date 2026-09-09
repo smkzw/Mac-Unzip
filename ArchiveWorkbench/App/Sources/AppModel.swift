@@ -517,6 +517,12 @@ final class AppModel {
             lastExtractionURL = nil
         }
     }
+    /// All currently selected file entries (multi-select). May include entries
+    /// at different hierarchy levels. Primary `selectedEntryID` is the anchor
+    /// for preview / single-item actions.
+    var selectedEntryIDs: Set<ArchiveEntryID> = []
+    /// Selected folder paths (explicit or synthetic directories). May span levels.
+    var selectedFolderPaths: [String] = []
     var selectedFolderPath: String?
     var entries: [ArchiveEntry] = [] {
         didSet { cachedHasHierarchy = entries.contains { $0.displayPath.contains("/") } }
@@ -554,6 +560,7 @@ final class AppModel {
                 return localization.format("找到 %ld 个项目", visibleEntries.count)
             }
             if let transient = transientStatusMessage { return transient }
+            if let multi = multiSelectionSummary { return multi }
             if let entryStatus = selectedMetadata?.statusMessage(localization: localization) {
                 return entryStatus
             }
@@ -628,7 +635,54 @@ final class AppModel {
     var passwordRetryText = ""
     var passwordAttemptCount = 0
     /// Whether "extract selected" is available (requires a selection).
-    var canExtractSelected: Bool { hasDocument && (selectedEntryID != nil || selectedFolderPath != nil) && canExtract && !isExtracting }
+    var canExtractSelected: Bool {
+        hasDocument
+            && (selectedEntryID != nil || selectedFolderPath != nil || !selectedEntryIDs.isEmpty || !selectedFolderPaths.isEmpty)
+            && canExtract && !isExtracting
+    }
+
+    /// A pruned set of extract targets for the current multi-selection.
+    /// Descendants of a selected folder are dropped so a parent+child selection
+    /// does not extract the child twice.
+    enum SelectedExtractTarget: Equatable, Sendable {
+        case entry(ArchiveEntryID)
+        case folder(String)
+    }
+
+    var selectedExtractTargets: [SelectedExtractTarget] {
+        var folders = selectedFolderPaths
+        if let single = selectedFolderPath, !folders.contains(single) {
+            folders.append(single)
+        }
+        // Drop descendant folders.
+        folders = folders.filter { folder in
+            !folders.contains { other in
+                other != folder && folder.hasPrefix(other.hasSuffix("/") ? other : other + "/")
+            }
+        }
+        let folderPrefixes = folders.map { $0.hasSuffix("/") ? $0 : $0 + "/" }
+        var fileIDs = selectedEntryIDs
+        if let primary = selectedEntryID {
+            fileIDs.insert(primary)
+        }
+        // Drop files that live under a selected folder.
+        let files = entries.filter { entry in
+            guard fileIDs.contains(entry.id) else { return false }
+            let path = entry.displayPath
+            let clean = path.hasSuffix("/") ? String(path.dropLast()) : path
+            return !folderPrefixes.contains { clean.hasPrefix($0) || clean + "/" == $0 }
+        }
+        return folders.map(SelectedExtractTarget.folder) + files.map { .entry($0.id) }
+    }
+
+    var selectedExtractCount: Int { selectedExtractTargets.count }
+
+    /// Multi-selection status for the status bar.
+    var multiSelectionSummary: String? {
+        let targets = selectedExtractTargets
+        guard targets.count > 1 else { return nil }
+        return localization.format("已选择 %ld 项", targets.count)
+    }
     @ObservationIgnored private var errorAutoDismissTask: Task<Void, Never>?
     var previewCacheURL: ValidatedPreviewCacheURL?
     var previewCacheEntryID: ArchiveEntryID?
@@ -1103,12 +1157,47 @@ final class AppModel {
         do {
             try await ensureLoaderStagedChanges()
             let snapshot = try await loader.saveArchive()
-            apply(snapshot)
+            applyPreservingUIContext(snapshot)
             transientStatusMessage = ArchiveShellCopy.archiveSaved()
             return true
         } catch {
             presentedError = userMessage(for: error)
             return false
+        }
+    }
+
+    /// Re-applies a post-save snapshot while keeping the user's selection,
+    /// multi-selection, view mode, directory, and scroll anchor when the
+    /// entries still exist. Save must not feel like a document reset.
+    private func applyPreservingUIContext(_ snapshot: ArchiveDocumentSnapshot) {
+        let previousSelection = selectedEntryID
+        let previousSelectedIDs = selectedEntryIDs
+        let previousFolderPaths = selectedFolderPaths
+        let previousFolderPath = selectedFolderPath
+        let previousViewMode = viewMode
+        let previousDirectory = currentDirectory
+        let previousScroll = scrollAnchor
+
+        apply(snapshot)
+
+        let liveIDs = Set(snapshot.entries.map(\.entry.id))
+        if let previousSelection, liveIDs.contains(previousSelection) {
+            selectedEntryID = previousSelection
+            var restored = previousSelectedIDs.intersection(liveIDs)
+            restored.insert(previousSelection)
+            selectedEntryIDs = restored
+            scrollAnchor = previousScroll.map { liveIDs.contains($0) ? $0 : previousSelection } ?? previousSelection
+        } else {
+            selectedEntryIDs = selectedEntryID.map { [$0] } ?? []
+        }
+        selectedFolderPaths = previousFolderPaths
+        selectedFolderPath = previousFolderPath
+        // Only restore view mode / directory if the user had explicitly navigated.
+        if previousViewMode == viewMode || previousViewMode == .list {
+            viewMode = previousViewMode
+        }
+        if !previousDirectory.isEmpty {
+            currentDirectory = previousDirectory
         }
     }
 
@@ -1164,7 +1253,7 @@ final class AppModel {
             if hasUnsavedChanges {
                 try await ensureLoaderStagedChanges()
                 let snapshot = try await loader.saveArchiveAs(to: targetURL)
-                apply(snapshot)
+                applyPreservingUIContext(snapshot)
             } else {
                 let directory = targetURL.deletingLastPathComponent()
                 let tempURL = directory.appending(
@@ -1212,7 +1301,7 @@ final class AppModel {
                 } else {
                     snapshot = try await loader.open(url: targetURL)
                 }
-                apply(snapshot)
+                applyPreservingUIContext(snapshot)
             }
             transientStatusMessage = ArchiveShellCopy.archiveSaved()
         } catch {
@@ -1423,11 +1512,12 @@ final class AppModel {
 
     // MARK: - Extract Selected
 
-    /// Extracts only the currently selected entry (file or folder) to a destination.
+    /// Extracts the current selection (single or multi, files and folders at
+    /// mixed hierarchy levels) to a destination directory.
     func extractSelected(to destinationDirectoryURL: URL) async {
-        guard hasDocument, let selectedEntryID,
-              entries.contains(where: { $0.id == selectedEntryID }),
-              !isExtracting else { return }
+        guard hasDocument, !isExtracting else { return }
+        let targets = selectedExtractTargets
+        guard !targets.isEmpty else { return }
         isExtracting = true
         extractionProgress = 0
         activeErrorPresentation = nil
@@ -1441,29 +1531,33 @@ final class AppModel {
             defer { try? FileManager.default.removeItem(at: stagingDir) }
 
             operationMessage = localization.string("正在解压缩…")
-            let materializedURL = try await loader.materializeEntryForExtraction(
-                entryID: selectedEntryID,
-                under: stagingDir
-            )
-            try Task.checkCancellation()
-
-            var destURL = destinationDirectoryURL.appending(path: materializedURL.lastPathComponent)
-            if FileManager.default.fileExists(atPath: destURL.path) {
-                let baseName = destURL.deletingPathExtension().lastPathComponent
-                let ext = destURL.pathExtension
-                var counter = 2
-                while FileManager.default.fileExists(atPath: destURL.path) {
-                    let newName = ext.isEmpty ? "\(baseName) \(counter)" : "\(baseName) \(counter).\(ext)"
-                    destURL = destinationDirectoryURL.appending(path: newName)
-                    counter += 1
+            var lastDest: URL?
+            for (index, target) in targets.enumerated() {
+                try Task.checkCancellation()
+                switch target {
+                case .entry(let entryID):
+                    lastDest = try await extractOneEntry(
+                        entryID: entryID,
+                        to: destinationDirectoryURL,
+                        stagingDir: stagingDir
+                    ) ?? lastDest
+                case .folder(let folderPath):
+                    lastDest = try await extractOneFolder(
+                        folderPath: folderPath,
+                        to: destinationDirectoryURL,
+                        stagingDir: stagingDir
+                    ) ?? lastDest
                 }
+                extractionProgress = Double(index + 1) / Double(targets.count)
             }
-            try FileManager.default.copyItem(at: materializedURL, to: destURL)
-            Self.setQuarantineRecursively(on: destURL)
 
             extractionProgress = 1
-            lastExtractionURL = destURL
-            statusMessage = localization.format("解压缩完成：%@", destURL.lastPathComponent)
+            lastExtractionURL = lastDest
+            if targets.count == 1, let lastDest {
+                statusMessage = localization.format("解压缩完成：%@", lastDest.lastPathComponent)
+            } else {
+                statusMessage = localization.format("解压缩完成：%ld 项", targets.count)
+            }
             operationMessage = localization.string("解压缩完成")
         } catch is CancellationError {
             presentError(.cancelled)
@@ -1474,6 +1568,81 @@ final class AppModel {
             presentError(presentation)
             operationMessage = localization.string("解压缩失败")
         }
+    }
+
+    /// Materializes one entry under `stagingDir` and copies it into `destination`,
+    /// uniquifying the filename if needed. Returns the final destination URL.
+    private func extractOneEntry(
+        entryID: ArchiveEntryID,
+        to destinationDirectoryURL: URL,
+        stagingDir: URL
+    ) async throws -> URL? {
+        guard entries.contains(where: { $0.id == entryID }) else { return nil }
+        let materializedURL = try await loader.materializeEntryForExtraction(
+            entryID: entryID,
+            under: stagingDir
+        )
+        try Task.checkCancellation()
+        return try copyMaterializedItem(materializedURL, to: destinationDirectoryURL)
+    }
+
+    private func copyMaterializedItem(_ materializedURL: URL, to destinationDirectoryURL: URL) throws -> URL {
+        var destURL = destinationDirectoryURL.appending(path: materializedURL.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destURL.path) {
+            let baseName = destURL.deletingPathExtension().lastPathComponent
+            let ext = destURL.pathExtension
+            var counter = 2
+            while FileManager.default.fileExists(atPath: destURL.path) {
+                let newName = ext.isEmpty ? "\(baseName) \(counter)" : "\(baseName) \(counter).\(ext)"
+                destURL = destinationDirectoryURL.appending(path: newName)
+                counter += 1
+            }
+        }
+        try FileManager.default.copyItem(at: materializedURL, to: destURL)
+        Self.setQuarantineRecursively(on: destURL)
+        return destURL
+    }
+
+    /// Extracts one folder subtree (prefix match) into a named folder under destination.
+    /// Returns nil when the folder is empty (nothing to extract).
+    private func extractOneFolder(
+        folderPath: String,
+        to destinationDirectoryURL: URL,
+        stagingDir: URL
+    ) async throws -> URL? {
+        let prefix = folderPath.hasSuffix("/") ? folderPath : folderPath + "/"
+        let childEntries = entries.filter { $0.displayPath.hasPrefix(prefix) && !$0.displayPath.hasSuffix("/") }
+        guard !childEntries.isEmpty else { return nil }
+
+        let folderName = URL(fileURLWithPath: folderPath).lastPathComponent
+        let folderDir = stagingDir
+            .appendingPathComponent("folder_\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent(folderName, isDirectory: true)
+        try FileManager.default.createDirectory(at: folderDir, withIntermediateDirectories: true)
+
+        for (index, entry) in childEntries.enumerated() {
+            try Task.checkCancellation()
+            let relativePath = String(entry.displayPath.dropFirst(prefix.count))
+            let destFile = folderDir.appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(
+                at: destFile.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let workDir = stagingDir.appendingPathComponent("work_\(UUID().uuidString)_\(index)", isDirectory: true)
+            try FileManager.default.createDirectory(at: workDir, withIntermediateDirectories: true)
+            let materializedURL = try await loader.materializeEntryForExtraction(
+                entryID: entry.id,
+                under: workDir
+            )
+            try Task.checkCancellation()
+            if FileManager.default.fileExists(atPath: destFile.path) {
+                try FileManager.default.removeItem(at: destFile)
+            }
+            try FileManager.default.moveItem(at: materializedURL, to: destFile)
+            try? FileManager.default.removeItem(at: workDir)
+        }
+
+        return try copyMaterializedItem(folderDir, to: destinationDirectoryURL)
     }
 
     func extractFolder(_ folderPath: String, to destinationDirectoryURL: URL) async {
@@ -2730,6 +2899,8 @@ final class AppModel {
         }
         scrollAnchor = selectedEntryID
         selectedFolderPath = nil
+        selectedEntryIDs = selectedEntryID.map { [$0] } ?? []
+        selectedFolderPaths = []
         folderSummaries = folderSummaries(from: snapshot.entries)
         currentDirectory = ""
         viewMode = recommendsMedia ? .media : .list
@@ -2780,6 +2951,8 @@ final class AppModel {
         metadataByEntryID = [:]
         selectedEntryID = nil
         selectedFolderPath = nil
+        selectedEntryIDs = []
+        selectedFolderPaths = []
         documentTitle = ""
         documentItemCount = 0
         currentDirectory = ""

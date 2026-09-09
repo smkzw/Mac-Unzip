@@ -150,6 +150,12 @@ struct ArchiveListView: NSViewRepresentable {
     let isSearching: Bool
     let metadataByEntryID: [ArchiveEntryID: ArchiveEntryMetadata]
     @Binding var selection: ArchiveEntryID?
+    /// Current multi-selection from the model, used to restore rows after reloads.
+    var selectedEntryIDs: Set<ArchiveEntryID> = []
+    var selectedFolderPaths: [String] = []
+    /// Multi-select payload: selected file entry IDs and selected folder paths
+    /// (possibly across hierarchy levels).
+    var onMultiSelectionChange: ((_ entryIDs: Set<ArchiveEntryID>, _ folderPaths: [String]) -> Void)? = nil
     var nestedArchiveEntryIDs: Set<ArchiveEntryID> = []
     var pendingChanges: [PendingChange] = []
     var canEdit: Bool = false
@@ -199,7 +205,7 @@ struct ArchiveListView: NSViewRepresentable {
         outline.identifier = NSUserInterfaceItemIdentifier("归档文件列表")
         outline.setAccessibilityIdentifier("归档文件列表")
         outline.usesAlternatingRowBackgroundColors = false
-        outline.allowsMultipleSelection = false
+        outline.allowsMultipleSelection = true
         outline.delegate = context.coordinator
         outline.dataSource = context.coordinator
         outline.indentationPerLevel = 16
@@ -363,26 +369,47 @@ struct ArchiveListView: NSViewRepresentable {
             }
         }
 
-        // Restore selection (always, since selection may change independently)
+        // Restore selection (always). Multi-select restores every visible
+        // selected row across hierarchy levels; primary `selection` remains the
+        // anchor for preview/single-item actions.
+        var desiredIDs = selectedEntryIDs
         if let selected = selection {
-            if let node = context.coordinator.nodeByEntryID[selected] {
+            desiredIDs.insert(selected)
+        }
+        if !desiredIDs.isEmpty || !selectedFolderPaths.isEmpty {
+            var indexes = IndexSet()
+            var revealedPrimary = false
+            for id in desiredIDs {
+                guard let node = context.coordinator.nodeByEntryID[id] else { continue }
                 var row = outline.row(forItem: node)
-                let selectionChanged = context.coordinator.lastRestoredSelectionID != selected
+                let selectionChanged = context.coordinator.lastRestoredSelectionID != id
                 if row < 0, selectionChanged || treeRebuilt {
-                    // The selected entry is hidden under a collapsed parent (e.g.
-                    // the auto-selected first file of a nested-only archive, or a
-                    // search result whose folder collapsed on returning to the
-                    // hierarchy). Expand its ancestors so the selected row is
-                    // actually visible and the inspector/status bar match the list.
                     context.coordinator.expandAncestors(of: node, in: outline)
                     row = outline.row(forItem: node)
                 }
-                if row >= 0 && outline.selectedRow != row {
-                    outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-                    outline.scrollRowToVisible(row)
+                if row >= 0 {
+                    indexes.insert(row)
+                    if id == selection, !revealedPrimary {
+                        outline.scrollRowToVisible(row)
+                        revealedPrimary = true
+                    }
                 }
-                context.coordinator.lastRestoredSelectionID = selected
             }
+            for path in selectedFolderPaths {
+                guard let node = context.coordinator.nodeByPath[path] else { continue }
+                var row = outline.row(forItem: node)
+                if row < 0 {
+                    context.coordinator.expandAncestors(of: node, in: outline)
+                    row = outline.row(forItem: node)
+                }
+                if row >= 0 {
+                    indexes.insert(row)
+                }
+            }
+            if !indexes.isEmpty, outline.selectedRowIndexes != indexes {
+                outline.selectRowIndexes(indexes, byExtendingSelection: false)
+            }
+            context.coordinator.lastRestoredSelectionID = selection
         } else {
             context.coordinator.lastRestoredSelectionID = nil
             if outline.selectedRow >= 0, context.coordinator.selectedNode?.isDirectory != true {
@@ -774,17 +801,44 @@ struct ArchiveListView: NSViewRepresentable {
 
         func outlineViewSelectionDidChange(_ notification: Notification) {
             guard let outline = notification.object as? NSOutlineView else { return }
-            let selectedRow = outline.selectedRow
-            guard selectedRow >= 0,
-                  let node = outline.item(atRow: selectedRow) as? FileTreeNode else {
+            let selectedRows = outline.selectedRowIndexes
+            guard !selectedRows.isEmpty else {
                 selectedNode = nil
                 parent.selection = nil
                 parent.onFolderSelectionChange?(nil)
+                parent.onMultiSelectionChange?([], [])
                 return
             }
-            selectedNode = node
-            parent.selection = node.entry?.id
-            parent.onFolderSelectionChange?(node.isDirectory ? node.fullPath : nil)
+
+            var entryIDs: Set<ArchiveEntryID> = []
+            var folderPaths: [String] = []
+            var primaryNode: FileTreeNode?
+            var primaryEntryID: ArchiveEntryID?
+            var primaryFolderPath: String?
+
+            for row in selectedRows {
+                guard let node = outline.item(atRow: row) as? FileTreeNode else { continue }
+                if primaryNode == nil {
+                    primaryNode = node
+                    primaryEntryID = node.entry?.id
+                    primaryFolderPath = node.isDirectory ? node.fullPath : nil
+                }
+                if let id = node.entry?.id {
+                    entryIDs.insert(id)
+                }
+                if node.isDirectory {
+                    folderPaths.append(node.fullPath)
+                }
+            }
+
+            selectedNode = primaryNode
+            parent.selection = primaryEntryID
+            parent.onFolderSelectionChange?(primaryFolderPath)
+            // Avoid a restore↔notify feedback loop when SwiftUI re-applies the
+            // same selection after a tree rebuild.
+            if entryIDs != parent.selectedEntryIDs || folderPaths != parent.selectedFolderPaths {
+                parent.onMultiSelectionChange?(entryIDs, folderPaths)
+            }
         }
 
         func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
@@ -831,7 +885,8 @@ struct ArchiveListView: NSViewRepresentable {
         }
 
         func menuNeedsUpdate(_ menu: NSMenu) {
-            if let outline = outlineView, outline.clickedRow >= 0, outline.selectedRow != outline.clickedRow {
+            if let outline = outlineView, outline.clickedRow >= 0,
+               !outline.selectedRowIndexes.contains(outline.clickedRow) {
                 outline.selectRowIndexes(IndexSet(integer: outline.clickedRow), byExtendingSelection: false)
             }
             let localization = AppLocalization()
@@ -853,7 +908,12 @@ struct ArchiveListView: NSViewRepresentable {
                         : hasSelection ? localization.string("此文件夹无法直接打开")
                         : noSelection
                 case #selector(contextExtract(_:)):
-                    item.title = localization.string("解压选中") + proSuffix
+                    let multi = parent.selectedEntryIDs.count + parent.selectedFolderPaths.count
+                    if multi > 1 {
+                        item.title = localization.format("解压选中（%ld 项）", multi) + proSuffix
+                    } else {
+                        item.title = localization.string("解压选中") + proSuffix
+                    }
                     item.isEnabled = hasSelection && parent.canExtract && !parent.isExtracting
                     item.toolTip = item.isEnabled ? nil
                         : !hasSelection ? noSelection
@@ -894,6 +954,12 @@ struct ArchiveListView: NSViewRepresentable {
         }
 
         @objc func contextExtract(_ sender: Any?) {
+            let multiCount = parent.selectedEntryIDs.count + parent.selectedFolderPaths.count
+            if multiCount > 1 {
+                // Multi-selection across hierarchy: extract all pruned targets.
+                parent.onExtractSelected?()
+                return
+            }
             if let node = contextNode, node.isDirectory {
                 parent.onExtractFolder?(node.fullPath)
             } else {

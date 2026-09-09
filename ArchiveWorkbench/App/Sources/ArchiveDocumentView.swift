@@ -131,6 +131,15 @@ struct ArchiveDocumentView: View {
                             isSearching: !model.activeSearchText.isEmpty,
                             metadataByEntryID: model.metadataByEntryID,
                             selection: $model.selectedEntryID,
+                            selectedEntryIDs: model.selectedEntryIDs,
+                            selectedFolderPaths: model.selectedFolderPaths,
+                            onMultiSelectionChange: { entryIDs, folderPaths in
+                                model.selectedEntryIDs = entryIDs
+                                model.selectedFolderPaths = folderPaths
+                                if let primary = model.selectedEntryID {
+                                    model.selectedEntryIDs.insert(primary)
+                                }
+                            },
                             nestedArchiveEntryIDs: model.nestedArchiveEntryIDs,
                             pendingChanges: model.pendingChanges,
                             canEdit: model.canAdd,
@@ -149,6 +158,8 @@ struct ArchiveDocumentView: View {
                             onExtractFolder: { path in
                                 model.selectedEntryID = nil
                                 model.selectedFolderPath = path
+                                model.selectedEntryIDs = []
+                                model.selectedFolderPaths = [path]
                                 onExtractSelected()
                             },
                             onFolderSelectionChange: { path in
