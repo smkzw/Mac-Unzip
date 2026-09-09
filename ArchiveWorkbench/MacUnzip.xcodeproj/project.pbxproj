@@ -1084,7 +1084,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.6;
+				MARKETING_VERSION = 1.1.7;
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.MacUnzip;
 				PRODUCT_NAME = MacUnzip;
@@ -1148,7 +1148,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.6;
+				MARKETING_VERSION = 1.1.7;
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.MacUnzip;
 				PRODUCT_NAME = MacUnzip;
