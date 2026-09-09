@@ -2,46 +2,158 @@ name: Build & Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, release]
   pull_request:
-    branches: [main]
+    branches: [main, release]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: macos-latest
-
+  unit:
+    name: ArchiveKit unit tests
+    runs-on: macos-15
+    timeout-minutes: 30
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: |
+            $(brew --prefix)/opt/libarchive
+            $(brew --prefix)/opt/xz
+            $(brew --prefix)/opt/zstd
+            $(brew --prefix)/opt/lz4
+            $(brew --prefix)/opt/libb2
+            ~/Library/Caches/Homebrew
+          key: brew-archivekit-${{ runner.os }}-${{ hashFiles('**/Package.swift') }}
+
+      - name: Install libarchive
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
+
+      - name: Run ArchiveKit tests
+        working-directory: ArchiveWorkbench/Packages/ArchiveKit
+        run: |
+          swift test --parallel
+
+  app:
+    name: MacUnzip build & tests
+    runs-on: macos-15
+    timeout-minutes: 60
+    needs: unit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: |
+            $(brew --prefix)/opt/libarchive
+            $(brew --prefix)/opt/xz
+            $(brew --prefix)/opt/zstd
+            $(brew --prefix)/opt/lz4
+            $(brew --prefix)/opt/libb2
+            ~/Library/Caches/Homebrew
+          key: brew-app-${{ runner.os }}-${{ hashFiles('ArchiveWorkbench/Packages/ArchiveKit/Package.swift') }}
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: ~/spm
+          key: spm-${{ runner.os }}-${{ hashFiles('ArchiveWorkbench/MacUnzip.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
 
       - name: Install build dependencies
         working-directory: ArchiveWorkbench
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
           command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
-          # embed-dylibs.sh 需要 libarchive 及其 Homebrew 依赖以构建自包含 app
           brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
+          xcodegen --version
 
       - name: Generate Xcode project
         working-directory: ArchiveWorkbench
         run: xcodegen generate
 
+      - name: Verify project.yml / pbxproj stay in sync
+        working-directory: ArchiveWorkbench
+        run: |
+          if ! git diff --exit-code MacUnzip.xcodeproj/project.pbxproj; then
+            echo "::error::project.yml and MacUnzip.xcodeproj are out of sync. Commit the regenerated pbxproj."
+            exit 1
+          fi
+
       - name: Build MacUnzip
         working-directory: ArchiveWorkbench
         run: |
-          # App/Binaries（bundled 7zz）gitignored 不入库；CI 建空目录使资源拷贝通过
           mkdir -p App/Binaries
-          DEVELOPER_DIR=/Applications/Xcode_26.0.app/Contents/Developer \
-            xcodebuild -project MacUnzip.xcodeproj \
-                       -scheme MacUnzip \
-                       -configuration Release \
-                       -destination 'platform=macOS' \
-                       CODE_SIGN_IDENTITY="" \
-                       CODE_SIGNING_REQUIRED=NO \
-                       CODE_SIGNING_ALLOWED=NO \
-                       build
+          xcodebuild -project MacUnzip.xcodeproj \
+                     -scheme MacUnzip \
+                     -configuration Release \
+                     -destination 'platform=macOS' \
+                     -clonedSourcePackagesDirPath "$HOME/spm" \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     build
+
+      - name: Run unit tests
+        working-directory: ArchiveWorkbench
+        run: |
+          xcodebuild -project MacUnzip.xcodeproj \
+                     -scheme MacUnzip \
+                     -configuration Debug \
+                     -destination 'platform=macOS' \
+                     -clonedSourcePackagesDirPath "$HOME/spm" \
+                     -only-testing:MacUnzipUnitTests \
+                     -only-testing:HelperSpikeTests \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     test
+
+      - name: Verify self-contained dylibs
+        working-directory: ArchiveWorkbench
+        run: |
+          APP="build/Products/Release/MacUnzip.app"
+          BIN="$APP/Contents/MacOS/MacUnzip"
+          test -f "$BIN"
+          if otool -L "$BIN" | grep -E '/opt/homebrew|/usr/local/opt'; then
+            echo "::error::App still references Homebrew absolute dylib paths"
+            otool -L "$BIN"
+            exit 1
+          fi
+          test -f "$APP/Contents/Frameworks/libarchive.13.dylib"
+          echo "Self-contained check OK"
+
+      - name: Package artifact as zip
+        run: |
+          ditto -c -k --keepParent \
+            ArchiveWorkbench/build/Products/Release/MacUnzip.app \
+            MacUnzip-${{ github.sha }}.zip
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: MacUnzip-${{ github.sha }}
-          path: ArchiveWorkbench/build/Products/Release/MacUnzip.app
+          path: MacUnzip-${{ github.sha }}.zip
+          retention-days: 14

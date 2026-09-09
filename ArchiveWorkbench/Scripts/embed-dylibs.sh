@@ -71,7 +71,7 @@ SIGN_IDENTITY=$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -1 
 ENTITLEMENTS="${SRCROOT:-$(cd "$(dirname "$0")/.." && pwd)}/App/MacUnzip.entitlements"
 
 if [[ -n "$SIGN_IDENTITY" && "$SIGN_IDENTITY" != *"adhoc"* ]]; then
-  SIGN_ARGS=(--force --sign "$SIGN_IDENTITY" --options runtime)
+  SIGN_ARGS=(--force --sign "$SIGN_IDENTITY" --options runtime --timestamp)
   if [[ -f "$ENTITLEMENTS" ]]; then
     SIGN_ARGS+=(--entitlements "$ENTITLEMENTS")
   fi
@@ -82,7 +82,7 @@ fi
 for entry in "${libs[@]}"; do
   base="${entry%%:*}"
   if [[ -n "$SIGN_IDENTITY" && "$SIGN_IDENTITY" != *"adhoc"* ]]; then
-    if ! codesign --force --sign "$SIGN_IDENTITY" --options runtime "$FRAMEWORKS/$base"; then
+    if ! codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp "$FRAMEWORKS/$base"; then
       echo "error: failed to sign $base with identity '$SIGN_IDENTITY' (keychain locked or cert expired?); aborting to avoid a mixed-signing bundle" >&2
       exit 1
     fi

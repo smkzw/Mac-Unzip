@@ -7,8 +7,8 @@ configs:
   Debug: debug
   Release: release
 configFiles:
-  Debug: Config/Local.xcconfig
-  Release: Config/Base.xcconfig
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
 packages:
   ArchiveKit:
     path: Packages/ArchiveKit
@@ -101,7 +101,7 @@ targets:
         OTHER_CODE_SIGN_FLAGS: --options=runtime
         VALID_ARCHS: arm64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.1.6"
+        MARKETING_VERSION: "1.1.7"
         CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug:
@@ -175,6 +175,7 @@ targets:
       - App/Sources/ArchiveErrorBanner.swift
       - App/Sources/ArchiveFileTypes.swift
       - App/Sources/ArchiveSession.swift
+      - App/Sources/DiagnosticsExporter.swift
       - App/Sources/PreviewRouting.swift
       - App/Sources/SettingsView.swift
     dependencies:
@@ -201,6 +202,7 @@ schemes:
       debugEnabled: false
       targets:
         - HelperSpikeTests
+        - MacUnzipUnitTests
         - MacUnzipAppTests
     profile:
       config: Release

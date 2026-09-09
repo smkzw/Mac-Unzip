@@ -1,0 +1,8 @@
+// Release configuration
+#include "Base.xcconfig"
+
+// Distribution builds must compile for all declared ARCHS (arm64).
+ONLY_ACTIVE_ARCH = NO
+
+// Leave identity empty so package_release.sh / CI / local team can override.
+CODE_SIGN_IDENTITY =

@@ -1,0 +1,7 @@
+// Debug configuration — faster local iteration
+#include "Base.xcconfig"
+
+ONLY_ACTIVE_ARCH = YES
+
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =

@@ -1,4 +1,3 @@
-#include "Base.xcconfig"
-
-CODE_SIGN_STYLE = Manual
-DEVELOPMENT_TEAM =
+// Backward-compatible local overrides.
+// Prefer Config/Debug.xcconfig for day-to-day Debug builds.
+#include "Debug.xcconfig"

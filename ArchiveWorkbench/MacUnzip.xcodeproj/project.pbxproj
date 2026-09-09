@@ -23,6 +23,7 @@
 		218F90348B2C7EE07E7F6031 /* MacUnzipQLExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 92A4FF7E38716A1639B48C5E /* MacUnzipQLExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		246D83A335BB5BE68564605B /* ArchiveDocumentLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A74E8B160281C79EF158396 /* ArchiveDocumentLoaderTests.swift */; };
 		26B1CB78B2AAA2C5AD124CBB /* SpikeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCEB708571616E0BEF426C5 /* SpikeCommand.swift */; };
+		2B2103CE434574AFF2FCFD1B /* DiagnosticsExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F1EC06DA1D83CE3D654AA7 /* DiagnosticsExporter.swift */; };
 		2C993A110BB976171953AD59 /* ArchiveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9FAB120EDDCE153019CD922 /* ArchiveSession.swift */; };
 		2D62BEB57EEA8282E11DA150 /* ArchiveDocumentLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8B5466FFAACB8337E35687 /* ArchiveDocumentLoader.swift */; };
 		2FF074384CEBFC23FECF318B /* ArchiveSecurity in Frameworks */ = {isa = PBXBuildFile; productRef = D63C361CF45FA5AD7FA2C88D /* ArchiveSecurity */; };
@@ -200,7 +201,6 @@
 		594E86DD5733079489980390 /* MacUnzipUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacUnzipUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		59E30561B5F00E4036F8C6F1 /* LowFDHarness */ = {isa = PBXFileReference; includeInIndex = 0; path = LowFDHarness; sourceTree = BUILT_PRODUCTS_DIR; };
 		5B43B78F27A61FBD6313DE25 /* 示例.xlsx */ = {isa = PBXFileReference; path = "示例.xlsx"; sourceTree = "<group>"; };
-		61502D612558DE1B352E2C5A /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		639924FD9868C62E7071FF50 /* ArchiveListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveListView.swift; sourceTree = "<group>"; };
 		65114F3FA67A4839DB97608C /* RecentArchivesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentArchivesManager.swift; sourceTree = "<group>"; };
 		6A4D39AC9698D2905E36CC29 /* RoutedPreviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutedPreviewViews.swift; sourceTree = "<group>"; };
@@ -214,7 +214,6 @@
 		76E53EDE1A154BE862742017 /* HelperIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperIsolationTests.swift; sourceTree = "<group>"; };
 		778C645A30D71540C3121BBB /* PreviewRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewRoutingTests.swift; sourceTree = "<group>"; };
 		779D4CA42417BAC6A0F0B392 /* MacUnzipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacUnzipApp.swift; sourceTree = "<group>"; };
-		8281BEAC42720550632E78AD /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		875A8020C96E8E9AA46AF51B /* MacUnzipFinderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacUnzipFinderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		89F595C28BF7728166D71670 /* EmbeddedLicenseCodes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddedLicenseCodes.swift; sourceTree = "<group>"; };
 		8CA3E6BD3B6154469CB17BAD /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
@@ -229,6 +228,7 @@
 		B33A0AE5A57A40E877795B91 /* HelpMenuCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpMenuCommands.swift; sourceTree = "<group>"; };
 		B5A85A13E10C543B2BA0C3E1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B6A0818DC191B1B7E425FA5A /* ArchiveErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveErrorBanner.swift; sourceTree = "<group>"; };
+		B6F57A01972896E2788609B3 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B9FAB120EDDCE153019CD922 /* ArchiveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveSession.swift; sourceTree = "<group>"; };
 		BA4B5DCD9C8545395C7B5A37 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BCDE20CB96EB33F87A74EA70 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -243,6 +243,7 @@
 		E67AD981905A46BB83E59D5E /* ProviderStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderStatusView.swift; sourceTree = "<group>"; };
 		ECBEFBA0C3F8EFF45EC92295 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F3F1EC06DA1D83CE3D654AA7 /* DiagnosticsExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsExporter.swift; sourceTree = "<group>"; };
+		F5B5B44634A73451359605DD /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		F75E06D4E19160A87F5B1F84 /* MediaPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPreviewView.swift; sourceTree = "<group>"; };
 		F930D3A0EED2CE7C2440808B /* MacUnzip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacUnzip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB7CAB2EAB71DEA237F16D5F /* UIConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIConstants.swift; sourceTree = "<group>"; };
@@ -439,8 +440,8 @@
 		EF2B87EFB7EADC7DD35EA35F /* Config */ = {
 			isa = PBXGroup;
 			children = (
-				61502D612558DE1B352E2C5A /* Base.xcconfig */,
-				8281BEAC42720550632E78AD /* Local.xcconfig */,
+				F5B5B44634A73451359605DD /* Debug.xcconfig */,
+				B6F57A01972896E2788609B3 /* Release.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -887,6 +888,7 @@
 				0B742B7876C54AC05BCDF2BA /* ArchiveErrorBanner.swift in Sources */,
 				6995B60BF246D6855FFEBD78 /* ArchiveFileTypes.swift in Sources */,
 				8984381CE724E38A045A1AB7 /* ArchiveSession.swift in Sources */,
+				2B2103CE434574AFF2FCFD1B /* DiagnosticsExporter.swift in Sources */,
 				9073C857EFC48A1A7F395883 /* PreviewRouting.swift in Sources */,
 				1E70104C05C7DE8AB75C5A93 /* PreviewRoutingTests.swift in Sources */,
 				6DED1832375EC76099AB5297 /* SettingsView.swift in Sources */,
@@ -1006,7 +1008,7 @@
 		};
 		3627C8B446B9537CB93B93DB /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8281BEAC42720550632E78AD /* Local.xcconfig */;
+			baseConfigurationReference = F5B5B44634A73451359605DD /* Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1271,7 +1273,7 @@
 		};
 		BDFD2AD70B2C0ED83BB5DE3E /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 61502D612558DE1B352E2C5A /* Base.xcconfig */;
+			baseConfigurationReference = B6F57A01972896E2788609B3 /* Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

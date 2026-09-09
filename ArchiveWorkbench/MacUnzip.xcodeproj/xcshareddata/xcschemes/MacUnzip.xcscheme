@@ -55,6 +55,17 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6C746E38FC9D47FCC3B4D4C5"
+               BuildableName = "MacUnzipUnitTests.xctest"
+               BlueprintName = "MacUnzipUnitTests"
+               ReferencedContainer = "container:MacUnzip.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C020E74AA88E6647513135D"
                BuildableName = "MacUnzipAppTests.xctest"
                BlueprintName = "MacUnzipAppTests"

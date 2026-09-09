@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ArchiveWorkbench - Release Packaging Script (TEMPLATE)
+# ArchiveWorkbench - Release Packaging Script
 # =============================================================================
 #
-# This script builds, signs, and packages ArchiveWorkbench for distribution.
-# It is a TEMPLATE with placeholder values that must be configured before use.
-#
-# IMPORTANT: This script does NOT execute notarization. Notarization commands
-# are documented but commented out. See Distribution/SIGNING_RUNBOOK.md.
+# Builds, verifies, and packages MacUnzip for distribution.
+# Notarization is still manual — see Distribution/SIGNING_RUNBOOK.md.
 #
 # Usage:
 #   ./Scripts/package_release.sh [--skip-sign] [--version X.Y.Z]
 #
+# Env:
+#   MACUNZIP_SIGNING_IDENTITY  Developer ID Application: Name (TEAMID)
+#   MACUNZIP_TEAM_ID           Apple Developer Team ID
+#
+# Default MARKETING_VERSION is read from project.yml.
 # =============================================================================
 
 set -euo pipefail
@@ -22,18 +24,22 @@ set -euo pipefail
 
 APP_NAME="MacUnzip"
 BUNDLE_ID="com.smkzw.MacUnzip"
-VERSION="1.0.0"  # Default; override with --version X.Y.Z (parsed below)
 
-# TODO: Replace with actual Developer ID identity
-SIGNING_IDENTITY="Developer ID Application: YOUR NAME (TEAM_ID)"
-TEAM_ID="TEAM_ID"  # TODO: Replace with actual team ID
-
-# Paths
+# Paths — resolve first so version lookup can read project.yml.
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="${PROJECT_DIR}/build"
 ARCHIVE_PATH="${BUILD_DIR}/${APP_NAME}.xcarchive"
 APP_PATH="${ARCHIVE_PATH}/Products/Applications/${APP_NAME}.app"
-ENTITLEMENTS="${PROJECT_DIR}/Distribution/${APP_NAME}.entitlements"
+# Real entitlements live in App/ (not Distribution/).
+ENTITLEMENTS="${PROJECT_DIR}/App/MacUnzip.entitlements"
+
+# Prefer MARKETING_VERSION from project.yml (single source of truth).
+DEFAULT_VERSION="$(sed -n 's/.*MARKETING_VERSION: *"\([^"]*\)".*/\1/p' "${PROJECT_DIR}/project.yml" 2>/dev/null | head -1)"
+VERSION="${DEFAULT_VERSION:-1.1.6}"
+
+# Override via env (CI/secrets) or --version. Do not hardcode secrets in this file.
+SIGNING_IDENTITY="${MACUNZIP_SIGNING_IDENTITY:-Developer ID Application: YOUR NAME (TEAM_ID)}"
+TEAM_ID="${MACUNZIP_TEAM_ID:-TEAM_ID}"
 
 # Reproducible build timestamp (2026-07-27T00:00:00Z)
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1785081600}"
@@ -76,9 +82,10 @@ echo "  SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH}"
 
 
 # 嵌入最新激活码哈希白名单（非明文）。若本地无码库则跳过（用已提交的白名单）。
+# 有 vault 时 embed 必须成功，否则发布会带着过期白名单。
 if command -v swift >/dev/null 2>&1 && [[ -f "$HOME/.macunzip/license_vault.json" ]]; then
   echo "  Embedding license code hashes..."
-  swift "${PROJECT_DIR}/Scripts/license_vault.swift" embed --out "${PROJECT_DIR}/App/Sources/EmbeddedLicenseCodes.swift" || true
+  swift "${PROJECT_DIR}/Scripts/license_vault.swift" embed --out "${PROJECT_DIR}/App/Sources/EmbeddedLicenseCodes.swift"
 else
   echo "  No local license vault; using committed EmbeddedLicenseCodes.swift"
 fi
@@ -155,23 +162,44 @@ echo "=== Step 3: Verifying code signature ==="
 
 if [[ "${SKIP_SIGN}" == "true" ]]; then
   echo "  Signing skipped; verifying ad-hoc signature..."
-  codesign --verify --verbose=2 "${APP_PATH}" 2>&1 || true
+  codesign --verify --verbose=2 "${APP_PATH}" || true
 else
   # Verify hardened runtime (capture first: grep -q in a pipe would SIGPIPE codesign under pipefail)
   CODESIGN_INFO="$(codesign -dvvv "${APP_PATH}" 2>&1)"
   if grep -q "flags=0x10000(runtime)" <<< "${CODESIGN_INFO}"; then
     echo "  Hardened runtime: YES"
   else
-    echo "  WARNING: Hardened runtime NOT detected!"
+    echo "ERROR: Hardened runtime NOT detected on signed Release build."
+    exit 1
   fi
 
   # Verify signature validity
   codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
   echo "  Signature: VALID"
 
-  # Verify Gatekeeper assessment
-  spctl --assess --type execute --verbose "${APP_PATH}" 2>&1 || true
+  # Verify Gatekeeper assessment (fail closed for Developer ID releases)
+  if ! spctl --assess --type execute --verbose "${APP_PATH}"; then
+    echo "ERROR: Gatekeeper rejected the signed app."
+    exit 1
+  fi
 fi
+
+# Fail if Homebrew absolute paths remain (embed-dylibs regression).
+BIN_FOR_CHECK="${APP_PATH}/Contents/MacOS/${APP_NAME}"
+if otool -L "${BIN_FOR_CHECK}" | grep -E '/opt/homebrew|/usr/local/opt' >/dev/null; then
+  echo "ERROR: Binary still links Homebrew absolute dylib paths."
+  otool -L "${BIN_FOR_CHECK}"
+  exit 1
+fi
+echo "  Self-contained dylibs: OK"
+
+# Require bundled 7zz for Pro feature parity (website claims 7z/RAR/DMG/ISO).
+if [[ ! -f "${APP_PATH}/Contents/Resources/Binaries/7zz" ]]; then
+  echo "ERROR: Missing bundled 7zz at Contents/Resources/Binaries/7zz."
+  echo "  Copy a validated 7zz into ArchiveWorkbench/App/Binaries/ before packaging."
+  exit 1
+fi
+echo "  Bundled 7zz: OK"
 
 # -----------------------------------------------------------------------------
 # Step 4: Create DMG

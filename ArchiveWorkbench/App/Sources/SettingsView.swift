@@ -235,11 +235,15 @@ struct ProviderSettingsTab: View {
         isChecking = true
         defer { isChecking = false }
         updateHint = nil
-        // 多端点容错：官网 VPS → GitHub raw → GitHub API（base64）。任一成功即用。
+        // 多端点容错：官网根路径 → /store/ → GitHub raw(release) → GitHub API。任一成功即用。
+        // 官网部署把 store/* 铺到 webroot 时根路径可用；保留 /store/ 兼容旧部署布局。
         let endpoints: [(String, Bool)] = [
+            ("https://gerymk.qd.je/engine-versions.json", false),
             ("https://gerymk.qd.je/store/engine-versions.json", false),
+            ("https://raw.githubusercontent.com/smkzw/Mac-Unzip/release/store/engine-versions.json", false),
             ("https://raw.githubusercontent.com/smkzw/Mac-Unzip/main/store/engine-versions.json", false),
-            ("https://api.github.com/repos/smkzw/Mac-Unzip/contents/store/engine-versions.json", true),
+            ("https://api.github.com/repos/smkzw/Mac-Unzip/contents/store/engine-versions.json?ref=release", true),
+            ("https://api.github.com/repos/smkzw/Mac-Unzip/contents/store/engine-versions.json?ref=main", true),
         ]
         var manifest: [String: String]?
         for (urlString, isAPI) in endpoints {
