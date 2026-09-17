@@ -324,78 +324,18 @@ struct RootWindowView: View {
                 .accessibilityHidden(true)
             }
         }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            handleDrop(providers: providers)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openArchiveRequest)) { _ in
-            guard shouldHandleNotification(for: model) else { return }
-            presentOpenPanel()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .pendingOpenRequest)) { _ in
-            guard shouldHandleNotification(for: model), !model.hasDocument else { return }
-            guard let pendingURL = MacUnzipAppDelegate.pendingLaunchURL else { return }
-            MacUnzipAppDelegate.pendingLaunchURL = nil
-            let skipped = MacUnzipAppDelegate.pendingSkippedOpenCount
-            MacUnzipAppDelegate.pendingSkippedOpenCount = 0
-            Task {
-                await model.openArchive(url: pendingURL)
-                if skipped > 0, model.hasDocument {
-                    model.statusMessage = AppLocalization().format(
-                        "已打开首个压缩包，其余 %ld 个已跳过",
-                        skipped
-                    )
-                }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .createArchiveRequest)) { _ in
-            guard shouldHandleNotification(for: model) else { return }
-            presentCreationInputPanel()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openArchiveURL)) { notification in
-            guard let url = notification.object as? URL else { return }
-            guard shouldHandleNotification(for: model) else { return }
-            // Finder 双击/拖入到达：前置窗口，用户立即看到归档被打开
-            NSApp.activate(ignoringOtherApps: true)
-            if let window = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
-                window.makeKeyAndOrderFront(nil)
-            }
-            // 已被 pending 兜底消费则跳过（防止双通道重复打开）
-            if MacUnzipAppDelegate.pendingLaunchURL == url {
-                MacUnzipAppDelegate.pendingLaunchURL = nil
-            }
-            let skipped = (notification.userInfo?["skippedCount"] as? Int) ?? 0
-            if skipped > 0 {
-                model.transientStatusMessage = AppLocalization().format(
-                    "已打开首个压缩包，其余 %ld 个已跳过",
-                    skipped
-                )
-            }
-            if model.hasUnsavedChanges {
-                pendingOpenURL = url
-            } else {
-                Task { await model.openArchive(url: url) }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .finderCompressRequest)) { notification in
-            guard let userInfo = notification.userInfo,
-                  let urls = userInfo["urls"] as? [URL], !urls.isEmpty else { return }
-            guard shouldHandleNotification(for: model) else { return }
-            let action = userInfo["action"] as? String
-            if action == "extract-here" {
-                guard LicenseGate.requirePro(for: .extract) else { return }
-                pendingExtractHereURLs = urls
-                return
-            }
-            guard LicenseGate.requirePro(for: .create) else { return }
-            if action == "compress-zip" {
-                model.creationFormat = .zip
-            }
-            if model.hasUnsavedChanges {
-                pendingCreationInputs = urls
-            } else {
-                creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
-            }
-        }
+        .modifier(NotificationHandlers(
+            model: model,
+            isDropTargeted: $isDropTargeted,
+            pendingOpenURL: $pendingOpenURL,
+            pendingCreationInputs: $pendingCreationInputs,
+            creationDraft: $creationDraft,
+            pendingExtractHereURLs: $pendingExtractHereURLs,
+            handleDrop: handleDrop,
+            routeDroppedURLs: routeDroppedURLs,
+            presentOpenPanel: presentOpenPanel,
+            presentCreationInputPanel: presentCreationInputPanel
+        ))
         .task {
             await handleLaunchArguments()
             await consumeLateOpenEvent()
@@ -576,17 +516,23 @@ struct RootWindowView: View {
         }
         group.notify(queue: .main) {
             let allURLs = box.snapshot()
-            let supported = allURLs.filter { ArchiveFileTypes.isSupportedArchive($0) }
-            guard let first = supported.first else {
-                if let firstURL = allURLs.first {
-                    let ext = firstURL.pathExtension
-                    let descriptor = ext.isEmpty ? firstURL.lastPathComponent : ext
-                    model.statusMessage = AppLocalization().format("不支持的文件类型：%@。请拖入 ZIP、7z、RAR、TAR 等压缩包文件。", descriptor)
-                }
-                return
-            }
+            guard !allURLs.isEmpty else { return }
+            self.routeDroppedURLs(allURLs)
+        }
+        return true
+    }
+
+    /// Routes dropped URLs: all archives → open first; any folder/file → create-archive.
+    private func routeDroppedURLs(_ urls: [URL]) {
+        let allArchives = urls.allSatisfy { url in
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            return exists && !isDir.boolValue && ArchiveFileTypes.isSupportedArchive(url)
+        }
+        if allArchives {
+            guard let first = urls.first else { return }
             RecentArchivesManager.shared.noteRecentArchive(first)
-            let ignoredCount = supported.count - 1
+            let ignoredCount = urls.count - 1
             if model.hasUnsavedChanges {
                 pendingOpenURL = first
             } else {
@@ -597,8 +543,14 @@ struct RootWindowView: View {
                     }
                 }
             }
+            return
         }
-        return true
+        guard LicenseGate.requirePro(for: .create) else { return }
+        if model.hasUnsavedChanges {
+            pendingCreationInputs = urls
+        } else {
+            creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
+        }
     }
 
     private func handleLaunchArguments() async {
@@ -1007,6 +959,91 @@ private struct RootAlertsModifier: ViewModifier {
             } message: {
                 if let journal = model.pendingRecoveryJournals.first {
                     Text("上次保存 \(URL(fileURLWithPath: journal.sourceArchive).lastPathComponent) 时中断，是否恢复？")
+                }
+            }
+    }
+}
+
+private struct NotificationHandlers: ViewModifier {
+    let model: AppModel
+    @Binding var isDropTargeted: Bool
+    @Binding var pendingOpenURL: URL?
+    @Binding var pendingCreationInputs: [URL]?
+    @Binding var creationDraft: ArchiveCreationDraft?
+    @Binding var pendingExtractHereURLs: [URL]?
+    let handleDrop: ([NSItemProvider]) -> Bool
+    let routeDroppedURLs: ([URL]) -> Void
+    let presentOpenPanel: () -> Void
+    let presentCreationInputPanel: () -> Void
+
+    private func isKeyWindow() -> Bool {
+        shouldHandleNotification(for: model)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+                handleDrop(providers)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openArchiveRequest)) { _ in
+                guard isKeyWindow() else { return }
+                presentOpenPanel()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .pendingOpenRequest)) { _ in
+                guard isKeyWindow(), !model.hasDocument else { return }
+                guard let pendingURL = MacUnzipAppDelegate.pendingLaunchURL else { return }
+                MacUnzipAppDelegate.pendingLaunchURL = nil
+                let skipped = MacUnzipAppDelegate.pendingSkippedOpenCount
+                MacUnzipAppDelegate.pendingSkippedOpenCount = 0
+                Task {
+                    await model.openArchive(url: pendingURL)
+                    if skipped > 0, model.hasDocument {
+                        model.statusMessage = AppLocalization().format("已打开首个压缩包，其余 %ld 个已跳过", skipped)
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .createArchiveRequest)) { _ in
+                guard isKeyWindow() else { return }
+                presentCreationInputPanel()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openArchiveURL)) { notification in
+                guard let url = notification.object as? URL else { return }
+                guard isKeyWindow() else { return }
+                NSApp.activate(ignoringOtherApps: true)
+                if let window = NSApp.windows.first(where: { $0.delegate is UnsavedChangesWindowDelegate }) {
+                    window.makeKeyAndOrderFront(nil)
+                }
+                if MacUnzipAppDelegate.pendingLaunchURL == url {
+                    MacUnzipAppDelegate.pendingLaunchURL = nil
+                }
+                let skipped = (notification.userInfo?["skippedCount"] as? Int) ?? 0
+                if skipped > 0 {
+                    model.transientStatusMessage = AppLocalization().format("已打开首个压缩包，其余 %ld 个已跳过", skipped)
+                }
+                if model.hasUnsavedChanges {
+                    pendingOpenURL = url
+                } else {
+                    Task { await model.openArchive(url: url) }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .finderCompressRequest)) { notification in
+                guard let userInfo = notification.userInfo,
+                      let urls = userInfo["urls"] as? [URL], !urls.isEmpty else { return }
+                guard isKeyWindow() else { return }
+                let action = userInfo["action"] as? String
+                if action == "extract-here" {
+                    guard LicenseGate.requirePro(for: .extract) else { return }
+                    pendingExtractHereURLs = urls
+                    return
+                }
+                guard LicenseGate.requirePro(for: .create) else { return }
+                if action == "compress-zip" {
+                    model.creationFormat = .zip
+                }
+                if model.hasUnsavedChanges {
+                    pendingCreationInputs = urls
+                } else {
+                    creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
                 }
             }
     }

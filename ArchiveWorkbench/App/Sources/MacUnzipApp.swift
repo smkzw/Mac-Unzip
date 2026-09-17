@@ -199,12 +199,31 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        guard let url = urls.first else { return }
-        let skipped = max(0, urls.count - 1)
-        // 无论 active 与否都走 deliverOpenURL：app 在运行但主窗口已关闭时，
-        // 它会开新窗口并投递 URL；旧实现 inactive 分支只 stash pending 而
-        // 无 RootWindowView 消费，导致双击压缩包"毫无反应"。
-        Self.deliverOpenURL(url, skippedCount: skipped)
+        guard !urls.isEmpty else { return }
+        // If every URL is a supported archive → open the first (existing behavior).
+        // If any URL is a folder or non-archive file → start create-archive flow.
+        let allArchives = urls.allSatisfy { url in
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            return exists && !isDir.boolValue && ArchiveFileTypes.isSupportedArchive(url)
+        }
+        if allArchives {
+            Self.deliverOpenURL(urls[0], skippedCount: max(0, urls.count - 1))
+        } else {
+            Self.deliverCreateRequest(urls: urls)
+        }
+    }
+
+    /// Routes a create-archive request from the Dock / Finder to the live window.
+    static func deliverCreateRequest(urls: [URL]) {
+        MainAppWindowOpener.openMainWindow()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .finderCompressRequest,
+                object: nil,
+                userInfo: ["urls": urls, "action": "compress"]
+            )
+        }
     }
 
     /// Dock 图标点击（app 在运行但无窗口）：重开主窗口，避免"点了没反应"。
