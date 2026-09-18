@@ -18,10 +18,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Cache Homebrew
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             $(brew --prefix)/opt/libarchive
@@ -50,12 +50,12 @@ jobs:
     needs: unit
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.0"
+          xcode-version: "latest-stable"
 
       - name: Show toolchain
         run: |
@@ -64,7 +64,7 @@ jobs:
           echo "DEVELOPER_DIR=$(xcode-select -p)"
 
       - name: Cache Homebrew
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             $(brew --prefix)/opt/libarchive
@@ -76,7 +76,7 @@ jobs:
           key: brew-app-${{ runner.os }}-${{ hashFiles('ArchiveWorkbench/Packages/ArchiveKit/Package.swift') }}
 
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/spm
           key: spm-${{ runner.os }}-${{ hashFiles('ArchiveWorkbench/MacUnzip.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
@@ -152,7 +152,7 @@ jobs:
             MacUnzip-${{ github.sha }}.zip
 
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MacUnzip-${{ github.sha }}
           path: MacUnzip-${{ github.sha }}.zip
