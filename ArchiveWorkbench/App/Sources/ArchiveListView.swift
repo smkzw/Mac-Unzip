@@ -223,25 +223,28 @@ struct ArchiveListView: NSViewRepresentable {
         nameColumn.title = localization.string("名称")
         nameColumn.width = 300
         nameColumn.minWidth = 100
-        nameColumn.resizingMask = .autoresizingMask
+        nameColumn.resizingMask = [.userResizingMask, .autoresizingMask]
         outline.addTableColumn(nameColumn)
 
         let sizeColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("size"))
         sizeColumn.title = localization.string("大小")
         sizeColumn.width = 72
         sizeColumn.minWidth = 56
+        sizeColumn.resizingMask = [.userResizingMask, .autoresizingMask]
         outline.addTableColumn(sizeColumn)
 
         let dateColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("date"))
         dateColumn.title = localization.string("修改日期")
         dateColumn.width = 118
-        dateColumn.minWidth = 100
+        dateColumn.minWidth = 80
+        dateColumn.resizingMask = [.userResizingMask, .autoresizingMask]
         outline.addTableColumn(dateColumn)
 
         let typeColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("type"))
         typeColumn.title = localization.string("类型")
         typeColumn.width = 76
         typeColumn.minWidth = 56
+        typeColumn.resizingMask = [.userResizingMask, .autoresizingMask]
         outline.addTableColumn(typeColumn)
 
         outline.outlineTableColumn = nameColumn

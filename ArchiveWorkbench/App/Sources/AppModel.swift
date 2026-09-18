@@ -3087,7 +3087,7 @@ final class AppModel {
         case .unsupportedEncryption:
             return localization.string("这个压缩包使用了当前版本尚不支持的加密方式。")
         case .unsupportedMethod:
-            return localization.string("压缩包包含当前版本尚不支持的压缩方式。")
+            return localization.string("压缩包使用了当前 7zz 引擎尚不支持的压缩方法。可尝试用 WinRAR/Keka 等工具解压，或等待引擎更新。")
         case .missingVolume:
             return localization.string("找不到分卷压缩包的其他部分。请将所有分卷放在同一文件夹后再试。")
         case .unsafePath:
@@ -3135,7 +3135,7 @@ final class AppModel {
         case .unsupportedEncryption:
             return localization.string("当前版本暂不支持这种加密方式，未生成任何文件。")
         case .unsupportedMethod:
-            return localization.string("当前版本暂不支持这种压缩方式，未生成任何文件。")
+            return localization.string("压缩包使用了当前 7zz 引擎尚不支持的压缩方法，未生成任何文件。可尝试用 WinRAR/Keka 等工具解压。")
         case .corruptedArchive:
             return localization.string("压缩包可能已损坏，解压缩未完成，也未生成任何文件。")
         default:
