@@ -70,20 +70,14 @@ struct ArchiveSidebarView: View {
             Button {
                 onCreate?()
             } label: {
-                HStack(spacing: 4) {
-                    Label(AppLocalization().string("新建压缩包"), systemImage: "externaldrive.badge.plus")
-                    if !LicenseManager.shared.isProLicensed { proBadge }
-                }
+                Label(AppLocalization().string("新建压缩包"), systemImage: "externaldrive.badge.plus")
             }
-            .help(AppLocalization().string("新建一个压缩包（需要 Pro）"))
+            .help(AppLocalization().string("新建一个压缩包"))
 
             Button {
                 onAdd()
             } label: {
-                HStack(spacing: 4) {
-                    Label(AppLocalization().string("添加文件"), systemImage: "plus")
-                    if !LicenseManager.shared.isProLicensed { proBadge }
-                }
+                Label(AppLocalization().string("添加文件"), systemImage: "plus")
             }
             .disabled(!model.canAdd)
             .help(model.canAdd ? AppLocalization().string("向压缩包添加文件") : AppLocalization().string("此格式为只读，不支持添加"))
@@ -91,10 +85,7 @@ struct ArchiveSidebarView: View {
             Button {
                 onExtract()
             } label: {
-                HStack(spacing: 4) {
-                    Label(AppLocalization().string("解压缩全部"), systemImage: "arrow.down.to.line")
-                    if !LicenseManager.shared.isProLicensed { proBadge }
-                }
+                Label(AppLocalization().string("解压缩全部"), systemImage: "arrow.down.to.line")
             }
             .disabled(!model.canExtract || model.isExtracting)
             .help(extractHelp)
@@ -103,15 +94,6 @@ struct ArchiveSidebarView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
-    }
-
-    private var proBadge: some View {
-        Text("Pro")
-            .font(.system(size: 9, weight: .bold))
-            .foregroundStyle(.purple)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(.purple.opacity(0.12), in: Capsule())
     }
 
     @ViewBuilder

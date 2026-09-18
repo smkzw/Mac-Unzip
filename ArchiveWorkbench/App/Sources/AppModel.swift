@@ -633,18 +633,7 @@ final class AppModel {
     @ObservationIgnored private var overwriteConfirmationContinuation: CheckedContinuation<Bool, Never>?
     // MARK: - Creation Panel Options
     var creationFormat: CreationFormat = .zip
-    var creationEncryptionEnabled = false {
-        didSet {
-            // Defense-in-depth for the Pro-only encryption gate: unreachable today
-            // (creation sheet is already Pro-gated), but keep it if gating changes.
-            if creationEncryptionEnabled && !oldValue && !LicenseGate.isProLicensed {
-                creationEncryptionEnabled = false
-                DispatchQueue.main.async {
-                    _ = LicenseGate.requirePro(for: .encrypt)
-                }
-            }
-        }
-    }
+    var creationEncryptionEnabled = false
     var creationPassword = ""
     var creationPasswordConfirm = ""
     var creationEncryptionMethod: EncryptionMethod = .aes256
@@ -885,7 +874,6 @@ final class AppModel {
     }
 
     func stageChange(_ change: PendingChange) async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         presentedError = nil
         do {
             try await loader.stageChange(change)
@@ -908,7 +896,6 @@ final class AppModel {
     /// source URL is held until the next save so the editor can still read the
     /// bytes when it publishes the archive.
     func stageAdditions(from urls: [URL], toFolder folderPath: String? = nil) async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard hasDocument, canAdd, !isNestedSession, !urls.isEmpty else { return }
         presentedError = nil
         let prefix: String
@@ -942,7 +929,6 @@ final class AppModel {
 
     /// Validates and stages a move of an entry to a new path (drag between folders).
     func moveEntry(from sourcePath: String, to destinationPath: String) async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard hasDocument, !isNestedSession, canAdd else { return }
         let source = sourcePath.hasSuffix("/") ? String(sourcePath.dropLast()) : sourcePath
         let destination = destinationPath.hasSuffix("/") ? String(destinationPath.dropLast()) : destinationPath
@@ -1034,7 +1020,6 @@ final class AppModel {
 
     /// Stages a removal for the currently selected entry.
     func removeSelectedEntry() async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard hasDocument, !isNestedSession, let selectedEntryID,
               let entry = entries.first(where: { $0.id == selectedEntryID }) else { return }
         let entryPath = entry.displayPath.hasSuffix("/")
@@ -1045,7 +1030,6 @@ final class AppModel {
 
     /// Validates and stages a rename for the currently selected entry.
     func renameSelectedEntry(to newName: String) async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard hasDocument, !isNestedSession, let selectedEntryID,
               let entry = entries.first(where: { $0.id == selectedEntryID }) else { return }
         let trimmed = newName.trimmingCharacters(in: .whitespaces)
@@ -1082,7 +1066,6 @@ final class AppModel {
 
     /// Validates and stages a replacement for the currently selected entry.
     func replaceSelectedEntry(with sourceURL: URL) async {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard hasDocument, !isNestedSession, let selectedEntryID,
               let entry = entries.first(where: { $0.id == selectedEntryID }) else { return }
         let entryPath = entry.displayPath.hasSuffix("/")
@@ -1467,7 +1450,6 @@ final class AppModel {
     }
 
     func startExtraction(to destinationDirectoryURL: URL) {
-        guard LicenseGate.requirePro(for: .extract) else { return }
         guard extractionTask == nil, hasDocument else { return }
         extractionTask = Task { [weak self] in
             guard let self else { return }
@@ -1774,7 +1756,6 @@ final class AppModel {
 
     /// Starts extraction of the selected entry in a background task.
     func startExtractSelected(to destinationDirectoryURL: URL) {
-        guard LicenseGate.requirePro(for: .extract) else { return }
         guard extractionTask == nil, hasDocument else { return }
         if let folderPath = selectedFolderPath {
             extractionTask = Task { [weak self] in
@@ -1827,7 +1808,6 @@ final class AppModel {
     }
 
     func createWindowsZIP(at outputURL: URL, inputs: [URL]) async {
-        guard LicenseGate.requirePro(for: .create) else { return }
         guard !inputs.isEmpty, !isCreating, !isExtracting else { return }
         isCreating = true
         creationProgress = 0
@@ -1907,7 +1887,6 @@ final class AppModel {
     }
 
     func startCreation(at outputURL: URL, inputs: [URL]) {
-        guard LicenseGate.requirePro(for: .create) else { return }
         guard creationTask == nil, !inputs.isEmpty else { return }
         let format = creationFormat
         let password = (creationEncryptionEnabled && format.supportsEncryption) ? creationPassword : nil
@@ -2166,7 +2145,6 @@ final class AppModel {
         splitVolumeSize: SplitVolumeSize?,
         zipCompressionLevel: ZIPCompressionLevel
     ) async {
-        guard LicenseGate.requirePro(for: .create) else { return }
         guard !inputs.isEmpty, !isCreating, !isExtracting else { return }
 
         // SECURITY: Never silently ignore options the backend cannot honor.
@@ -2389,7 +2367,6 @@ final class AppModel {
     // MARK: - Open File Externally
 
     func openFileExternally(entryID: ArchiveEntryID) async {
-        guard LicenseGate.requirePro(for: .openExternal) else { return }
         guard hasDocument else { return }
         var externalRoot: URL?
         do {
@@ -3167,8 +3144,6 @@ final class AppModel {
             switch rarError {
             case .binaryNotFound:
                 return localization.string("创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。")
-            case .licenseNotConfirmed:
-                return localization.string("创建 RAR 前需要确认 RARLAB 许可。请重新选择 RAR 格式并确认后重试。")
             case .rarFailed(_, let message):
                 return localization.format("RAR 创建失败：%@", message)
             default:

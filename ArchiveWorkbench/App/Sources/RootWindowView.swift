@@ -31,7 +31,6 @@ extension Notification.Name {
     static let renameSelectedRequest = Notification.Name("renameSelectedRequest")
     static let extractSelectedRequest = Notification.Name("extractSelectedRequest")
     static let finderCompressRequest = Notification.Name("finderCompressRequest")
-    static let showLicenseActivationRequest = Notification.Name("showLicenseActivationRequest")
 }
 
 /// A menu command issued while no window existed, performed by the next window
@@ -39,7 +38,6 @@ extension Notification.Name {
 enum PendingWindowCommand {
     case openArchive
     case createArchive
-    case showLicenseActivation
 }
 
 final class PendingWindowCommandBox: @unchecked Sendable {
@@ -89,8 +87,6 @@ struct RootWindowView: View {
     @State private var renameText = ""
     @State private var pendingOpenURL: URL?
     @State private var pendingCreationInputs: [URL]?
-    @State private var licenseSheetFeature: ProFeature?
-    @State private var showLicenseSheet = false
     @State private var pendingExtractHereURLs: [URL]?
     @State private var isDropTargeted = false
     private let visualCapture: Bool
@@ -206,9 +202,7 @@ struct RootWindowView: View {
                         ContentUnavailableView {
                             Label("MacUnzip", systemImage: "archivebox")
                         } description: {
-                            Text(AppLocalization().string(LicenseManager.shared.isProLicensed
-                                ? "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\nPro 已激活 · 全部功能可用"
-                                : "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\n免费浏览 · 解压缩/创建/编辑需要 Pro"))
+                            Text(AppLocalization().string("打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。"))
                         } actions: {
                             HStack(spacing: 12) {
                                 Button("打开压缩包") { presentOpenPanel() }
@@ -220,27 +214,14 @@ struct RootWindowView: View {
                                     presentCreationInputPanel()
                                 } label: {
                                     Label {
-                                        HStack(spacing: 4) {
-                                            Text("新建压缩包")
-                                            if !LicenseManager.shared.isProLicensed {
-                                                Text("Pro")
-                                                    .font(.caption2.weight(.semibold))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(.purple.opacity(0.15))
-                                                    .foregroundStyle(.purple)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 3))
-                                            }
-                                        }
+                                        Text("新建压缩包")
                                     } icon: {
                                         Image(systemName: "externaldrive.badge.plus")
                                     }
                                 }
                                 .buttonStyle(.bordered)
                                 .controlSize(.large)
-                                .help(AppLocalization().string(LicenseManager.shared.isProLicensed
-                                    ? "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包"
-                                    : "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包（需要 Pro）"))
+                                .help(AppLocalization().string("创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包"))
                                 .accessibilityIdentifier("新建压缩包")
                             }
                         }
@@ -372,24 +353,6 @@ struct RootWindowView: View {
                 )
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: LicenseGate.upgradeRequiredNotification)) { notification in
-            guard shouldHandleNotification(for: model) else { return }
-            licenseSheetFeature = notification.userInfo?["feature"] as? ProFeature
-            showLicenseSheet = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showLicenseActivationRequest)) { _ in
-            guard shouldHandleNotification(for: model) else { return }
-            licenseSheetFeature = nil
-            showLicenseSheet = true
-        }
-        .sheet(
-            isPresented: Binding(
-                get: { showLicenseSheet },
-                set: { if !$0 { showLicenseSheet = false; licenseSheetFeature = nil } }
-            )
-        ) {
-            LicenseActivationView(requestedFeature: licenseSheetFeature)
-        }
         .alert(
             AppLocalization().string("解压到所在文件夹"),
             isPresented: Binding(
@@ -423,9 +386,6 @@ struct RootWindowView: View {
                     switch pending {
                     case .openArchive: presentOpenPanel()
                     case .createArchive: presentCreationInputPanel()
-                    case .showLicenseActivation:
-                        licenseSheetFeature = nil
-                        showLicenseSheet = true
                     }
                 }
             }
@@ -545,7 +505,6 @@ struct RootWindowView: View {
             }
             return
         }
-        guard LicenseGate.requirePro(for: .create) else { return }
         if model.hasUnsavedChanges {
             pendingCreationInputs = urls
         } else {
@@ -571,10 +530,8 @@ struct RootWindowView: View {
                         model.statusMessage = AppLocalization().format("已打开第一个压缩包，其余 %ld 个文件未处理。", ignoredCount)
                     }
                 } else if finderAction == "extract-here" {
-                    guard LicenseGate.requirePro(for: .extract) else { return }
                     pendingExtractHereURLs = urls
                 } else {
-                    guard LicenseGate.requirePro(for: .create) else { return }
                     if finderAction == "compress-zip" {
                         model.creationFormat = .zip
                     }
@@ -646,7 +603,6 @@ struct RootWindowView: View {
     }
 
     private func presentCreationInputPanel() {
-        guard LicenseGate.requirePro(for: .create) else { return }
         let panel = NSOpenPanel()
         panel.title = ArchiveCreationCopy.inputPanelTitle()
         panel.prompt = ArchiveCreationCopy.inputPanelPrompt()
@@ -684,7 +640,6 @@ struct RootWindowView: View {
     }
 
     private func presentAddPanel() {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         let panel = NSOpenPanel()
         panel.title = ArchiveShellCopy.addPanelTitle()
         panel.prompt = ArchiveShellCopy.addPanelPrompt()
@@ -699,7 +654,6 @@ struct RootWindowView: View {
     }
 
     private func removeSelectedEntry() {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard model.canRemoveSelectedEntry else {
             model.transientStatusMessage = AppLocalization().string(
                 model.selectedEntryID == nil && model.selectedFolderPath != nil
@@ -711,7 +665,6 @@ struct RootWindowView: View {
     }
 
     private func presentRenameAlert() {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard model.canRenameSelectedEntry else {
             model.transientStatusMessage = AppLocalization().string(
                 model.selectedEntryID == nil && model.selectedFolderPath != nil
@@ -724,7 +677,6 @@ struct RootWindowView: View {
     }
 
     private func presentReplacePanel() {
-        guard LicenseGate.requirePro(for: .edit) else { return }
         guard let fileName = model.selectedEntryFileName else { return }
         let localization = AppLocalization()
         let panel = NSOpenPanel()
@@ -748,7 +700,6 @@ struct RootWindowView: View {
 
 
     private func presentExtractionPanel() {
-        guard LicenseGate.requirePro(for: .extract) else { return }
         if let extractionDestinationURL {
             model.startExtraction(to: extractionDestinationURL)
             return
@@ -774,7 +725,6 @@ struct RootWindowView: View {
     }
 
     private func presentExtractSelectedPanel() {
-        guard LicenseGate.requirePro(for: .extract) else { return }
         if let direct = preferredExtractionDirectory {
             model.startExtractSelected(to: direct)
             return
@@ -1032,11 +982,9 @@ private struct NotificationHandlers: ViewModifier {
                 guard isKeyWindow() else { return }
                 let action = userInfo["action"] as? String
                 if action == "extract-here" {
-                    guard LicenseGate.requirePro(for: .extract) else { return }
                     pendingExtractHereURLs = urls
                     return
                 }
-                guard LicenseGate.requirePro(for: .create) else { return }
                 if action == "compress-zip" {
                     model.creationFormat = .zip
                 }

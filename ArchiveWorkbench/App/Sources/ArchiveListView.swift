@@ -257,18 +257,17 @@ struct ArchiveListView: NSViewRepresentable {
 
         let menu = NSMenu()
         menu.delegate = context.coordinator
-        let proSuffix = LicenseManager.shared.isProLicensed ? "" : " · Pro"
         let openItem = NSMenuItem(title: localization.string("打开"), action: #selector(Coordinator.contextOpen(_:)), keyEquivalent: "")
         openItem.target = context.coordinator
         menu.addItem(openItem)
-        let extractItem = NSMenuItem(title: localization.string("解压选中") + proSuffix, action: #selector(Coordinator.contextExtract(_:)), keyEquivalent: "")
+        let extractItem = NSMenuItem(title: localization.string("解压选中"), action: #selector(Coordinator.contextExtract(_:)), keyEquivalent: "")
         extractItem.target = context.coordinator
         menu.addItem(extractItem)
         menu.addItem(.separator())
-        let renameItem = NSMenuItem(title: localization.string("重命名…") + proSuffix, action: #selector(Coordinator.contextRename(_:)), keyEquivalent: "")
+        let renameItem = NSMenuItem(title: localization.string("重命名…"), action: #selector(Coordinator.contextRename(_:)), keyEquivalent: "")
         renameItem.target = context.coordinator
         menu.addItem(renameItem)
-        let deleteItem = NSMenuItem(title: localization.string("移除") + proSuffix, action: #selector(Coordinator.contextDelete(_:)), keyEquivalent: "")
+        let deleteItem = NSMenuItem(title: localization.string("移除"), action: #selector(Coordinator.contextDelete(_:)), keyEquivalent: "")
         deleteItem.target = context.coordinator
         menu.addItem(deleteItem)
         menu.addItem(.separator())
@@ -898,14 +897,11 @@ struct ArchiveListView: NSViewRepresentable {
             let isFile = node.map { !$0.isDirectory } ?? false
             let isNested = node?.entry.map { parent.nestedArchiveEntryIDs.contains($0.id) } ?? false
             let noSelection = localization.string("需要先选中文件")
-            let proSuffix = LicenseManager.shared.isProLicensed ? "" : " · Pro"
-
+    
             for item in menu.items {
                 switch item.action {
                 case #selector(contextOpen(_:)):
-                    // Opening a regular file is Pro; opening a nested archive is free.
-                    let openIsPro = isFile && !isNested
-                    item.title = localization.string("打开") + (openIsPro ? proSuffix : "")
+                    item.title = localization.string("打开")
                     item.isEnabled = hasSelection && (isFile || isNested)
                     item.toolTip = item.isEnabled ? nil
                         : hasSelection ? localization.string("此文件夹无法直接打开")
@@ -913,9 +909,9 @@ struct ArchiveListView: NSViewRepresentable {
                 case #selector(contextExtract(_:)):
                     let multi = parent.selectedEntryIDs.count + parent.selectedFolderPaths.count
                     if multi > 1 {
-                        item.title = localization.format("解压选中（%ld 项）", multi) + proSuffix
+                        item.title = localization.format("解压选中（%ld 项）", multi)
                     } else {
-                        item.title = localization.string("解压选中") + proSuffix
+                        item.title = localization.string("解压选中")
                     }
                     item.isEnabled = hasSelection && parent.canExtract && !parent.isExtracting
                     item.toolTip = item.isEnabled ? nil
@@ -924,7 +920,7 @@ struct ArchiveListView: NSViewRepresentable {
                         : localization.string("此格式不支持解压缩")
                 case #selector(contextRename(_:)):
                     let renamableEntry = node?.entry != nil
-                    item.title = localization.string("重命名…") + proSuffix
+                    item.title = localization.string("重命名…")
                     item.isEnabled = hasSelection && renamableEntry && parent.canEdit
                     item.toolTip = item.isEnabled ? nil
                         : !hasSelection ? noSelection
@@ -932,7 +928,7 @@ struct ArchiveListView: NSViewRepresentable {
                         : localization.string("此格式为只读，不支持编辑")
                 case #selector(contextDelete(_:)):
                     let deletableEntry = node?.entry != nil
-                    item.title = localization.string("移除") + proSuffix
+                    item.title = localization.string("移除")
                     item.isEnabled = hasSelection && deletableEntry && parent.canEdit
                     item.toolTip = item.isEnabled ? nil
                         : !hasSelection ? noSelection

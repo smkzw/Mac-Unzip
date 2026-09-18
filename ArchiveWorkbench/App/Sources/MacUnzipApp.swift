@@ -75,7 +75,7 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
         // processes that are not the extension. It does NOT fully defend against a
         // malicious process running as the same user (which could coexist with a running
         // extension); the complete fix is an authenticated XPC connection, which is the
-        // documented upgrade path. Downstream, LicenseGate + confirmation alerts still
+        // documented upgrade path. Downstream, confirmation alerts still
         // mediate any privileged action.
         let extensionRunning = !NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.smkzw.MacUnzip.finder-extension"
@@ -118,10 +118,6 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleLaunchArguments() {
         let args = ProcessInfo.processInfo.arguments
-        // 深链激活：`MacUnzip -activate-license <key>`（官网/邮件引导与 E2E 共用）。
-        if let i = args.firstIndex(of: "-activate-license"), i + 1 < args.count {
-            _ = LicenseManager.shared.activateLicense(key: args[i + 1])
-        }
         guard let filesIndex = args.firstIndex(of: "-finder-files"),
               filesIndex + 1 < args.count else { return }
         let tempPath = args[filesIndex + 1]
@@ -392,13 +388,9 @@ struct OpenCreateCommands: Commands {
             Button("打开压缩包…") { perform(.openArchive) }
                 .keyboardShortcut("o", modifiers: .command)
 
-            Button(AppLocalization().string("新建压缩包…") + proSuffix) { perform(.createArchive) }
+            Button(AppLocalization().string("新建压缩包…")) { perform(.createArchive) }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
         }
-    }
-
-    private var proSuffix: String {
-        LicenseManager.shared.isProLicensed ? "" : " · Pro"
     }
 
     private func perform(_ command: PendingWindowCommand) {
@@ -453,7 +445,7 @@ struct SaveCommands: View {
 // MARK: - Undo Command
 
 /// Routes the Edit menu undo/redo key equivalents to the focused text editor
-/// when one is active, so ⌘Z/⌘⇧Z edit text (search field, rename alert, license
+/// when one is active, so ⌘Z/⌘⇧Z edit text (search field, rename alert,
 /// or password fields) instead of undoing archive changes. Returns true when
 /// the action was handled by a text editor.
 @MainActor
@@ -513,28 +505,24 @@ struct EditArchiveCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
 
-            Button(AppLocalization().string("移除选中") + proSuffix) {
+            Button(AppLocalization().string("移除选中")) {
                 NotificationCenter.default.post(name: .removeSelectedRequest, object: nil)
             }
             .disabled(model?.canRemoveSelectedEntry != true)
 
-            Button(AppLocalization().string("重命名…") + proSuffix) {
+            Button(AppLocalization().string("重命名…")) {
                 NotificationCenter.default.post(name: .renameSelectedRequest, object: nil)
             }
             .disabled(model?.canRenameSelectedEntry != true)
 
             Divider()
 
-            Button(AppLocalization().string("解压选中…") + proSuffix) {
+            Button(AppLocalization().string("解压选中…")) {
                 NotificationCenter.default.post(name: .extractSelectedRequest, object: nil)
             }
             .keyboardShortcut("e", modifiers: .command)
             .disabled(model?.canExtractSelected != true)
         }
-    }
-
-    private var proSuffix: String {
-        LicenseManager.shared.isProLicensed ? "" : " · Pro"
     }
 }
 

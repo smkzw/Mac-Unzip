@@ -404,28 +404,6 @@
         }
       }
     },
-    "Pro 功能已解锁，请重新点击该功能以继续。": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro features unlocked. Click the feature again to continue."
-          }
-        }
-      }
-    },
-    "Pro 激活": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pro Activation"
-          }
-        }
-      }
-    },
     "RAR 创建失败：%@": {
       "extractionState": "manual",
       "localizations": {
@@ -1459,17 +1437,6 @@
         }
       }
     },
-    "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包（需要 Pro）": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create ZIP, 7z, RAR, TAR.GZ, TAR.XZ, and TAR.ZST archives (requires Pro)"
-          }
-        }
-      }
-    },
     "创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包": {
       "extractionState": "manual",
       "localizations": {
@@ -1488,23 +1455,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create Archive"
-          }
-        }
-      }
-    },
-    "创建压缩包需要 MacUnzip Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Creating archives requires MacUnzip Pro"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建压缩包需要 Mac解霸 Pro"
           }
         }
       }
@@ -1637,23 +1587,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Encryption"
-          }
-        }
-      }
-    },
-    "加密压缩包需要 MacUnzip Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Encrypting archives requires MacUnzip Pro"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "加密压缩包需要 Mac解霸 Pro"
           }
         }
       }
@@ -2931,28 +2864,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open ZIP archives and inspect their files safely."
-          }
-        }
-      }
-    },
-    "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\nPro 已激活 · 全部功能可用": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open ZIP, 7z, RAR, TAR, DMG, and ISO archives and safely browse their files.\nYou can also drag archive files directly onto this window.\n\nPro activated · All features available"
-          }
-        }
-      }
-    },
-    "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。\n\n免费浏览 · 解压缩/创建/编辑需要 Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open ZIP, 7z, RAR, TAR, DMG, and ISO archives and safely browse their files.\nYou can also drag archive files directly onto this window.\n\nFree browsing · Extraction/creation/editing requires Pro"
           }
         }
       }
@@ -4522,61 +4433,6 @@
         }
       }
     },
-    "激活": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activate"
-          }
-        }
-      }
-    },
-    "激活 Pro 版本以使用全部功能": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activate Pro to unlock all features"
-          }
-        }
-      }
-    },
-    "激活失败，许可证无效": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activation failed. The license is invalid."
-          }
-        }
-      }
-    },
-    "激活成功": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activation Successful"
-          }
-        }
-      }
-    },
-    "激活许可证…": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activate License…"
-          }
-        }
-      }
-    },
     "点击此按钮可隐藏当前警告": {
       "extractionState": "manual",
       "localizations": {
@@ -4628,23 +4484,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Status bar: %@"
-          }
-        }
-      }
-    },
-    "用其他应用打开文件需要先将其解压缩，此功能需要 MacUnzip Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opening files in other apps requires extracting them first; this feature requires MacUnzip Pro"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用其他应用打开文件需要先将其解压缩，此功能需要 Mac解霸 Pro"
           }
         }
       }
@@ -4914,23 +4753,6 @@
         }
       }
     },
-    "编辑压缩包（添加、删除、重命名）需要 MacUnzip Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Editing archives (adding, deleting, renaming) requires MacUnzip Pro"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑压缩包（添加、删除、重命名）需要 Mac解霸 Pro"
-          }
-        }
-      }
-    },
     "编辑类快捷键（⌫ 移除、↩ 重命名、⌘Z 撤销、⇧⌘Z 重做）仅对可编辑格式（如 ZIP）有效；7z、RAR、DMG、ISO 及嵌套压缩包为只读。": {
       "extractionState": "manual",
       "localizations": {
@@ -5162,23 +4984,6 @@
         }
       }
     },
-    "解压缩文件需要 MacUnzip Pro": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Extracting files requires MacUnzip Pro"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "解压缩文件需要 Mac解霸 Pro"
-          }
-        }
-      }
-    },
     "解压缩进度": {
       "extractionState": "manual",
       "localizations": {
@@ -5379,17 +5184,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a save location"
-          }
-        }
-      }
-    },
-    "购买 Pro →": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buy Pro →"
           }
         }
       }
@@ -5944,17 +5738,6 @@
         }
       }
     },
-    "验证并激活授权": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verify and activate"
-          }
-        }
-      }
-    },
     "高级": {
       "extractionState": "manual",
       "localizations": {
@@ -6259,6 +6042,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't fetch update info (offline or URL unavailable)"
+          }
+        }
+      }
+    },
+    "打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open ZIP, 7z, RAR, TAR, DMG, ISO archives to browse files safely.\nYou can also drag and drop archive files onto this window."
           }
         }
       }

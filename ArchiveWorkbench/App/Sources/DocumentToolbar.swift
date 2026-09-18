@@ -28,12 +28,6 @@ struct DocumentToolbar: View {
         enabled ? AppLocalization().string(enabledText) : editDisabledHelp
     }
 
-    private func proLabel(_ text: String) -> String {
-        LicenseManager.shared.isProLicensed
-            ? AppLocalization().string(text)
-            : AppLocalization().string(text) + " · Pro"
-    }
-
     private var saveHelp: String {
         if model.isNestedSession {
             return AppLocalization().string("请先返回上级压缩包再保存")
@@ -71,11 +65,11 @@ struct DocumentToolbar: View {
                         Task { await model.saveArchive() }
                     }
                     Spacer()
-                    toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd, pro: true) {
+                    toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd) {
                         onAdd()
                     }
                     Spacer()
-                    toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting, pro: true) {
+                    toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting) {
                         onExtract()
                     }
                     Spacer()
@@ -210,13 +204,13 @@ struct DocumentToolbar: View {
             Button {
                 NotificationCenter.default.post(name: .createArchiveRequest, object: nil)
             } label: {
-                Label(proLabel("新建压缩包"), systemImage: "externaldrive.badge.plus")
+                Label(AppLocalization().string("新建压缩包"), systemImage: "externaldrive.badge.plus")
             }
 
             Divider()
 
             Button { onExtractSelected() } label: {
-                Label(proLabel("解压选中"), systemImage: "arrow.down.doc")
+                Label(AppLocalization().string("解压选中"), systemImage: "arrow.down.doc")
             }
             .disabled(!model.canExtractSelected)
             .help(model.canExtractSelected ? AppLocalization().string("解压选中的文件") : AppLocalization().string("需要先选中文件"))
@@ -224,19 +218,19 @@ struct DocumentToolbar: View {
             Divider()
 
             Button { onRemove() } label: {
-                Label(proLabel("移除"), systemImage: "minus")
+                Label(AppLocalization().string("移除"), systemImage: "minus")
             }
             .disabled(!model.canRemoveSelectedEntry)
             .help(editHelp(enabled: model.canRemoveSelectedEntry, "移除选中文件"))
 
             Button { onRename() } label: {
-                Label(proLabel("重命名…"), systemImage: "pencil")
+                Label(AppLocalization().string("重命名…"), systemImage: "pencil")
             }
             .disabled(!model.canRenameSelectedEntry)
             .help(editHelp(enabled: model.canRenameSelectedEntry, "重命名选中文件"))
 
             Button { onReplace() } label: {
-                Label(proLabel("替换"), systemImage: "arrow.triangle.2.circlepath")
+                Label(AppLocalization().string("替换"), systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(!model.canReplaceSelectedEntry)
             .help(editHelp(enabled: model.canReplaceSelectedEntry, "替换选中文件"))
@@ -284,27 +278,14 @@ struct DocumentToolbar: View {
         .accessibilityIdentifier("操作")
     }
 
-    private func toolbarButton(_ label: String, symbol: String, help: String, enabled: Bool, pro: Bool = false, action: @escaping () -> Void) -> some View {
+    private func toolbarButton(_ label: String, symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Label(AppLocalization().string(label), systemImage: symbol)
-                    .font(.callout.weight(.medium))
-                if pro && !LicenseManager.shared.isProLicensed {
-                    Text("Pro")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(.purple.opacity(0.15))
-                        .foregroundStyle(.purple)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                }
-            }
+            Label(AppLocalization().string(label), systemImage: symbol)
+                .font(.callout.weight(.medium))
         }
         .buttonStyle(.borderless)
         .labelStyle(.titleAndIcon)
-        .accessibilityLabel(pro && !LicenseManager.shared.isProLicensed
-            ? AppLocalization().string(label) + " Pro"
-            : AppLocalization().string(label))
+        .accessibilityLabel(AppLocalization().string(label))
         .accessibilityHint(AppLocalization().string(help))
         .accessibilityIdentifier(label)
         .help(AppLocalization().string(help))

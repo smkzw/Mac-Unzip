@@ -101,7 +101,7 @@ targets:
         OTHER_CODE_SIGN_FLAGS: --options=runtime
         VALID_ARCHS: arm64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.2.0"
+        MARKETING_VERSION: "1.2.1"
         CURRENT_PROJECT_VERSION: "1"
       configs:
         Debug:
@@ -177,9 +177,6 @@ targets:
       - App/Sources/ArchiveErrorBanner.swift
       - App/Sources/ArchiveFileTypes.swift
       - App/Sources/ArchiveSession.swift
-      - App/Sources/EmbeddedLicenseCodes.swift
-      - App/Sources/LicenseGate.swift
-      - App/Sources/LicenseManager.swift
       - App/Sources/PreviewRouting.swift
       - App/Sources/WindowCaptureView.swift
     dependencies:

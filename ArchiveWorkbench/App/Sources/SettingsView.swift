@@ -509,7 +509,6 @@ struct AdvancedSettingsTab: View {
             SettingsKeys.recentArchivesCount,
             SettingsKeys.extractionDestination,
             "appearanceMode",
-            RARBinaryDiscovery.licenseConfirmedDefaultsKey,
             RARBinaryDiscovery.userPathDefaultsKey,
         ]
         for key in keys {

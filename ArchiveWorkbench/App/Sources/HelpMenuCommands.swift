@@ -5,9 +5,6 @@ import SwiftUI
 // MARK: - Help Menu Commands
 
 struct HelpMenuCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
-    @FocusedValue(\.appModel) private var model: AppModel?
-
     var body: some Commands {
         CommandGroup(replacing: .help) {
             Button("MacUnzip 帮助") {
@@ -16,8 +13,6 @@ struct HelpMenuCommands: Commands {
             .keyboardShortcut("?", modifiers: [.command, .shift])
 
             Divider()
-
-            Button("激活许可证…") { showLicenseActivation() }
 
             Button("组件与许可证…") {
                 ComponentsLicensesWindowController.shared.showWindow()
@@ -40,16 +35,6 @@ struct HelpMenuCommands: Commands {
         }
     }
 
-    private func showLicenseActivation() {
-        if model != nil {
-            NotificationCenter.default.post(name: .showLicenseActivationRequest, object: nil)
-        } else {
-            // No window is open: defer to the next window that appears.
-            PendingWindowCommandBox.shared.set(.showLicenseActivation)
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-    }
 }
 
 // MARK: - Help Window
