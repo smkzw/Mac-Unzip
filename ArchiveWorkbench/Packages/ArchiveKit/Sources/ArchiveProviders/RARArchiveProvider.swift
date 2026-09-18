@@ -279,6 +279,7 @@ public struct RARMultipartDetector: Sendable {
 public actor RARArchiveProvider: ArchiveProvider {
     private let binaryPath: String
     private let binarySHA256: String?
+    private let rarLabPath: String?
     private let listingTimeoutSeconds: Int
     private let extractionTimeoutSeconds: Int
     private let listingEntryLimit: Int
@@ -294,15 +295,19 @@ public actor RARArchiveProvider: ArchiveProvider {
 
     /// - Parameter binaryPath: a validated 7zz path. Use makeValidated() to
     ///   discover and validate the system binary first.
+    /// - Parameter rarLabPath: optional RARLAB rar path for fallback extraction
+    ///   when 7zz doesn't support a compression method.
     public init(
         binaryPath: String,
         binarySHA256: String? = nil,
+        rarLabPath: String? = nil,
         listingTimeoutSeconds: Int = 30,
         extractionTimeoutSeconds: Int = 600,
         listingEntryLimit: Int = 1_000_000
     ) {
         self.binaryPath = binaryPath
         self.binarySHA256 = binarySHA256
+        self.rarLabPath = rarLabPath
         self.listingTimeoutSeconds = listingTimeoutSeconds
         self.extractionTimeoutSeconds = extractionTimeoutSeconds
         self.listingEntryLimit = listingEntryLimit
@@ -310,12 +315,18 @@ public actor RARArchiveProvider: ArchiveProvider {
     }
 
     /// Discovers and validates the system 7zz binary, then constructs a provider.
-    /// Throws RARProviderError.binaryNotFound when no binary qualifies.
+    /// Also discovers the RARLAB rar tool for fallback extraction.
+    /// Throws RARProviderError.binaryNotFound when no 7zz binary qualifies.
     public static func makeValidated() throws -> RARArchiveProvider {
         guard let discovery = SevenZipBinaryDiscovery.discover() else {
             throw RARProviderError.binaryNotFound
         }
-        return RARArchiveProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
+        let rarDiscovery = RARBinaryDiscovery.discover()
+        return RARArchiveProvider(
+            binaryPath: discovery.resolvedPath,
+            binarySHA256: discovery.sha256,
+            rarLabPath: rarDiscovery?.resolvedPath
+        )
     }
 
     /// True when the opened archive uses solid compression.
@@ -510,12 +521,63 @@ public actor RARArchiveProvider: ArchiveProvider {
             maximumStdoutBytes: Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
         )
         guard result.exitStatus == 0 else {
-            throw mapError(result: result, forListing: false)
+            let archiveError = mapError(result: result, forListing: false)
+            // Fallback: try RARLAB rar when 7zz doesn't support the compression method
+            if archiveError == .unsupportedMethod, let rarLabPath {
+                return try readEntryWithRARLab(id: id, maximumBytes: maximumBytes, rarLabPath: rarLabPath)
+            }
+            throw archiveError
         }
         guard UInt64(result.stdout.count) == snapshot.uncompressedSize else {
             throw ArchiveError.corruptedArchive
         }
         return result.stdout
+    }
+
+    private func readEntryWithRARLab(
+        id: ArchiveEntryID,
+        maximumBytes: UInt64,
+        rarLabPath: String
+    ) throws -> Data {
+        guard let snapshot = entriesByID[id], let archiveURL else {
+            throw ArchiveError.helperFailed
+        }
+        let targetPath = volumeSet?.firstVolumePath ?? archiveURL.path
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("macunzip-rarlab-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let entryPath = String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self)
+        var arguments = ["x", "-y", "-inul"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                arguments.append("-p" + String(cString: ptr))
+            }
+        }
+        arguments.append(contentsOf: [targetPath, entryPath, tempDir.path + "/"])
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: rarLabPath)
+        process.arguments = arguments
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        process.standardInput = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw ArchiveError.helperFailed
+        }
+
+        let outputURL = tempDir.appending(path: entryPath)
+        let data = try Data(contentsOf: outputURL)
+        guard UInt64(data.count) <= maximumBytes else {
+            throw ArchiveError.resourceLimit
+        }
+        return data
     }
 
     public func materializeEntry(
@@ -620,8 +682,18 @@ public actor RARArchiveProvider: ArchiveProvider {
             timeoutSeconds: extractionTimeoutSeconds,
             maximumStdoutBytes: 1 << 20
         )
-        guard result.exitStatus == 0 else {
-            throw mapError(result: result, forListing: false)
+        if result.exitStatus != 0 {
+            let archiveError = mapError(result: result, forListing: false)
+            // Fallback: try RARLAB rar when 7zz doesn't support the compression method
+            if archiveError == .unsupportedMethod, let rarLabPath {
+                try extractWithRARLab(
+                    rarLabPath: rarLabPath,
+                    targetPath: targetPath,
+                    stagingURL: stagingURL
+                )
+            } else {
+                throw archiveError
+            }
         }
         try Task.checkCancellation()
         let stagingSize = FileManager.default
@@ -682,6 +754,32 @@ public actor RARArchiveProvider: ArchiveProvider {
             completedEntries: completedEntries,
             expandedBytes: writtenBytes
         )
+    }
+
+    private func extractWithRARLab(
+        rarLabPath: String,
+        targetPath: String,
+        stagingURL: URL
+    ) throws {
+        var arguments = ["x", "-y", "-inul"]
+        if let password = currentPassword {
+            password.withCString { ptr in
+                arguments.append("-p" + String(cString: ptr))
+            }
+        }
+        arguments.append(contentsOf: [targetPath, stagingURL.path + "/"])
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: rarLabPath)
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        process.standardInput = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw ArchiveError.helperFailed
+        }
     }
 
     // MARK: Private helpers
