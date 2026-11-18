@@ -16,14 +16,6 @@ private struct EntryDragInfo: Sendable {
     let archiveIdentityPath: String?
 }
 
-/// Wraps the non-Sendable promise completion handler so it can be captured by
-/// a @Sendable task closure and invoked from any thread exactly once.
-private final class PromiseCompletion: @unchecked Sendable {
-    private let handler: (Error?) -> Void
-    init(_ handler: @escaping (Error?) -> Void) { self.handler = handler }
-    func call(_ error: Error?) { handler(error) }
-}
-
 // MARK: - Tree Node
 
 /// A node in the file-system tree displayed by the outline view.
@@ -183,6 +175,17 @@ struct ArchiveListView: NSViewRepresentable {
     var archiveIdentityPath: String? = nil
     var onDragCopyFailed: ((Error) -> Void)? = nil
     var isDragCallbackCurrent: ((_ generation: UInt64, _ archiveIdentityPath: String?) -> Bool)? = nil
+    /// Absorbs a password-gated drag failure and holds the Finder completion until unlock.
+    /// Returns true when the completion ownership was taken (caller must not complete again).
+    var onAbsorbPasswordProtectedDrag: ((
+        _ error: Error,
+        _ entryID: ArchiveEntryID?,
+        _ folderPath: String?,
+        _ exactDestination: URL,
+        _ documentGeneration: UInt64,
+        _ archiveIdentityPath: String?,
+        _ completionHandler: @escaping @Sendable (Error?) -> Void
+    ) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -1155,7 +1158,7 @@ struct ArchiveListView: NSViewRepresentable {
                 completionHandler(NSError(domain: "MacUnzip", code: 1))
                 return
             }
-            let completion = PromiseCompletion(completionHandler)
+            let completion = OnceErrorCompletion(completionHandler)
             let fileName = info.name
             // SDK: writePromiseToURL — Always use the supplied URL.
             // Finder may pass either a directory or a same-name file URL.
@@ -1211,6 +1214,16 @@ struct ArchiveListView: NSViewRepresentable {
                         }
                     } catch {
                         try? FileManager.default.removeItem(at: stagingDir)
+                        let absorbed = self.parent.onAbsorbPasswordProtectedDrag?(
+                            error,
+                            nil,
+                            info.fullPath,
+                            exactDestination,
+                            info.documentGeneration,
+                            info.archiveIdentityPath,
+                            { completion.call($0) }
+                        ) ?? false
+                        if absorbed { return }
                         self.parent.onDragCopyFailed?(error)
                         completion.call(error)
                     }
@@ -1243,7 +1256,21 @@ struct ArchiveListView: NSViewRepresentable {
                             }
                         }
                     case .failure(let error):
-                        completion.call(error)
+                        // Outer Task already holds `self`; keep the same ownership here.
+                        Task { @MainActor in
+                            let absorbed = self.parent.onAbsorbPasswordProtectedDrag?(
+                                error,
+                                entryID,
+                                nil,
+                                exactDestination,
+                                info.documentGeneration,
+                                info.archiveIdentityPath,
+                                { completion.call($0) }
+                            ) ?? false
+                            if absorbed { return }
+                            self.parent.onDragCopyFailed?(error)
+                            completion.call(error)
+                        }
                     }
                 }
             }

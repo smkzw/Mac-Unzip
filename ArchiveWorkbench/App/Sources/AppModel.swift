@@ -689,6 +689,12 @@ final class AppModel {
     /// Password retry state for wrong-password errors.
     var passwordRetryText = ""
     var passwordAttemptCount = 0
+    /// Operation interrupted by passwordRequired/wrongPassword; resumed after unlock.
+    @ObservationIgnored private var pendingPasswordIntent: PendingPasswordIntent?
+    /// Drag-promise password wait is bounded; Finder will not wait forever.
+    @ObservationIgnored private var passwordIntentTimeoutTask: Task<Void, Never>?
+    /// Drag password wait ceiling before failing the promise (Finder reliability limit).
+    static let dragPasswordResumeTimeoutSeconds: TimeInterval = 90
     /// Whether "extract selected" is available (requires a selection).
     var canExtractSelected: Bool {
         hasDocument
@@ -702,6 +708,52 @@ final class AppModel {
     enum SelectedExtractTarget: Equatable, Sendable {
         case entry(ArchiveEntryID)
         case folder(String)
+    }
+
+    /// Remembers the user action that hit a password gate so unlock can resume it.
+    enum PendingPasswordIntent: @unchecked Sendable {
+        case extractAll(destination: URL, archiveIdentityPath: String)
+        case extractSelected(destination: URL, targets: [SelectedExtractTarget], archiveIdentityPath: String)
+        case extractFolder(destination: URL, folderPath: String, archiveIdentityPath: String)
+        case preview(
+            entryID: ArchiveEntryID,
+            pendingPath: String,
+            selectionPathAtInterrupt: String?,
+            archiveIdentityPath: String
+        )
+        case dragEntry(
+            entryID: ArchiveEntryID,
+            exactDestination: URL,
+            archiveIdentityPath: String,
+            documentGeneration: UInt64,
+            completion: OnceErrorCompletion
+        )
+        case dragFolder(
+            folderPath: String,
+            exactDestination: URL,
+            archiveIdentityPath: String,
+            documentGeneration: UInt64,
+            completion: OnceErrorCompletion
+        )
+
+        var archiveIdentityPath: String {
+            switch self {
+            case .extractAll(_, let path),
+                 .extractSelected(_, _, let path),
+                 .extractFolder(_, _, let path),
+                 .preview(_, _, _, let path),
+                 .dragEntry(_, _, let path, _, _),
+                 .dragFolder(_, _, let path, _, _):
+                return path
+            }
+        }
+
+        var isDrag: Bool {
+            switch self {
+            case .dragEntry, .dragFolder: return true
+            default: return false
+            }
+        }
     }
 
     var selectedExtractTargets: [SelectedExtractTarget] {
@@ -845,6 +897,14 @@ final class AppModel {
         isLoading = true
         presentedError = nil
         defer { isLoading = false }
+        let openingIdentity = url.resolvingSymlinksInPath().path
+        if let pending = pendingPasswordIntent, pending.archiveIdentityPath != openingIdentity {
+            failAndClearPendingPasswordIntent(
+                dragError: Self.passwordIntentCancelledError(
+                    localization.string("压缩包已切换，已取消待继续的操作。")
+                )
+            )
+        }
         if let creationTask {
             creationTask.cancel()
             await creationTask.value
@@ -907,14 +967,28 @@ final class AppModel {
         } catch is CancellationError {
             return
         } catch {
+            let archiveError = error as? ArchiveError
+            let isPasswordGate = archiveError == .passwordRequired || archiveError == .wrongPassword
             clearDocument()
-            if let archiveError = error as? ArchiveError,
-               archiveError == .passwordRequired || archiveError == .wrongPassword {
+            if isPasswordGate {
                 currentSourceURL = url
+                // Wrong password on the same archive must keep the pending intent.
+                if let pending = pendingPasswordIntent, pending.archiveIdentityPath != openingIdentity {
+                    failAndClearPendingPasswordIntent(
+                        dragError: Self.passwordIntentCancelledError(
+                            localization.string("压缩包已切换，已取消待继续的操作。")
+                        )
+                    )
+                }
                 passwordAttemptCount = 0
                 let suppliedPassword = !(password?.isEmpty ?? true)
                 presentError(suppliedPassword ? .wrongPassword : .passwordRequired)
             } else {
+                failAndClearPendingPasswordIntent(
+                    dragError: Self.passwordIntentCancelledError(
+                        localization.string("无法继续先前的操作。")
+                    )
+                )
                 presentedError = userMessage(for: error)
             }
         }
@@ -1017,8 +1091,11 @@ final class AppModel {
                 completion(.success((file: materializedURL, stagingRoot: stagingDir)))
             } catch {
                 try? FileManager.default.removeItem(at: stagingDir)
-                let presentation = self.errorPresentation(for: error)
-                self.presentError(presentation)
+                // Password gates are absorbed by the file-promise path so the
+                // Finder completion can be held until unlock (or timeout/cancel).
+                if !Self.isPasswordError(error) {
+                    self.presentError(self.errorPresentation(for: error))
+                }
                 completion(.failure(error))
             }
         }
@@ -1433,6 +1510,7 @@ final class AppModel {
         if encryptedEntryIDs.contains(selectedEntryID), currentArchivePassword == nil {
             previewErrorMessage = localization.string("这个文件需要压缩包密码才能预览。")
             isPreviewLoading = false
+            rememberPasswordIntentForPreview(entryID: selectedEntryID)
             return
         }
         isPreviewLoading = true
@@ -1455,6 +1533,9 @@ final class AppModel {
         } catch {
             guard previewRequestID == requestID, self.selectedEntryID == selectedEntryID else { return }
             previewErrorMessage = previewMessage(for: error)
+            if Self.isPasswordError(error) {
+                rememberPasswordIntentForPreview(entryID: selectedEntryID)
+            }
         }
     }
 
@@ -1505,6 +1586,16 @@ final class AppModel {
             operationMessage = localization.string("当前没有进行中的操作")
         } catch {
             let presentation = errorPresentation(for: error)
+            if Self.isPasswordPresentation(presentation) {
+                rememberPasswordIntent(
+                    .extractAll(
+                        destination: destinationDirectoryURL,
+                        archiveIdentityPath: openArchiveIdentityPath
+                            ?? currentSourceURL?.resolvingSymlinksInPath().path
+                            ?? ""
+                    )
+                )
+            }
             presentError(presentation)
             operationMessage = localization.string("解压缩失败")
         }
@@ -1543,8 +1634,17 @@ final class AppModel {
         }
     }
 
-    /// Dismisses the active error banner.
+    /// Dismisses the active error banner and cancels any pending password resume.
     func dismissError() {
+        clearErrorPresentation()
+        failAndClearPendingPasswordIntent(
+            dragError: Self.passwordIntentCancelledError(
+                localization.string("已取消密码确认，未继续先前的操作。")
+            )
+        )
+    }
+
+    private func clearErrorPresentation() {
         errorAutoDismissTask?.cancel()
         activeErrorPresentation = nil
     }
@@ -1563,24 +1663,131 @@ final class AppModel {
         }
     }
 
-    /// Retries opening the archive with a new password after wrong-password error.
+    /// Retries opening the archive with a new password, then resumes any pending intent.
     func retryWithPassword(_ password: String) {
+        Task { await retryWithPasswordAndResume(password) }
+    }
+
+    /// Testable / awaitable unlock + pending-intent resume path.
+    @discardableResult
+    func retryWithPasswordAndResume(_ password: String) async -> Bool {
         passwordAttemptCount += 1
         let attempt = passwordAttemptCount
         guard attempt <= 3 else {
-            return
+            return false
         }
-        guard let sourceURL = currentSourceURL else { return }
-        dismissError()
-        Task {
-            await openArchive(url: sourceURL, password: password)
-            // openArchive resets passwordAttemptCount via resetExtractionState().
-            // On a successful open that is correct (fresh start); on a failed
-            // password attempt restore the count so the 3-attempt lockout works.
-            if !hasDocument {
-                passwordAttemptCount = attempt
+        guard let sourceURL = currentSourceURL else { return false }
+        // Keep pending intent across the reopen; only the banner is cleared here.
+        clearErrorPresentation()
+        let selectionPathBeforeUnlock = selectedEntryID.flatMap { id in
+            entries.first(where: { $0.id == id })?.displayPath
+        }
+
+        // Already-listed encrypted archives: soft-unlock the loader in place so
+        // documentGeneration and selection paths survive; provider entry IDs are
+        // remapped by display path because openWithPassword rebuilds them.
+        if hasDocument {
+            do {
+                let snapshot = try await loader.openWithPassword(url: sourceURL, password: password)
+                // ZipCrypto may accept an openWithPassword call with a wrong password;
+                // prove the password by materializing one encrypted entry before resume.
+                try await verifyPasswordUnlock(snapshot: snapshot)
+                currentArchivePassword = SecurePassword(password)
+                adoptPasswordUnlockedSnapshot(snapshot)
+                passwordAttemptCount = 0
+                await resumePendingPasswordIntentIfNeeded(
+                    selectionPathBeforeUnlock: selectionPathBeforeUnlock
+                )
+                return true
+            } catch {
+                if Self.isPasswordError(error) {
+                    // Live provider was not committed (transactional soft unlock).
+                    passwordAttemptCount = attempt
+                    presentError(.wrongPassword)
+                } else if let archiveError = error as? ArchiveError,
+                          archiveError == .corruptedArchive,
+                          pendingPasswordIntent != nil {
+                    // Defensive: encrypted CRC miss mapped oddly — keep pending.
+                    passwordAttemptCount = attempt
+                    presentError(.wrongPassword)
+                } else {
+                    presentError(errorPresentation(for: error))
+                    failAndClearPendingPasswordIntent(
+                        dragError: Self.passwordIntentCancelledError(
+                            localization.string("无法继续先前的操作。")
+                        )
+                    )
+                }
+                return false
             }
         }
+
+        await openArchive(url: sourceURL, password: password)
+        // openArchive resets passwordAttemptCount via resetExtractionState().
+        // On a successful open that is correct (fresh start); on a failed
+        // password attempt restore the count so the 3-attempt lockout works.
+        if !hasDocument {
+            passwordAttemptCount = attempt
+            return false
+        }
+        await resumePendingPasswordIntentIfNeeded(
+            selectionPathBeforeUnlock: selectionPathBeforeUnlock
+        )
+        return true
+    }
+
+    /// Holds a Finder file-promise completion until password unlock (or cancel/timeout).
+    /// Returns true when the promise completion ownership was absorbed.
+    @discardableResult
+    func absorbPasswordProtectedDragIfNeeded(
+        error: Error,
+        entryID: ArchiveEntryID?,
+        folderPath: String?,
+        exactDestination: URL,
+        documentGeneration: UInt64,
+        archiveIdentityPath: String?,
+        completionHandler: @escaping @Sendable (Error?) -> Void
+    ) -> Bool {
+        guard Self.isPasswordError(error) else { return false }
+        guard isDragCallbackCurrent(generation: documentGeneration, archiveIdentityPath: archiveIdentityPath) else {
+            return false
+        }
+        let identity = archiveIdentityPath
+            ?? openArchiveIdentityPath
+            ?? currentSourceURL?.resolvingSymlinksInPath().path
+        guard let identity, !identity.isEmpty else { return false }
+
+        // Replace any prior pending intent; its drag completion must fire once.
+        failAndClearPendingPasswordIntent(
+            dragError: Self.passwordIntentCancelledError(
+                localization.string("已有新的待确认操作。")
+            )
+        )
+
+        let once = OnceErrorCompletion(completionHandler)
+        if let entryID {
+            pendingPasswordIntent = .dragEntry(
+                entryID: entryID,
+                exactDestination: exactDestination,
+                archiveIdentityPath: identity,
+                documentGeneration: documentGeneration,
+                completion: once
+            )
+        } else if let folderPath {
+            pendingPasswordIntent = .dragFolder(
+                folderPath: folderPath,
+                exactDestination: exactDestination,
+                archiveIdentityPath: identity,
+                documentGeneration: documentGeneration,
+                completion: once
+            )
+        } else {
+            return false
+        }
+        passwordAttemptCount = 0
+        presentError(errorPresentation(for: error))
+        startDragPasswordTimeout()
+        return true
     }
 
     // MARK: - Extract Selected
@@ -1588,8 +1795,16 @@ final class AppModel {
     /// Extracts the current selection (single or multi, files and folders at
     /// mixed hierarchy levels) to a destination directory.
     func extractSelected(to destinationDirectoryURL: URL) async {
+        await extractTargets(selectedExtractTargets, to: destinationDirectoryURL)
+    }
+
+    /// Extracts an explicit target list (used after password unlock so apply()'s
+    /// selection reset cannot drop the user's original extract request).
+    private func extractTargets(
+        _ targets: [SelectedExtractTarget],
+        to destinationDirectoryURL: URL
+    ) async {
         guard hasDocument, !isExtracting else { return }
-        let targets = selectedExtractTargets
         guard !targets.isEmpty else { return }
         isExtracting = true
         extractionProgress = 0
@@ -1638,6 +1853,17 @@ final class AppModel {
             operationMessage = localization.string("当前没有进行中的操作")
         } catch {
             let presentation = errorPresentation(for: error)
+            if Self.isPasswordPresentation(presentation) {
+                rememberPasswordIntent(
+                    .extractSelected(
+                        destination: destinationDirectoryURL,
+                        targets: targets,
+                        archiveIdentityPath: openArchiveIdentityPath
+                            ?? currentSourceURL?.resolvingSymlinksInPath().path
+                            ?? ""
+                    )
+                )
+            }
             presentError(presentation)
             operationMessage = localization.string("解压缩失败")
         }
@@ -1810,6 +2036,17 @@ final class AppModel {
             operationMessage = localization.string("当前没有进行中的操作")
         } catch {
             let presentation = errorPresentation(for: error)
+            if Self.isPasswordPresentation(presentation) {
+                rememberPasswordIntent(
+                    .extractFolder(
+                        destination: destinationDirectoryURL,
+                        folderPath: folderPath,
+                        archiveIdentityPath: openArchiveIdentityPath
+                            ?? currentSourceURL?.resolvingSymlinksInPath().path
+                            ?? ""
+                    )
+                )
+            }
             presentError(presentation)
             operationMessage = localization.string("解压缩失败")
         }
@@ -3087,6 +3324,349 @@ final class AppModel {
         passwordAttemptCount = 0
         errorAutoDismissTask?.cancel()
         operationMessage = localization.string("当前没有进行中的操作")
+    }
+
+    // MARK: - Pending password intent
+
+    private static func isPasswordError(_ error: Error) -> Bool {
+        guard let archiveError = error as? ArchiveError else { return false }
+        return archiveError == .passwordRequired || archiveError == .wrongPassword
+    }
+
+    private static func isPasswordPresentation(_ presentation: ArchiveErrorPresentation) -> Bool {
+        presentation == .passwordRequired || presentation == .wrongPassword
+    }
+
+    private static func passwordIntentCancelledError(_ message: String) -> NSError {
+        NSError(domain: "MacUnzip", code: 5, userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    private func rememberPasswordIntent(_ intent: PendingPasswordIntent) {
+        guard !intent.archiveIdentityPath.isEmpty else { return }
+        // Extract/preview replace any prior non-drag intent; drag completions must be finished first.
+        if let existing = pendingPasswordIntent, existing.isDrag, !intent.isDrag {
+            failAndClearPendingPasswordIntent(
+                dragError: Self.passwordIntentCancelledError(
+                    localization.string("已有新的待确认操作。")
+                )
+            )
+        } else if let existing = pendingPasswordIntent, existing.isDrag, intent.isDrag {
+            failAndClearPendingPasswordIntent(
+                dragError: Self.passwordIntentCancelledError(
+                    localization.string("已有新的待确认操作。")
+                )
+            )
+        }
+        pendingPasswordIntent = intent
+        passwordAttemptCount = 0
+        if intent.isDrag {
+            startDragPasswordTimeout()
+        } else {
+            passwordIntentTimeoutTask?.cancel()
+            passwordIntentTimeoutTask = nil
+        }
+    }
+
+    private func rememberPasswordIntentForPreview(entryID: ArchiveEntryID) {
+        let identity = openArchiveIdentityPath
+            ?? currentSourceURL?.resolvingSymlinksInPath().path
+            ?? ""
+        guard !identity.isEmpty else { return }
+        let pendingPath = entries.first(where: { $0.id == entryID })?.displayPath ?? ""
+        guard !pendingPath.isEmpty else { return }
+        let selectionPath = selectedEntryID.flatMap { id in
+            entries.first(where: { $0.id == id })?.displayPath
+        }
+        rememberPasswordIntent(
+            .preview(
+                entryID: entryID,
+                pendingPath: pendingPath,
+                selectionPathAtInterrupt: selectionPath,
+                archiveIdentityPath: identity
+            )
+        )
+        presentError(.passwordRequired)
+    }
+
+    private func startDragPasswordTimeout() {
+        passwordIntentTimeoutTask?.cancel()
+        passwordIntentTimeoutTask = Task { [weak self] in
+            let ns = UInt64(Self.dragPasswordResumeTimeoutSeconds * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: ns)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                guard let pending = self.pendingPasswordIntent, pending.isDrag else { return }
+                self.presentError(.generic(self.localization.string(
+                    "等待密码超时，拖出未完成。请解锁后重新拖出。"
+                )))
+                self.failAndClearPendingPasswordIntent(
+                    dragError: Self.passwordIntentCancelledError(
+                        self.localization.string("等待密码超时，拖出未完成。")
+                    )
+                )
+            }
+        }
+    }
+
+    private func failAndClearPendingPasswordIntent(dragError: Error?) {
+        passwordIntentTimeoutTask?.cancel()
+        passwordIntentTimeoutTask = nil
+        guard let pending = pendingPasswordIntent else { return }
+        pendingPasswordIntent = nil
+        switch pending {
+        case .dragEntry(_, _, _, _, let completion), .dragFolder(_, _, _, _, let completion):
+            completion.call(dragError ?? Self.passwordIntentCancelledError(
+                localization.string("已取消待继续的拖出。")
+            ))
+        default:
+            break
+        }
+    }
+
+    private func verifyPasswordUnlock(snapshot: ArchiveDocumentSnapshot) async throws {
+        guard let probe = snapshot.entries.first(where: { $0.isEncrypted && !$0.isDirectory }) else {
+            return
+        }
+        let stagingDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MacUnzip_pwdprobe_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: stagingDir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        defer { try? FileManager.default.removeItem(at: stagingDir) }
+        _ = try await loader.materializeEntryForExtraction(
+            entryID: probe.entry.id,
+            under: stagingDir
+        )
+    }
+
+    /// After soft `openWithPassword`, rebuild entry identity tables by path without
+    /// bumping `documentGeneration` or wiping UI chrome. Also remaps any pending
+    /// intent that still holds pre-unlock entry IDs.
+    private func adoptPasswordUnlockedSnapshot(_ snapshot: ArchiveDocumentSnapshot) {
+        // Prefer ordinal/index remapping so duplicate displayPath entries stay stable.
+        let oldEntries = entries
+        let newEntries = snapshot.entries.map(\.entry)
+        func remapID(_ oldID: ArchiveEntryID) -> ArchiveEntryID? {
+            guard let oldIndex = oldEntries.firstIndex(where: { $0.id == oldID }) else { return nil }
+            if oldIndex < newEntries.count,
+               oldEntries[oldIndex].displayPath == newEntries[oldIndex].displayPath {
+                return newEntries[oldIndex].id
+            }
+            let path = oldEntries[oldIndex].displayPath
+            let occurrence = oldEntries.prefix(through: oldIndex).filter { $0.displayPath == path }.count - 1
+            let matches = newEntries.filter { $0.displayPath == path }
+            guard occurrence >= 0, occurrence < matches.count else { return nil }
+            return matches[occurrence].id
+        }
+
+        if let pending = pendingPasswordIntent {
+            switch pending {
+            case .extractSelected(let destination, let targets, let identity):
+                let remapped = targets.compactMap { target -> SelectedExtractTarget? in
+                    switch target {
+                    case .entry(let oldID):
+                        guard let newID = remapID(oldID) else { return nil }
+                        return .entry(newID)
+                    case .folder(let folderPath):
+                        return .folder(folderPath)
+                    }
+                }
+                pendingPasswordIntent = .extractSelected(
+                    destination: destination,
+                    targets: remapped,
+                    archiveIdentityPath: identity
+                )
+            case .preview(let oldID, let pendingPath, let selectionAtInterrupt, let identity):
+                let newID = remapID(oldID) ?? newEntries.first(where: { $0.displayPath == pendingPath })?.id
+                if let newID {
+                    pendingPasswordIntent = .preview(
+                        entryID: newID,
+                        pendingPath: pendingPath,
+                        selectionPathAtInterrupt: selectionAtInterrupt,
+                        archiveIdentityPath: identity
+                    )
+                }
+            case .dragEntry(let oldID, let destination, let identity, let generation, let completion):
+                if let newID = remapID(oldID) {
+                    pendingPasswordIntent = .dragEntry(
+                        entryID: newID,
+                        exactDestination: destination,
+                        archiveIdentityPath: identity,
+                        documentGeneration: generation,
+                        completion: completion
+                    )
+                }
+            default:
+                break
+            }
+        }
+
+        let selectedOldID = selectedEntryID
+        let selectedOldIDs = selectedEntryIDs
+        let folderPath = selectedFolderPath
+        let folderPaths = selectedFolderPaths
+
+        entries = newEntries
+        nonExtractableEntryIDs = Set(
+            snapshot.entries
+                .filter { !$0.isDirectory && !$0.isExtractable }
+                .map(\.entry.id)
+        )
+        var metadata: [ArchiveEntryID: ArchiveEntryMetadata] = [:]
+        metadata.reserveCapacity(snapshot.entries.count)
+        for item in snapshot.entries {
+            let path = item.entry.displayPath
+            let type = typeDescription(path: path, isDirectory: item.isDirectory)
+            let size = ByteCountFormatter.string(
+                fromByteCount: Int64(clamping: item.uncompressedSize),
+                countStyle: .file
+            )
+            let compressedSize = ByteCountFormatter.string(
+                fromByteCount: Int64(clamping: item.compressedSize),
+                countStyle: .file
+            )
+            let modifiedDate = item.modifiedAt.map { date -> String in
+                guard date.timeIntervalSince1970 >= 315_532_800 else { return "—" }
+                return Self.dateFormatter.string(from: date)
+            } ?? "—"
+            metadata[item.entry.id] = ArchiveEntryMetadata(
+                type: type,
+                size: size,
+                compressedSize: compressedSize,
+                modifiedDate: modifiedDate,
+                path: path,
+                sizeBytes: Int64(clamping: item.uncompressedSize),
+                modifiedTimestamp: item.modifiedAt?.timeIntervalSinceReferenceDate ?? 0
+            )
+        }
+        metadataByEntryID = metadata
+        encryptedEntryIDs = []
+        selectedEntryID = selectedOldID.flatMap(remapID)
+        selectedEntryIDs = Set(selectedOldIDs.compactMap(remapID))
+        selectedFolderPath = folderPath
+        selectedFolderPaths = folderPaths
+        computeNestedArchiveEntryIDs()
+    }
+
+    private func resumePendingPasswordIntentIfNeeded(
+        selectionPathBeforeUnlock: String? = nil
+    ) async {
+        guard let intent = pendingPasswordIntent else { return }
+        guard let identity = openArchiveIdentityPath, identity == intent.archiveIdentityPath else {
+            failAndClearPendingPasswordIntent(
+                dragError: Self.passwordIntentCancelledError(
+                    localization.string("压缩包已切换，已取消待继续的操作。")
+                )
+            )
+            return
+        }
+        // Consume before resume so a nested password failure can record a new intent.
+        pendingPasswordIntent = nil
+        passwordIntentTimeoutTask?.cancel()
+        passwordIntentTimeoutTask = nil
+
+        switch intent {
+        case .extractAll(let destination, _):
+            await extractAll(to: destination)
+        case .extractSelected(let destination, let targets, _):
+            await extractTargets(targets, to: destination)
+        case .extractFolder(let destination, let folderPath, _):
+            await extractFolder(folderPath, to: destination)
+        case .preview(let entryID, let pendingPath, let selectionPathAtInterrupt, _):
+            // Resume only when the interrupted preview target, the selection at
+            // password submit, and the current selection all still agree.
+            // No selection at submit, or a different selection while waiting,
+            // must not restore the old preview.
+            let currentPath = selectedEntryID.flatMap { id in
+                entries.first(where: { $0.id == id })?.displayPath
+            }
+            guard let selectionPathBeforeUnlock else { return }
+            guard selectionPathBeforeUnlock == pendingPath else { return }
+            if let selectionPathAtInterrupt, selectionPathAtInterrupt != pendingPath {
+                return
+            }
+            if let currentPath, currentPath != pendingPath {
+                return
+            }
+            guard entries.contains(where: { $0.id == entryID }) else { return }
+            selectedEntryID = entryID
+            await loadSelectedPreview()
+        case .dragEntry(let entryID, let exactDestination, _, _, let completion):
+            await resumeDragEntry(
+                entryID: entryID,
+                exactDestination: exactDestination,
+                completion: completion
+            )
+        case .dragFolder(let folderPath, let exactDestination, _, _, let completion):
+            await resumeDragFolder(
+                folderPath: folderPath,
+                exactDestination: exactDestination,
+                completion: completion
+            )
+        }
+    }
+
+    private func resumeDragEntry(
+        entryID: ArchiveEntryID,
+        exactDestination: URL,
+        completion: OnceErrorCompletion
+    ) async {
+        let stagingDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MacUnzip_drag_\(UUID().uuidString)", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: stagingDir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            let materializedURL = try await loader.materializeEntryForExtraction(
+                entryID: entryID,
+                under: stagingDir
+            )
+            _ = try FilePromisePublishing.exclusivelyPublishItem(
+                at: materializedURL,
+                toExactDestination: exactDestination
+            )
+            try? FileManager.default.removeItem(at: stagingDir)
+            completion.call(nil)
+        } catch {
+            try? FileManager.default.removeItem(at: stagingDir)
+            presentError(errorPresentation(for: error))
+            completion.call(error)
+        }
+    }
+
+    private func resumeDragFolder(
+        folderPath: String,
+        exactDestination: URL,
+        completion: OnceErrorCompletion
+    ) async {
+        let stagingDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MacUnzip_drag_\(UUID().uuidString)", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: stagingDir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            let folderURL = try await materializeFolderForDrag(
+                folderPath: folderPath,
+                stagingDir: stagingDir
+            )
+            _ = try FilePromisePublishing.exclusivelyPublishItem(
+                at: folderURL,
+                toExactDestination: exactDestination
+            )
+            try? FileManager.default.removeItem(at: stagingDir)
+            completion.call(nil)
+        } catch {
+            try? FileManager.default.removeItem(at: stagingDir)
+            presentError(errorPresentation(for: error))
+            completion.call(error)
+        }
     }
 
     func resetCreationState() {

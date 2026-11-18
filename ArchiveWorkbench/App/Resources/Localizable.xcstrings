@@ -5700,6 +5700,94 @@
         }
       }
     },
+    "验证密码并继续": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify password and continue"
+          }
+        }
+      }
+    },
+    "压缩包已切换，已取消待继续的操作。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The archive changed, so the pending action was cancelled."
+          }
+        }
+      }
+    },
+    "已取消密码确认，未继续先前的操作。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password confirmation was cancelled; the previous action was not continued."
+          }
+        }
+      }
+    },
+    "等待密码超时，拖出未完成。请解锁后重新拖出。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timed out waiting for a password; the drag did not finish. Unlock and drag again."
+          }
+        }
+      }
+    },
+    "等待密码超时，拖出未完成。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timed out waiting for a password; the drag did not finish."
+          }
+        }
+      }
+    },
+    "已有新的待确认操作。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A newer pending action replaced this one."
+          }
+        }
+      }
+    },
+    "无法继续先前的操作。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The previous action could not be continued."
+          }
+        }
+      }
+    },
+    "已取消待继续的拖出。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pending drag was cancelled."
+          }
+        }
+      }
+    },
     "高级": {
       "extractionState": "manual",
       "localizations": {

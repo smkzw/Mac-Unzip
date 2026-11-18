@@ -197,8 +197,9 @@ final class EncryptionBridgeTests: XCTestCase {
             }
         }
         XCTAssertEqual(writerStatus, AWB_MZ_OK)
+        let mtime = Int64(Date(timeIntervalSince1970: 1_700_000_000).timeIntervalSince1970)
         XCTAssertEqual("legacy.txt".withCString {
-            awb_mz_writer_open_entry(writer, $0, UInt64(content.count), 0)
+            awb_mz_writer_open_entry(writer, $0, UInt64(content.count), mtime)
         }, AWB_MZ_OK)
         XCTAssertEqual(content.withUnsafeBytes {
             awb_mz_writer_write_entry(writer, $0.bindMemory(to: UInt8.self).baseAddress, Int32($0.count))

@@ -77,6 +77,22 @@ extension ArchiveDocumentLoading {
         throw ArchiveError.helperFailed
     }
 
+    func createSevenZip(
+        at outputURL: URL,
+        inputs: [ArchiveCreationInput],
+        password: String?
+    ) async throws -> ArchiveDocumentSnapshot {
+        throw ArchiveError.helperFailed
+    }
+
+    func createRAR(
+        at outputURL: URL,
+        inputs: [ArchiveCreationInput],
+        password: String?
+    ) async throws -> ArchiveDocumentSnapshot {
+        throw ArchiveError.helperFailed
+    }
+
     func stageChange(_ change: PendingChange) async throws {
         throw ArchiveError.helperFailed
     }
@@ -173,7 +189,42 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
     }
 
     func openWithPassword(url: URL, password: String) async throws -> ArchiveDocumentSnapshot {
-        try await open(url: url, password: password)
+        // Soft-unlock path: prove the password on a temporary provider before
+        // replacing the live ZIP reader/entry IDs. Wrong passwords must leave
+        // the already-listed document operable for another attempt.
+        if currentFormat == .zip,
+           let current = currentArchiveURL,
+           current.resolvingSymlinksInPath().path == url.resolvingSymlinksInPath().path {
+            return try await softUnlockZIPPreservingLiveProvider(url: url, password: password)
+        }
+        return try await open(url: url, password: password)
+    }
+
+    /// Opens `url` with `password` on a side provider, materializes one encrypted
+    /// entry to force ZipCrypto CRC verification, then commits by reopening the
+    /// live provider only after the probe succeeds.
+    private func softUnlockZIPPreservingLiveProvider(
+        url: URL,
+        password: String
+    ) async throws -> ArchiveDocumentSnapshot {
+        let probe = ZIPArchiveProvider()
+        let probed = try await probe.openWithPassword(
+            url: url,
+            password: SecurePassword(password)
+        )
+        if let probeEntry = probed.entries.first(where: { $0.isEncrypted && !$0.isDirectory }) {
+            let stagingDir = FileManager.default.temporaryDirectory
+                .appendingPathComponent("MacUnzip_pwdprobe_\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: stagingDir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            defer { try? FileManager.default.removeItem(at: stagingDir) }
+            _ = try await probe.materializeEntry(id: probeEntry.entry.id, under: stagingDir)
+        }
+        // Password proven — replace live provider state.
+        return try await open(url: url, password: password)
     }
 
     private func open(url: URL, password: String?) async throws -> ArchiveDocumentSnapshot {

@@ -410,6 +410,7 @@ struct ZIPBridgeEntry {
 
 final class ZIPBridgeReader {
     private var handle: OpaquePointer?
+    private let passwordProtected: Bool
 
     init(url: URL) throws {
         var opened: OpaquePointer?
@@ -418,9 +419,10 @@ final class ZIPBridgeReader {
             return awb_mz_reader_open(path, &opened)
         }
         guard status == AWB_MZ_OK, let opened else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: false)
         }
         handle = opened
+        passwordProtected = false
     }
 
     init(url: URL, password: SecurePassword) throws {
@@ -432,9 +434,10 @@ final class ZIPBridgeReader {
             }
         }
         guard status == AWB_MZ_OK, let opened else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: true)
         }
         handle = opened
+        passwordProtected = true
     }
 
     deinit {
@@ -455,7 +458,7 @@ final class ZIPBridgeReader {
             status = awb_mz_reader_next(handle, &info)
         }
         guard status == AWB_MZ_END else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
         return result
     }
@@ -465,11 +468,11 @@ final class ZIPBridgeReader {
         var info = awb_mz_entry_info()
         var status = awb_mz_reader_goto(handle, ordinal, &info)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
         status = awb_mz_reader_open_current(handle)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
 
         var data = Data()
@@ -489,7 +492,7 @@ final class ZIPBridgeReader {
             }
             if count == 0 { break }
             if count < 0 {
-                readError = ZIPProviderErrorMapper.archiveError(for: count)
+                readError = ZIPProviderErrorMapper.archiveError(for: count, passwordProtected: passwordProtected)
                 break
             }
             let nextSize = UInt64(data.count) + UInt64(count)
@@ -503,7 +506,7 @@ final class ZIPBridgeReader {
         let closeStatus = awb_mz_reader_close_current(handle)
         if let readError { throw readError }
         guard closeStatus == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: closeStatus)
+            throw ZIPProviderErrorMapper.archiveError(for: closeStatus, passwordProtected: passwordProtected)
         }
         guard UInt64(data.count) == expectedSize else {
             throw ArchiveError.corruptedArchive
@@ -524,11 +527,11 @@ final class ZIPBridgeReader {
         var info = awb_mz_entry_info()
         var status = awb_mz_reader_goto(handle, ordinal, &info)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
         status = awb_mz_reader_open_current(handle)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
 
         var buffer = [UInt8](repeating: 0, count: 64 * 1024)
@@ -546,7 +549,7 @@ final class ZIPBridgeReader {
             }
             if count == 0 { break }
             if count < 0 {
-                readError = ZIPProviderErrorMapper.archiveError(for: count)
+                readError = ZIPProviderErrorMapper.archiveError(for: count, passwordProtected: passwordProtected)
                 break
             }
             let (nextWritten, overflow) = written.addingReportingOverflow(UInt64(count))
@@ -566,7 +569,7 @@ final class ZIPBridgeReader {
         let closeStatus = awb_mz_reader_close_current(handle)
         if let readError { throw readError }
         guard closeStatus == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: closeStatus)
+            throw ZIPProviderErrorMapper.archiveError(for: closeStatus, passwordProtected: passwordProtected)
         }
         guard written == expectedSize else {
             throw ArchiveError.corruptedArchive
@@ -578,11 +581,11 @@ final class ZIPBridgeReader {
         var info = awb_mz_entry_info()
         var status = awb_mz_reader_goto(handle, ordinal, &info)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
         status = awb_mz_reader_open_current(handle)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
 
         var hasher = SHA256()
@@ -601,7 +604,7 @@ final class ZIPBridgeReader {
             }
             if count == 0 { break }
             if count < 0 {
-                readError = ZIPProviderErrorMapper.archiveError(for: count)
+                readError = ZIPProviderErrorMapper.archiveError(for: count, passwordProtected: passwordProtected)
                 break
             }
             let (nextTotal, overflow) = totalRead.addingReportingOverflow(UInt64(count))
@@ -616,7 +619,7 @@ final class ZIPBridgeReader {
         let closeStatus = awb_mz_reader_close_current(handle)
         if let readError { throw readError }
         guard closeStatus == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: closeStatus)
+            throw ZIPProviderErrorMapper.archiveError(for: closeStatus, passwordProtected: passwordProtected)
         }
         guard totalRead == expectedSize else { throw ArchiveError.corruptedArchive }
         return Data(hasher.finalize())
@@ -633,11 +636,11 @@ final class ZIPBridgeReader {
         var info = awb_mz_entry_info()
         var status = awb_mz_reader_goto(handle, ordinal, &info)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
         status = awb_mz_reader_open_current(handle)
         guard status == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: status)
+            throw ZIPProviderErrorMapper.archiveError(for: status, passwordProtected: passwordProtected)
         }
 
         var buffer = [UInt8](repeating: 0, count: 64 * 1024)
@@ -655,7 +658,7 @@ final class ZIPBridgeReader {
             }
             if count == 0 { break }
             if count < 0 {
-                readError = ZIPProviderErrorMapper.archiveError(for: count)
+                readError = ZIPProviderErrorMapper.archiveError(for: count, passwordProtected: passwordProtected)
                 break
             }
             let (nextWritten, overflow) = written.addingReportingOverflow(UInt64(count))
@@ -676,7 +679,7 @@ final class ZIPBridgeReader {
         let closeStatus = awb_mz_reader_close_current(handle)
         if let readError { throw readError }
         guard closeStatus == AWB_MZ_OK else {
-            throw ZIPProviderErrorMapper.archiveError(for: closeStatus)
+            throw ZIPProviderErrorMapper.archiveError(for: closeStatus, passwordProtected: passwordProtected)
         }
         guard written == expectedSize else {
             throw ArchiveError.corruptedArchive

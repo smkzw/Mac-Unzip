@@ -1,6 +1,32 @@
 import Darwin
 import Foundation
 
+/// Invokes an NSFilePromise / drag completion handler at most once.
+/// Pending-password drag holds this until unlock, cancel, timeout, or failure.
+final class OnceErrorCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var handler: ((Error?) -> Void)?
+
+    init(_ handler: @escaping (Error?) -> Void) {
+        self.handler = handler
+    }
+
+    var isPending: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return handler != nil
+    }
+
+    func call(_ error: Error?) {
+        let toCall: ((Error?) -> Void)?
+        lock.lock()
+        toCall = handler
+        handler = nil
+        lock.unlock()
+        toCall?(error)
+    }
+}
+
 /// NSFilePromiseProvider write destination + exclusive publish helpers.
 ///
 /// SDK (`NSFilePromiseProvider.h`): `writePromiseToURL` — "Always use the supplied URL."

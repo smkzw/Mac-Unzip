@@ -181,12 +181,7 @@ struct ArchiveDocumentView: View {
                             },
                             onIsSupportedArchive: { ArchiveFileTypes.isSupportedArchive($0) },
                             onMaterializeFolder: { path, stagingDir in
-                                do {
-                                    return try await model.materializeFolderForDrag(folderPath: path, stagingDir: stagingDir)
-                                } catch {
-                                    model.presentError(model.errorPresentationForDrag(error))
-                                    throw error
-                                }
+                                try await model.materializeFolderForDrag(folderPath: path, stagingDir: stagingDir)
                             },
                             documentGeneration: model.documentGeneration,
                             archiveIdentityPath: model.openArchiveIdentityPath,
@@ -195,6 +190,17 @@ struct ArchiveDocumentView: View {
                             },
                             isDragCallbackCurrent: { generation, identity in
                                 model.isDragCallbackCurrent(generation: generation, archiveIdentityPath: identity)
+                            },
+                            onAbsorbPasswordProtectedDrag: { error, entryID, folderPath, exactDestination, generation, identity, completionHandler in
+                                model.absorbPasswordProtectedDragIfNeeded(
+                                    error: error,
+                                    entryID: entryID,
+                                    folderPath: folderPath,
+                                    exactDestination: exactDestination,
+                                    documentGeneration: generation,
+                                    archiveIdentityPath: identity,
+                                    completionHandler: completionHandler
+                                )
                             }
                         )
                     case .media:

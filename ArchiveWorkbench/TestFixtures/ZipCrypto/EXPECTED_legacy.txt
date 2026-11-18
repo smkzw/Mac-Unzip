@@ -1,0 +1,2 @@
+legacy-macunzip-verify1-last-byte
+0

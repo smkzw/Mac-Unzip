@@ -2,10 +2,15 @@ import ArchiveDomain
 import CMinizipBridge
 
 enum ZIPProviderErrorMapper {
-    static func archiveError(for status: Int32) -> ArchiveError {
+    static func archiveError(for status: Int32, passwordProtected: Bool = false) -> ArchiveError {
         switch status {
-        case AWB_MZ_FORMAT_ERROR, AWB_MZ_CRC_ERROR:
+        case AWB_MZ_FORMAT_ERROR:
             return .corruptedArchive
+        case AWB_MZ_CRC_ERROR:
+            // ZipCrypto's reliable check is CRC after the 1-byte header verify.
+            // When a password was supplied, treat CRC failure as wrongPassword so
+            // soft-unlock can keep the banner and pending intent.
+            return passwordProtected ? .wrongPassword : .corruptedArchive
         case AWB_MZ_PASSWORD_ERROR:
             return .wrongPassword
         case AWB_MZ_UNSUPPORTED_ERROR:

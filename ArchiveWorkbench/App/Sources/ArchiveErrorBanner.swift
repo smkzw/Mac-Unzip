@@ -237,7 +237,7 @@ struct ArchiveErrorBanner: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(retryPassword.isEmpty)
-                .help(retryPassword.isEmpty ? AppLocalization().string("请输入密码后重试") : AppLocalization().string("验证密码并重新打开"))
+                .help(retryPassword.isEmpty ? AppLocalization().string("请输入密码后重试") : AppLocalization().string("验证密码并继续"))
                 .accessibilityIdentifier("密码重试按钮")
             }
             .padding(.leading, 28)

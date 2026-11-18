@@ -16,6 +16,7 @@
 		1470B841061CDF9ABABEBAF7 /* 示例.pptx in Resources */ = {isa = PBXBuildFile; fileRef = 06718AC56CDAFAA4C61F7FFF /* 示例.pptx */; };
 		171557C831A19C721874BF9A /* RecentArchivesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65114F3FA67A4839DB97608C /* RecentArchivesManager.swift */; };
 		1746D638478886B6081651A9 /* HelpMenuCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33A0AE5A57A40E877795B91 /* HelpMenuCommands.swift */; };
+		17701DBA92B6158E2E1BCCC5 /* PendingPasswordIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04115377B3CEDBF1ABD5B5EC /* PendingPasswordIntentTests.swift */; };
 		181FE4094241FADBFBD35505 /* FilePromisePublishingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D59B7B66C18C2ADCABD7C81 /* FilePromisePublishingTests.swift */; };
 		1957CBF9B8FFF6312D03DB6C /* PasswordTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D3590BCD4483F4CD232EA1 /* PasswordTransportTests.swift */; };
 		19A122A862D28CAF8695A454 /* UIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7CAB2EAB71DEA237F16D5F /* UIConstants.swift */; };
@@ -188,6 +189,7 @@
 
 /* Begin PBXFileReference section */
 		03C392B7C6E9D321EA5F6769 /* WelcomeHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeHomeView.swift; sourceTree = "<group>"; };
+		04115377B3CEDBF1ABD5B5EC /* PendingPasswordIntentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingPasswordIntentTests.swift; sourceTree = "<group>"; };
 		04932EF6A8897E20C5E9D387 /* CreationInputMergingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreationInputMergingTests.swift; sourceTree = "<group>"; };
 		06718AC56CDAFAA4C61F7FFF /* 示例.pptx */ = {isa = PBXFileReference; path = "示例.pptx"; sourceTree = "<group>"; };
 		06D987BB3ACD8F95A65245C5 /* 示例.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "示例.png"; sourceTree = "<group>"; };
@@ -392,6 +394,7 @@
 				16B23A54B6D10FBF781968CD /* DropRoutingTests.swift */,
 				AB2A28F9F142F3BA2DED77EF /* ExternalCreateNameStagingTests.swift */,
 				0D59B7B66C18C2ADCABD7C81 /* FilePromisePublishingTests.swift */,
+				04115377B3CEDBF1ABD5B5EC /* PendingPasswordIntentTests.swift */,
 				63A62BBF2D724C7EB562F5A8 /* PreflightArchiveRootTests.swift */,
 				778C645A30D71540C3121BBB /* PreviewRoutingTests.swift */,
 				71D86B2FF987883866354288 /* RecentArchivesRuntimeModeTests.swift */,
@@ -929,6 +932,7 @@
 				AE951331D72F18B10CE8FE89 /* ExternalCreateNameStagingTests.swift in Sources */,
 				279AAB08482E1BEB7DEC30D1 /* FilePromisePublishing.swift in Sources */,
 				181FE4094241FADBFBD35505 /* FilePromisePublishingTests.swift in Sources */,
+				17701DBA92B6158E2E1BCCC5 /* PendingPasswordIntentTests.swift in Sources */,
 				D59AF043C5EADD1CD8C2D224 /* PreflightArchiveRootTests.swift in Sources */,
 				9073C857EFC48A1A7F395883 /* PreviewRouting.swift in Sources */,
 				1E70104C05C7DE8AB75C5A93 /* PreviewRoutingTests.swift in Sources */,
@@ -1128,7 +1132,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.3.1;
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.MacUnzip;
 				PRODUCT_NAME = MacUnzip;
@@ -1192,7 +1196,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.3.1;
 				OTHER_CODE_SIGN_FLAGS = "--options=runtime";
 				PRODUCT_BUNDLE_IDENTIFIER = com.smkzw.MacUnzip;
 				PRODUCT_NAME = MacUnzip;

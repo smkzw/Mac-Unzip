@@ -2106,6 +2106,24 @@ int32_t mz_zip_entry_read_close(void *handle, uint32_t *crc32, int64_t *compress
 
     mz_stream_get_prop_int64(zip->compress_stream, MZ_STREAM_PROP_TOTAL_IN, &total_in);
 
+    /* compress_stream TOTAL_IN excludes crypt header/footer (see TOTAL_IN_MAX setup in
+     * mz_zip_entry_open_int). Include that overhead so data-descriptor seeks and CRC
+     * checks observe the full on-disk compressed_size, including the 12-byte ZipCrypto
+     * header. Without this, STORE+ZipCrypto skipped CRC and could publish wrong-password
+     * plaintext after a 1-byte verify collision. */
+    {
+        int64_t header_size = 0;
+        int64_t footer_size = 0;
+        if (zip->crypt_stream) {
+            if (mz_stream_get_prop_int64(zip->crypt_stream, MZ_STREAM_PROP_HEADER_SIZE, &header_size) != MZ_OK)
+                header_size = 0;
+            if (mz_stream_get_prop_int64(zip->crypt_stream, MZ_STREAM_PROP_FOOTER_SIZE, &footer_size) != MZ_OK)
+                footer_size = 0;
+        }
+        if (header_size > 0 || footer_size > 0)
+            total_in += header_size + footer_size;
+    }
+
     if ((zip->file_info.flag & MZ_ZIP_FLAG_DATA_DESCRIPTOR) &&
         ((zip->file_info.flag & MZ_ZIP_FLAG_MASK_LOCAL_INFO) == 0) && (crc32 || compressed_size || uncompressed_size)) {
         /* Check to see if data descriptor is zip64 bit format or not */
