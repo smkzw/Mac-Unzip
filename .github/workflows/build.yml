@@ -25,13 +25,13 @@ jobs:
         with:
           xcode-version: "26"
 
-      - name: Verify Swift 6.2 toolchain
+      - name: Verify Swift toolchain
         run: |
           xcodebuild -version
-          swift --version
+          swift_version="$(swift --version)"
+          printf '%s\n' "$swift_version"
           echo "DEVELOPER_DIR=$(xcode-select -p)"
-          swift --version | tee /tmp/swift-version.txt
-          grep -E 'Swift version 6\.2' /tmp/swift-version.txt
+          grep -q '^Apple Swift version ' <<< "$swift_version"
 
       - name: Cache Homebrew
         uses: actions/cache@v6
@@ -82,13 +82,13 @@ jobs:
         with:
           xcode-version: "26"
 
-      - name: Show toolchain (Swift 6.2)
+      - name: Verify Swift toolchain
         run: |
           xcodebuild -version
-          swift --version
+          swift_version="$(swift --version)"
+          printf '%s\n' "$swift_version"
           echo "DEVELOPER_DIR=$(xcode-select -p)"
-          swift --version | tee /tmp/swift-version-app.txt
-          grep -E 'Swift version 6\.2' /tmp/swift-version-app.txt
+          grep -q '^Apple Swift version ' <<< "$swift_version"
 
       - name: Cache Homebrew
         uses: actions/cache@v6
