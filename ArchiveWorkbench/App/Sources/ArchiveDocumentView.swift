@@ -181,7 +181,20 @@ struct ArchiveDocumentView: View {
                             },
                             onIsSupportedArchive: { ArchiveFileTypes.isSupportedArchive($0) },
                             onMaterializeFolder: { path, stagingDir in
-                                try await model.materializeFolderForDrag(folderPath: path, stagingDir: stagingDir)
+                                do {
+                                    return try await model.materializeFolderForDrag(folderPath: path, stagingDir: stagingDir)
+                                } catch {
+                                    model.presentError(model.errorPresentationForDrag(error))
+                                    throw error
+                                }
+                            },
+                            documentGeneration: model.documentGeneration,
+                            archiveIdentityPath: model.openArchiveIdentityPath,
+                            onDragCopyFailed: { error in
+                                model.presentError(model.errorPresentationForDrag(error))
+                            },
+                            isDragCallbackCurrent: { generation, identity in
+                                model.isDragCallbackCurrent(generation: generation, archiveIdentityPath: identity)
                             }
                         )
                     case .media:
@@ -257,16 +270,9 @@ struct ArchiveDocumentView: View {
         )
         .overlay {
             if visualCaptureStyle == .increaseContrast {
-                GeometryReader { proxy in
-                    Path { path in
-                        path.move(to: .zero)
-                        path.addLine(to: CGPoint(x: 0, y: proxy.size.height))
-                        path.addLine(to: CGPoint(x: proxy.size.width, y: proxy.size.height))
-                        path.addLine(to: CGPoint(x: proxy.size.width, y: 0))
-                    }
-                    .stroke(.primary.opacity(0.75), lineWidth: 2)
-                }
-                .allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: 0)
+                    .strokeBorder(.primary.opacity(0.75), lineWidth: 2)
+                    .allowsHitTesting(false)
             }
         }
     }

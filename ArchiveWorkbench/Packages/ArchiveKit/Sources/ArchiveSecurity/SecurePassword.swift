@@ -16,29 +16,49 @@ public final class SecurePassword: @unchecked Sendable {
 
     /// Creates a SecurePassword from a UTF-8 string.
     /// The input string should be discarded by the caller as soon as possible.
-    public init(_ password: String) {
+    public convenience init(_ password: String) {
         var utf8 = Array(password.utf8)
-        _count = utf8.count
+        defer {
+            utf8.withUnsafeMutableBytes { ptr in
+                if let base = ptr.baseAddress {
+                    memset_s(base, ptr.count, 0, ptr.count)
+                }
+            }
+        }
+        self.init(copying: utf8)
+    }
+
+    /// Copies raw password bytes into locked storage. Caller should zero any
+    /// temporary source buffer after this returns.
+    public init(copying bytes: [UInt8]) {
+        _count = bytes.count
         _bytes = UnsafeMutableRawBufferPointer.allocate(byteCount: max(_count, 1), alignment: 16)
         if _count > 0 {
-            utf8.withUnsafeBytes { _bytes.copyMemory(from: $0) }
+            bytes.withUnsafeBytes { _bytes.copyMemory(from: $0) }
         }
         if mlock(_bytes.baseAddress, _bytes.count) != 0 {
             securePasswordLog.warning("mlock failed (errno \(errno)); password memory may be swappable")
         }
-        // Zeroize the temporary array
-        utf8.withUnsafeMutableBytes { ptr in
-            if let base = ptr.baseAddress {
-                memset_s(base, ptr.count, 0, ptr.count)
-            }
-        }
     }
 
+    /// Copies from an existing secure password (for one-shot private-input delivery).
+    public convenience init(copying other: SecurePassword) {
+        var copy = other.withBytes { buffer -> [UInt8] in
+            Array(buffer)
+        }
+        defer {
+            copy.withUnsafeMutableBytes { ptr in
+                if let base = ptr.baseAddress {
+                    memset_s(base, ptr.count, 0, ptr.count)
+                }
+            }
+        }
+        self.init(copying: copy)
+    }
 
     deinit {
-        // Zeroize before unlocking and freeing
+        zero()
         if let base = _bytes.baseAddress {
-            memset_s(base, _bytes.count, 0, _bytes.count)
             munlock(base, _bytes.count)
         }
         _bytes.deallocate()
@@ -49,6 +69,23 @@ public final class SecurePassword: @unchecked Sendable {
 
     /// Whether the password is empty.
     public var isEmpty: Bool { _count == 0 }
+
+    /// True when every stored byte is currently zero.
+    public var isZeroed: Bool {
+        guard let base = _bytes.baseAddress else { return true }
+        let typed = base.assumingMemoryBound(to: UInt8.self)
+        for index in 0..<_count where typed[index] != 0 {
+            return false
+        }
+        return true
+    }
+
+    /// Explicitly clears secret bytes in place. Safe to call more than once.
+    public func zero() {
+        if let base = _bytes.baseAddress {
+            memset_s(base, _bytes.count, 0, _bytes.count)
+        }
+    }
 
     /// Provides temporary access to the password as a null-terminated C string.
     /// The closure receives a pointer that is valid only during the call.

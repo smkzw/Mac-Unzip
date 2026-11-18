@@ -6,6 +6,19 @@ import UniformTypeIdentifiers
 struct MacUnzipUIConstants {
     static let defaultWindowWidth: CGFloat = 1180
     static let defaultWindowHeight: CGFloat = 760
+
+    /// Launch-time WindowGroup size from CLI flags. Prefer this over post-hoc
+    /// `setFrame` while NavigationSplitView is materializing (Auto Layout abort).
+    static var launchWindowSize: CGSize {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-minimum-window") {
+            return CGSize(width: 900, height: 700)
+        }
+        if args.contains("-visual-capture") {
+            return CGSize(width: 1_226, height: 872)
+        }
+        return CGSize(width: defaultWindowWidth, height: defaultWindowHeight)
+    }
 }
 
 /// Lets the AppKit delegate open a new main window from outside SwiftUI.
@@ -235,7 +248,12 @@ final class MacUnzipAppDelegate: NSObject, NSApplicationDelegate {
     /// 启动并走 application(_:open:) 启动路径开窗加载归档。未保存更改的
     /// 关窗确认由 UnsavedChangesWindowDelegate.windowShouldClose 先行拦截。
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        // UI / visual-capture launches swap fixture content after the first
+        // window appears; briefly tearing down that window must not quit the app.
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
+            return false
+        }
+        return true
     }
 
     /// Routes an open-archive request to a live window, or stashes it and opens
@@ -355,7 +373,10 @@ struct MacUnzipApp: App {
 
     var body: some Scene {
         WindowGroup(id: "main") { RootWindowView() }
-            .defaultSize(width: MacUnzipUIConstants.defaultWindowWidth, height: MacUnzipUIConstants.defaultWindowHeight)
+            .defaultSize(
+                width: MacUnzipUIConstants.launchWindowSize.width,
+                height: MacUnzipUIConstants.launchWindowSize.height
+            )
             .windowToolbarStyle(.unified)
             .commands {
                 OpenCreateCommands()

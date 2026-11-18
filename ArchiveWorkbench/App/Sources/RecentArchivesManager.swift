@@ -2,8 +2,9 @@ import AppKit
 import Foundation
 import Observation
 
-/// Manages the list of recently opened archives, persisted in UserDefaults.
-/// Respects the user-configurable count from Settings.
+/// Manages the list of recently opened archives.
+/// Live mode persists in UserDefaults; testing / visual-capture modes stay in-memory only
+/// and never clear or rewrite the user's real recent list.
 @MainActor
 @Observable
 final class RecentArchivesManager {
@@ -14,13 +15,35 @@ final class RecentArchivesManager {
     /// The current list of recent archive URLs (most recent first).
     private(set) var recentURLs: [URL] = []
 
-    private init() {
-        load()
-        pruneMissing()
+    private let mode: RecentArchivesRuntimeMode
+    private let persists: Bool
+
+    private init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+        mode = RecentArchivesRuntimeMode.resolve(arguments: arguments)
+        switch mode {
+        case .live:
+            persists = true
+            load()
+            pruneMissing()
+        case .uiTestingEmpty:
+            persists = false
+            recentURLs = []
+        case .visualCaptureFictional:
+            persists = false
+            recentURLs = RecentArchivesRuntimeMode.fictionalURLs
+        }
     }
 
-    /// The maximum number of recent archives to keep, read from Settings.
+    /// Test seam: build an isolated manager without touching the process singleton.
+    static func makeForTesting(arguments: [String]) -> RecentArchivesManager {
+        RecentArchivesManager(arguments: arguments)
+    }
+
+    /// The maximum number of recent archives to keep, read from Settings (live only).
     private var maxCount: Int {
+        guard mode == .live else {
+            return mode == .visualCaptureFictional ? RecentArchivesRuntimeMode.fictionalURLs.count : 0
+        }
         let count = UserDefaults.standard.integer(forKey: SettingsKeys.recentArchivesCount)
         // Default to 10 if never set (integer(forKey:) returns 0 for missing keys)
         return count == 0 && UserDefaults.standard.object(forKey: SettingsKeys.recentArchivesCount) == nil
@@ -30,6 +53,15 @@ final class RecentArchivesManager {
 
     /// Records a newly opened archive URL at the front of the recent list.
     func noteRecentArchive(_ url: URL) {
+        switch mode {
+        case .uiTestingEmpty, .visualCaptureFictional:
+            // Do not ingest host paths into capture / UI-test surfaces, and never
+            // write UserDefaults or NSDocumentController.
+            return
+        case .live:
+            break
+        }
+
         let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
         recentURLs.removeAll { $0 == resolved || !FileManager.default.fileExists(atPath: $0.path) }
         recentURLs.insert(resolved, at: 0)
@@ -38,30 +70,33 @@ final class RecentArchivesManager {
             recentURLs = Array(recentURLs.prefix(limit))
         }
         save()
-        // Also inform the system document controller for the standard Open Recent menu
         NSDocumentController.shared.noteNewRecentDocumentURL(resolved)
     }
 
-    /// Clears all recent archives.
+    /// Clears all recent archives (in-memory always; disk only in live mode).
     func clearRecent() {
         recentURLs = []
+        guard persists else { return }
         save()
         NSDocumentController.shared.clearRecentDocuments(nil)
     }
 
     /// Removes a single URL from the recent list.
     func remove(_ url: URL) {
+        guard mode == .live else { return }
         recentURLs.removeAll { $0 == url }
         save()
     }
 
-    /// Prunes entries that no longer exist on disk.
+    /// Prunes entries that no longer exist on disk (live mode only).
     func pruneMissing() {
+        guard mode == .live else { return }
         recentURLs.removeAll { !FileManager.default.fileExists(atPath: $0.path) }
         save()
     }
 
     private func load() {
+        guard persists else { return }
         guard let data = UserDefaults.standard.data(forKey: Self.storageKey),
               let paths = try? JSONDecoder().decode([String].self, from: data)
         else { return }
@@ -69,6 +104,7 @@ final class RecentArchivesManager {
     }
 
     private func save() {
+        guard persists else { return }
         let paths = recentURLs.map(\.path)
         if let data = try? JSONEncoder().encode(paths) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)

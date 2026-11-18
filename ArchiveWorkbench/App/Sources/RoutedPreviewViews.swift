@@ -27,7 +27,7 @@ struct ArchiveImagePreviewStateView: View {
                         .scaledToFit()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                 }
-                .accessibilityLabel(filename)
+                .accessibilityLabel(AppLocalization().format("正在预览 %@", filename))
                 .accessibilityIdentifier(filename)
             } else if isLoading {
                 ProgressView("正在读取图片…")
@@ -188,7 +188,7 @@ enum FixturePreviewCache {
         try? FileManager.default.removeItem(at: root)
         let directory = root
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let url = directory.appendingPathComponent("品牌指南.pdf")
+        let url = directory.appendingPathComponent("产品指南.pdf")
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let document = PDFDocument()
@@ -225,7 +225,7 @@ private final class FixturePDFPageView: NSView {
         NSColor.white.setFill()
         bounds.fill()
         let title = NSAttributedString(
-            string: "品牌指南",
+            string: "产品指南",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 34, weight: .semibold),
                 .foregroundColor: NSColor.black

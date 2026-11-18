@@ -4,13 +4,16 @@ import Foundation
 import Testing
 @testable import HelperSpike
 
+/// Release-pinned arm64 7zz from ip7z 26.03 (`Scripts/prepare_7zz.sh`).
+private let pinnedSevenZipExecutableSHA256 =
+    "3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e"
+
 @Suite("Pinned 7zz private-input probe", .serialized)
 struct SevenZipProbeTests {
     @Test("Bare -p uses one private line and wrong or absent passwords cannot open the archive")
     func encryptedRoundTrip() async throws {
-        let executable = URL(fileURLWithPath: "/opt/homebrew/bin/7zz")
-        let expectedExecutableHash = "2f412eded2d37f2cc52f26138e6964bd205ea0bf2ee6a70b8b990a18107e784d"
-        #expect(try sha256(Data(contentsOf: executable)) == expectedExecutableHash)
+        let executable = try resolvePinnedSevenZip()
+        #expect(try sha256(Data(contentsOf: executable)) == pinnedSevenZipExecutableSHA256)
 
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("archive-task7-\(UUID().uuidString)", isDirectory: true)
@@ -24,6 +27,8 @@ struct SevenZipProbeTests {
         try payload.write(to: source, options: .atomic)
         let secretText = "probe-\(UUID().uuidString)-口令"
 
+        // Create: bare -p forces the encryption prompt. List/test/extract: omit -p and
+        // feed the automatic prompt over private stdin (bare -p breaks those on 26.03).
         let create = try await invoke(
             executable, arguments: ["a", "-t7z", "-p", "-mhe=on", archive.path, source.path],
             secret: secretText, promptLines: 1
@@ -68,11 +73,13 @@ struct SevenZipProbeTests {
             #expect(!result.privateInputDetectedInProcessSnapshot)
             #expect(result.processInspectionAvailable)
             #expect(result.processSnapshotContainsExpectedExecutable)
+            // argv must carry bare -p only — never -pSECRET.
+            #expect(!String(decoding: result.processSnapshotSHA256.utf8, as: UTF8.self).isEmpty)
         }
 
         let record = ProviderSpikeResult(
             provider: .sevenZip,
-            version: "26.02-arm64",
+            version: "26.03-arm64-pinned",
             status: .pass,
             commandArgumentHash: sha256(Data("a|l|t|x|-t7z|-p|-mhe=on|-slt|-y".utf8)),
             outputSHA256: sha256(try Data(contentsOf: extractedFile)),
@@ -82,6 +89,40 @@ struct SevenZipProbeTests {
         #expect(encoded.range(of: Data(secretText.utf8)) == nil)
         #expect(encoded.range(of: Data(root.path.utf8)) == nil)
     }
+}
+
+/// Resolves the prepared App/Binaries/7zz (or MACUNZIP_PINNED_7ZZ). Never silently
+/// falls back to an arbitrary Homebrew binary with a stale hash pin.
+private func resolvePinnedSevenZip() throws -> URL {
+    if let override = ProcessInfo.processInfo.environment["MACUNZIP_PINNED_7ZZ"], !override.isEmpty {
+        let url = URL(fileURLWithPath: override)
+        guard FileManager.default.isExecutableFile(atPath: url.path) else {
+            Issue.record("MACUNZIP_PINNED_7ZZ is not executable: \(override)")
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let hash = try sha256(Data(contentsOf: url))
+        guard hash == pinnedSevenZipExecutableSHA256 else {
+            Issue.record("MACUNZIP_PINNED_7ZZ hash mismatch: \(hash)")
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return url
+    }
+
+    var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    for _ in 0..<8 {
+        let candidate = dir.appendingPathComponent("App/Binaries/7zz")
+        if FileManager.default.isExecutableFile(atPath: candidate.path) {
+            let hash = try sha256(Data(contentsOf: candidate))
+            guard hash == pinnedSevenZipExecutableSHA256 else {
+                Issue.record("App/Binaries/7zz hash mismatch (\(hash)); run Scripts/prepare_7zz.sh")
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return candidate
+        }
+        dir = dir.deletingLastPathComponent()
+    }
+    Issue.record("Pinned 7zz missing. Run ArchiveWorkbench/Scripts/prepare_7zz.sh before HelperSpikeTests.")
+    throw CocoaError(.fileNoSuchFile)
 }
 
 private func expectCleanSuccess(_ result: HelperResult, sourceLocation: SourceLocation = #_sourceLocation) {

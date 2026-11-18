@@ -1,5 +1,7 @@
 # Mac解霸 (MacUnzip) v1.0.8
 
+> 历史版本记录。当前版本见 [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases)。
+
 ## 本次更新
 - 中文系统全面显示「Mac解霸」（菜单栏 / 标题 / 关于 / 服务菜单），英文系统仍为 MacUnzip
 - 信息检查器默认收起，界面更简洁（「更多操作」菜单中可随时开关）
@@ -21,6 +23,3 @@ xattr -dr com.apple.quarantine /Applications/Mac解霸.app
 
 ## 校验
 SHA-256 见随附文件 `MacUnzip-1.0.8.dmg.sha256`。
-
-## Pro
-$1.99 一次性买断，终身免费更新。Free 版可免费浏览 / 搜索 / 预览 ZIP · TAR · GZ 压缩包。

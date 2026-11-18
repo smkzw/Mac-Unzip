@@ -4,17 +4,17 @@ import CryptoKit
 import Darwin
 import Foundation
 
-// MARK: - Read-only 7z provider backed by the system 7zz binary
+// MARK: - Read-only 7z provider backed by an isolated 7zz binary
 //
 // Design principles (from handoff):
-// - 7z/RAR 读取走隔离、验证后的 7zz：the executable is discovered at runtime,
-//   validated (regular file, not a writable-location symlink, arm64, version
-//   banner) and hashed before first use.
-// - provider 能力必须按真实运行时发现和验证：capabilities are gated on a
-//   successful discovery, never assumed from a design matrix.
-// - 不允许 mutation 静默 fallback 到不同引擎：this provider is strictly
-//   read-only (.list/.read/.preview). Creation/update are intentionally not
-//   implemented and never fall back to another engine.
+// - Prefer the app-bundled, release-pinned 7zz (ip7z 26.03 arm64). Its SHA-256
+//   must match `pinnedBundledSHA256` exactly; a mismatched bundle is rejected.
+// - Homebrew /usr/local remains a clearly labeled external fallback only — never
+//   presented as the pinned built-in artifact.
+// - Passwords never appear in argv. Create uses bare `-p` + one private stdin
+//   line. List/read/extract feed the same private stdin line into 7zz's
+//   automatic password prompt (bare `-p` on those commands mis-reads the
+//   piped secret on ip7z 26.03 — verified). HelperSpike uses the same split.
 // - helper 可执行文件身份/架构/版本/权限/hash/可写路径/symlink/TOCTOU：see
 //   SevenZipBinaryDiscovery. A residual path-validation->spawn TOCTOU window is
 //   acknowledged; the binary must live in a trusted prefix whose resolved
@@ -69,6 +69,14 @@ public enum SevenZipProviderError: Error, Equatable, Sendable {
 
 // MARK: - Binary discovery & validation
 
+/// Where a discovered 7zz came from — keeps pinned bundle vs Homebrew distinct.
+public enum SevenZipBinaryOrigin: String, Equatable, Sendable {
+    /// App-bundled binary matching the release-pinned SHA-256.
+    case bundledPinned
+    /// Homebrew /usr/local compatibility fallback (not the pinned release artifact).
+    case externalFallback
+}
+
 /// Result of a successful runtime discovery of a trusted 7zz binary.
 public struct SevenZipBinaryDiscovery: Equatable, Sendable {
     /// Absolute, symlink-resolved path actually executed.
@@ -77,8 +85,15 @@ public struct SevenZipBinaryDiscovery: Equatable, Sendable {
     public let architecture: String
     /// SHA-256 of the executable bytes at discovery time (integrity evidence).
     public let sha256: String
+    /// Distinguishes the release-pinned bundle from an external Homebrew copy.
+    public let origin: SevenZipBinaryOrigin
 
-    /// Default trusted install locations, probed in order.
+    /// ip7z 26.03 macOS package, arm64 slice of official `7z2603-mac.tar.xz`.
+    public static let pinnedBundledSHA256 =
+        "3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e"
+    public static let pinnedBundledVersion = "26.03"
+
+    /// Default trusted install locations, probed in order after the app bundle.
     public static let defaultCandidatePaths: [String] = [
         "/opt/homebrew/bin/7zz",
         "/usr/local/bin/7zz",
@@ -90,21 +105,24 @@ public struct SevenZipBinaryDiscovery: Equatable, Sendable {
     }
 
     /// Discovers and validates a 7zz binary, or returns nil when none qualifies.
+    /// Bundled candidates must match `pinnedBundledSHA256`; Homebrew fallbacks do not.
     public static func discover(candidatePaths: [String] = defaultCandidatePaths) -> SevenZipBinaryDiscovery? {
-        var allPaths: [String] = []
-        if let bundlePath = bundleCandidatePath {
-            allPaths.append(bundlePath)
+        if let bundlePath = bundleCandidatePath,
+           let discovery = validate(candidate: bundlePath, origin: .bundledPinned) {
+            return discovery
         }
-        allPaths.append(contentsOf: candidatePaths)
-        for candidate in allPaths {
-            if let discovery = validate(candidate: candidate) {
+        for candidate in candidatePaths {
+            if let discovery = validate(candidate: candidate, origin: .externalFallback) {
                 return discovery
             }
         }
         return nil
     }
 
-    static func validate(candidate: String) -> SevenZipBinaryDiscovery? {
+    static func validate(
+        candidate: String,
+        origin: SevenZipBinaryOrigin = .externalFallback
+    ) -> SevenZipBinaryDiscovery? {
         let fileManager = FileManager.default
         guard candidate.hasPrefix("/") else { return nil }
         // Resolve symlinks so the executed identity is the real file, and a
@@ -121,17 +139,31 @@ public struct SevenZipBinaryDiscovery: Equatable, Sendable {
         guard mode & 0o022 == 0 else { return nil }
         // The resolved target must stay inside a trusted install prefix or the app bundle.
         let bundlePrefix = Bundle.main.resourceURL?.path ?? ""
-        guard resolved.hasPrefix("/opt/homebrew/") || resolved.hasPrefix("/usr/local/")
-              || (!bundlePrefix.isEmpty && resolved.hasPrefix(bundlePrefix)) else {
-            return nil
+        let inBundle = !bundlePrefix.isEmpty && resolved.hasPrefix(bundlePrefix)
+        let inHomebrew = resolved.hasPrefix("/opt/homebrew/") || resolved.hasPrefix("/usr/local/")
+        switch origin {
+        case .bundledPinned:
+            guard inBundle else { return nil }
+        case .externalFallback:
+            guard inHomebrew else { return nil }
         }
         guard let hash = sha256(ofFileAt: resolved) else { return nil }
+        if origin == .bundledPinned, hash != pinnedBundledSHA256 {
+            // Never treat a tampered/mismatched bundle as the pinned built-in.
+            return nil
+        }
         guard let probe = probeVersion(resolvedPath: resolved) else { return nil }
+        if origin == .bundledPinned {
+            guard probe.version == pinnedBundledVersion, probe.architecture == "arm64" else {
+                return nil
+            }
+        }
         return SevenZipBinaryDiscovery(
             resolvedPath: resolved,
             version: probe.version,
             architecture: probe.architecture,
-            sha256: hash
+            sha256: hash,
+            origin: origin
         )
     }
 
@@ -230,21 +262,35 @@ enum SevenZipHelperError: Error, Equatable, Sendable {
     case timedOut
     case cancelled
     case drainFailure
+    case privateInputTooLarge(maximumBytes: Int)
+    case privateInputWriteFailed(Int32)
 }
 
 /// Launches a trusted executable with an explicit argv array (never a shell),
-/// an allowlisted environment, stdin from /dev/null, a separate process group,
-/// concurrently drained stdout/stderr with independent byte budgets, and a
-/// monotonic timeout/cancellation loop that kills the whole process group.
+/// an allowlisted environment, optional private stdin password line (bare `-p`),
+/// a separate process group, concurrently drained stdout/stderr with independent
+/// byte budgets, and a monotonic timeout/cancellation loop that kills the whole
+/// process group.
+///
+/// Private stdin is written with a 16 KiB cap using non-blocking I/O inside the
+/// same cancel/timeout loop (never a blocking write before drains start). When a
+/// password is provided the runner zeros that buffer before returning.
 struct SevenZipProcessRunner: Sendable {
+    static let maximumPrivateInputBytes = 16 * 1024
+
     func run(
         executablePath: String,
         arguments: [String],
         timeoutSeconds: Int,
         maximumStdoutBytes: Int,
         maximumStderrBytes: Int = 256 * 1024,
-        expectedSHA256: String? = nil
+        expectedSHA256: String? = nil,
+        stdinPassword: SecurePassword? = nil
     ) throws -> SevenZipProcessResult {
+        // Ownership: when a password is supplied we always clear it before return
+        // so cancel/timeout paths cannot leave secret material in the caller's buffer.
+        defer { stdinPassword?.zero() }
+
         guard !Task.isCancelled else { throw SevenZipHelperError.cancelled }
         guard access(executablePath, X_OK) == 0 else {
             throw SevenZipProviderError.binaryValidationFailed(reason: "not executable")
@@ -255,30 +301,69 @@ struct SevenZipProcessRunner: Sendable {
                 throw SevenZipProviderError.binaryValidationFailed(reason: "integrity hash mismatch")
             }
         }
+        if let stdinPassword {
+            // One-line stdin protocol (HelperSpike-compatible): reject NUL/CR/LF.
+            let unsupported = stdinPassword.withBytes { bytes -> UInt8? in
+                for byte in bytes {
+                    if byte == 0 || byte == 10 || byte == 13 { return byte }
+                }
+                return nil
+            }
+            if unsupported != nil {
+                throw SevenZipProviderError.helperProtocolFailure
+            }
+            guard !stdinPassword.isEmpty else {
+                throw SevenZipProviderError.helperProtocolFailure
+            }
+            guard stdinPassword.count <= Self.maximumPrivateInputBytes else {
+                throw SevenZipHelperError.privateInputTooLarge(
+                    maximumBytes: Self.maximumPrivateInputBytes
+                )
+            }
+        }
 
+        var stdinPipe: [Int32] = [-1, -1]
         var stdoutPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
-        guard pipe(&stdoutPipe) == 0 else { throw SevenZipHelperError.spawnFailed(errno) }
+        let needsStdin = stdinPassword != nil
+        if needsStdin {
+            guard pipe(&stdinPipe) == 0 else { throw SevenZipHelperError.spawnFailed(errno) }
+        }
+        guard pipe(&stdoutPipe) == 0 else {
+            closePipe(&stdinPipe)
+            throw SevenZipHelperError.spawnFailed(errno)
+        }
         guard pipe(&stderrPipe) == 0 else {
+            closePipe(&stdinPipe)
             closePipe(&stdoutPipe)
             throw SevenZipHelperError.spawnFailed(errno)
         }
 
         var actions: posix_spawn_file_actions_t?
         guard posix_spawn_file_actions_init(&actions) == 0 else {
+            closePipe(&stdinPipe)
             closePipe(&stdoutPipe)
             closePipe(&stderrPipe)
             throw SevenZipHelperError.spawnFailed(errno)
         }
         defer { posix_spawn_file_actions_destroy(&actions) }
-        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        if needsStdin {
+            posix_spawn_file_actions_adddup2(&actions, stdinPipe[0], 0)
+            posix_spawn_file_actions_addclose(&actions, stdinPipe[1])
+        } else {
+            posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        }
         posix_spawn_file_actions_adddup2(&actions, stdoutPipe[1], 1)
         posix_spawn_file_actions_adddup2(&actions, stderrPipe[1], 2)
         posix_spawn_file_actions_addclose(&actions, stdoutPipe[0])
         posix_spawn_file_actions_addclose(&actions, stderrPipe[0])
+        if needsStdin {
+            posix_spawn_file_actions_addclose(&actions, stdinPipe[0])
+        }
 
         var attributes: posix_spawnattr_t?
         guard posix_spawnattr_init(&attributes) == 0 else {
+            closePipe(&stdinPipe)
             closePipe(&stdoutPipe)
             closePipe(&stderrPipe)
             throw SevenZipHelperError.spawnFailed(errno)
@@ -288,6 +373,7 @@ struct SevenZipProcessRunner: Sendable {
         posix_spawnattr_setflags(&attributes, Int16(flags))
         posix_spawnattr_setpgroup(&attributes, 0)
 
+        // Arguments must never embed the password; callers pass bare "-p".
         let argv = [executablePath] + arguments
         var argvVector = argv.map { strdup($0) }
         defer {
@@ -322,18 +408,38 @@ struct SevenZipProcessRunner: Sendable {
             }
         }
         guard spawnCode == 0 else {
+            closePipe(&stdinPipe)
             closePipe(&stdoutPipe)
             closePipe(&stderrPipe)
             throw SevenZipHelperError.spawnFailed(spawnCode)
         }
-        // Close the child write ends in the parent so EOF is observed.
+        // Parent closes child-side ends so EOF / private write work correctly.
+        if needsStdin {
+            if stdinPipe[0] >= 0 {
+                close(stdinPipe[0])
+                stdinPipe[0] = -1
+            }
+            let flags = fcntl(stdinPipe[1], F_GETFL)
+            guard flags >= 0, fcntl(stdinPipe[1], F_SETFL, flags | O_NONBLOCK) == 0 else {
+                let code = errno
+                Self.terminateProcessGroup(childPID)
+                _ = Self.reap(childPID)
+                closePipe(&stdinPipe)
+                closePipe(&stdoutPipe)
+                closePipe(&stderrPipe)
+                throw SevenZipHelperError.privateInputWriteFailed(code)
+            }
+        }
         closeWriteEnd(&stdoutPipe)
         closeWriteEnd(&stderrPipe)
         defer {
+            closePipe(&stdinPipe)
             closePipe(&stdoutPipe)
             closePipe(&stderrPipe)
         }
 
+        // Drain concurrently BEFORE private writes so a child that never reads
+        // stdin and floods stdout cannot deadlock a blocking password write.
         let stdoutDrain = SevenZipBoundedDrain(descriptor: stdoutPipe[0], capacity: maximumStdoutBytes)
         let stderrDrain = SevenZipBoundedDrain(descriptor: stderrPipe[0], capacity: maximumStderrBytes)
         let drainGroup = DispatchGroup()
@@ -357,6 +463,10 @@ struct SevenZipProcessRunner: Sendable {
         var waitStatus: Int32 = 0
         var terminal: SevenZipHelperError?
         var exited = false
+        var passwordOffset = 0
+        var newlinePending = false
+        var privateInputComplete = (stdinPassword == nil)
+
         while true {
             let waited = waitpid(childPID, &waitStatus, WNOHANG)
             if waited == childPID {
@@ -381,7 +491,51 @@ struct SevenZipProcessRunner: Sendable {
                 terminal = .timedOut
                 break
             }
-            usleep(10_000)
+
+            if !privateInputComplete, let stdinPassword, stdinPipe[1] >= 0 {
+                let writeFD = stdinPipe[1]
+                do {
+                    if newlinePending {
+                        var newline: UInt8 = 0x0A
+                        let outcome = try Self.writeNonblocking(writeFD, bytes: &newline)
+                        switch outcome {
+                        case .progress:
+                            newlinePending = false
+                            privateInputComplete = true
+                            close(writeFD)
+                            stdinPipe[1] = -1
+                        case .wouldBlock:
+                            Self.waitUntilWritable(writeFD, maximumMilliseconds: 10)
+                        }
+                    } else {
+                        let outcome = try stdinPassword.withBytes { bytes in
+                            try Self.writeNonblocking(writeFD, bytes: bytes, offset: passwordOffset)
+                        }
+                        switch outcome {
+                        case let .progress(count):
+                            passwordOffset += count
+                            if passwordOffset == stdinPassword.count {
+                                newlinePending = true
+                            }
+                        case .wouldBlock:
+                            Self.waitUntilWritable(writeFD, maximumMilliseconds: 10)
+                        }
+                    }
+                } catch let error as SevenZipHelperError {
+                    Self.terminateProcessGroup(childPID)
+                    _ = Self.reap(childPID)
+                    terminal = error
+                    break
+                }
+            } else {
+                usleep(10_000)
+            }
+        }
+
+        // Ensure stdin writer is closed on every exit path (cancel/timeout/success).
+        if stdinPipe[1] >= 0 {
+            close(stdinPipe[1])
+            stdinPipe[1] = -1
         }
 
         if drainGroup.wait(timeout: .now() + .seconds(2)) != .success {
@@ -408,6 +562,44 @@ struct SevenZipProcessRunner: Sendable {
             stdoutExceeded: stdoutDrain.exceeded(),
             stderrExceeded: stderrDrain.exceeded()
         )
+    }
+
+    private enum NonblockingWriteOutcome: Equatable {
+        case progress(Int)
+        case wouldBlock
+    }
+
+    private static func writeNonblocking(
+        _ descriptor: Int32,
+        bytes: UnsafeRawBufferPointer,
+        offset: Int
+    ) throws -> NonblockingWriteOutcome {
+        precondition(offset < bytes.count)
+        while true {
+            let written = Darwin.write(
+                descriptor,
+                bytes.baseAddress!.advanced(by: offset),
+                bytes.count - offset
+            )
+            if written > 0 { return .progress(written) }
+            if written == -1 && errno == EINTR { continue }
+            if written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK) { return .wouldBlock }
+            throw SevenZipHelperError.privateInputWriteFailed(errno)
+        }
+    }
+
+    private static func writeNonblocking(
+        _ descriptor: Int32,
+        bytes: inout UInt8
+    ) throws -> NonblockingWriteOutcome {
+        try withUnsafeBytes(of: &bytes) { buffer in
+            try writeNonblocking(descriptor, bytes: buffer, offset: 0)
+        }
+    }
+
+    private static func waitUntilWritable(_ descriptor: Int32, maximumMilliseconds: Int32) {
+        var event = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
+        while poll(&event, 1, maximumMilliseconds) == -1 && errno == EINTR {}
     }
 
     private func closePipe(_ pipe: inout [Int32]) {
@@ -702,16 +894,14 @@ public actor SevenZipProvider: ArchiveProvider {
         currentPassword = password.map { SecurePassword($0) }
         looksLikeMultipartVolume = Self.looksLikeSplitVolume(url)
 
-        var arguments = ["l", "-slt"]
-        if let password {
-            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
-            arguments.append("-p\(password)")
-        }
-        arguments.append(url.path)
+        // Private stdin only — do not pass bare -p on list (26.03 treats it as a
+        // wrong/empty argv password). Secret never enters argv.
+        let arguments = ["l", "-slt", url.path]
         let result = try invoke(
             arguments: arguments,
             timeoutSeconds: listingTimeoutSeconds,
-            maximumStdoutBytes: maximumStdoutListingBytes
+            maximumStdoutBytes: maximumStdoutListingBytes,
+            stdinPassword: currentPassword.map { SecurePassword(copying: $0) }
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result, forListing: true)
@@ -778,19 +968,16 @@ public actor SevenZipProvider: ArchiveProvider {
             throw ArchiveError.resourceLimit
         }
         let stdoutLimit = Int(clamping: maximumBytes) == Int.max ? Int.max : Int(clamping: maximumBytes) + 1
-        var arguments = ["x", "-so", "-y", "-spd", "-bso0", "-bsp0"]
-        if let password = currentPassword {
-            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
-            password.withCString { ptr in
-                arguments.append("-p" + String(cString: ptr))
-            }
-        }
-        arguments.append(archiveURL.path)
-        arguments.append("-i!" + String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self))
+        let arguments = [
+            "x", "-so", "-y", "-spd", "-bso0", "-bsp0",
+            archiveURL.path,
+            "-i!" + String(decoding: snapshot.entry.rawPath.bytes, as: UTF8.self)
+        ]
         let result = try invoke(
             arguments: arguments,
             timeoutSeconds: extractionTimeoutSeconds,
-            maximumStdoutBytes: stdoutLimit
+            maximumStdoutBytes: stdoutLimit,
+            stdinPassword: currentPassword.map { SecurePassword(copying: $0) }
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result, forListing: false)
@@ -897,18 +1084,16 @@ public actor SevenZipProvider: ArchiveProvider {
             if !published { try? FileManager.default.removeItem(at: stagingURL) }
         }
 
-        var extractArguments = ["x", "-y", "-bso0", "-bsp0"]
-        if let password = currentPassword {
-            password.withCString { ptr in
-                extractArguments.append("-p" + String(cString: ptr))
-            }
-        }
-        extractArguments.append("-o\(stagingURL.path)")
-        extractArguments.append(archiveURL.path)
+        let extractArguments = [
+            "x", "-y", "-bso0", "-bsp0",
+            "-o\(stagingURL.path)",
+            archiveURL.path
+        ]
         let result = try invoke(
             arguments: extractArguments,
             timeoutSeconds: extractionTimeoutSeconds,
-            maximumStdoutBytes: 1 << 20
+            maximumStdoutBytes: 1 << 20,
+            stdinPassword: currentPassword.map { SecurePassword(copying: $0) }
         )
         guard result.exitStatus == 0 else {
             throw mapError(result: result, forListing: false)
@@ -993,10 +1178,13 @@ public actor SevenZipProvider: ArchiveProvider {
         defer { if !stagePublished { try? FileManager.default.removeItem(at: stageURL) } }
 
         var arguments = ["a", "-t7z", "-mx=5", "-spd"]
+        let createPassword: SecurePassword?
         if let password, !password.isEmpty {
             arguments.append("-mhe=on")
-            // 7zz has no stdin/askpass password interface; the password is briefly visible in argv (ps).
-            arguments.append("-p\(password)")
+            arguments.append("-p")
+            createPassword = SecurePassword(password)
+        } else {
+            createPassword = nil
         }
         arguments.append(stageURL.path)
         for input in inputs {
@@ -1005,7 +1193,8 @@ public actor SevenZipProvider: ArchiveProvider {
         let result = try invoke(
             arguments: arguments,
             timeoutSeconds: extractionTimeoutSeconds,
-            maximumStdoutBytes: 1 << 20
+            maximumStdoutBytes: 1 << 20,
+            stdinPassword: createPassword
         )
         guard result.exitStatus == 0 else {
             let message = String(data: result.stderr, encoding: .utf8) ?? "7z creation failed"
@@ -1022,15 +1211,21 @@ public actor SevenZipProvider: ArchiveProvider {
     private func invoke(
         arguments: [String],
         timeoutSeconds: Int,
-        maximumStdoutBytes: Int
+        maximumStdoutBytes: Int,
+        stdinPassword: SecurePassword? = nil
     ) throws -> SevenZipProcessResult {
+        // Fail closed if a caller ever embeds -pSECRET in argv instead of bare -p.
+        if arguments.contains(where: { $0.hasPrefix("-p") && $0.count > 2 }) {
+            throw ArchiveError.helperFailed
+        }
         do {
             return try SevenZipProcessRunner().run(
                 executablePath: binaryPath,
                 arguments: arguments,
                 timeoutSeconds: timeoutSeconds,
                 maximumStdoutBytes: maximumStdoutBytes,
-                expectedSHA256: binarySHA256
+                expectedSHA256: binarySHA256,
+                stdinPassword: stdinPassword
             )
         } catch let error as SevenZipHelperError {
             switch error {
@@ -1038,7 +1233,7 @@ public actor SevenZipProvider: ArchiveProvider {
                 throw CancellationError()
             case .timedOut:
                 throw SevenZipProviderError.helperTimedOut
-            case .spawnFailed, .drainFailure:
+            case .spawnFailed, .drainFailure, .privateInputTooLarge, .privateInputWriteFailed:
                 throw ArchiveError.helperFailed
             }
         }

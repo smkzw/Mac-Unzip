@@ -1,4 +1,5 @@
 import ArchiveDomain
+import ArchiveSecurity
 @testable import ArchiveProviders
 import Foundation
 import XCTest
@@ -84,6 +85,104 @@ final class ZIPArchiveProviderTests: XCTestCase {
         } catch let error as ArchiveError {
             XCTAssertEqual(error, .passwordRequired)
         }
+    }
+
+    func testMaterializeEncryptedEntryRequiresPassword() async throws {
+        let fixture = try ZIPFixture(entries: ["secret.txt": Data("secret".utf8)], password: "1234")
+        let provider = ZIPArchiveProvider()
+        let snapshot = try await provider.open(url: fixture.archiveURL)
+        let encrypted = try XCTUnwrap(snapshot.entries.first { !$0.isDirectory })
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "MacUnzipEncMat-" + UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        do {
+            _ = try await provider.materializeEntry(id: encrypted.entry.id, under: root)
+            XCTFail("Expected passwordRequired")
+        } catch let error as ArchiveError {
+            XCTAssertEqual(error, .passwordRequired)
+        }
+    }
+
+    func testSecurePasswordLifecycleSurvivesHeapScrubForZipCrypto() async throws {
+        let expected = Data("ZipCrypto lifecycle plaintext".utf8)
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "MacUnzipEncLife-" + UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appending(path: "secret.txt")
+        try expected.write(to: source)
+        let archiveURL = root.appending(path: "zipcrypto.zip")
+        let writer = ZIPArchiveProvider()
+        try await writer.createWindowsZIP(
+            at: archiveURL,
+            inputs: [source],
+            compressLevel: 6,
+            password: "lifecycle-zipcrypto",
+            encryptMethod: 2
+        ) { _ in }
+
+        let provider = ZIPArchiveProvider()
+        let secure = SecurePassword("lifecycle-zipcrypto")
+        let snapshot = try await provider.openWithPassword(url: archiveURL, password: secure)
+        let entry = try XCTUnwrap(snapshot.entries.first { !$0.isDirectory })
+
+        // Force heap churn after SecurePassword.withCString has returned and zeroized.
+        var junk: [Data] = []
+        for i in 0..<256 {
+            junk.append(Data(repeating: UInt8(truncatingIfNeeded: i), count: 4096))
+        }
+        XCTAssertFalse(junk.isEmpty)
+
+        let readBack = try await provider.readEntry(id: entry.entry.id, maximumBytes: 1 << 20)
+        XCTAssertEqual(readBack, expected)
+
+        let outRoot = root.appending(path: "out", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: outRoot, withIntermediateDirectories: true)
+        let materialized = try await provider.materializeEntry(id: entry.entry.id, under: outRoot)
+        XCTAssertEqual(try Data(contentsOf: materialized), expected)
+    }
+
+    func testAES256CreateThenIndependentReaderRoundTrip() async throws {
+        let expected = Data("AES-256 independent reader".utf8)
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "MacUnzipAES-" + UUID().uuidString,
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = root.appending(path: "secret.txt")
+        try expected.write(to: source)
+        let archiveURL = root.appending(path: "aes.zip")
+        let writer = ZIPArchiveProvider()
+        try await writer.createWindowsZIP(
+            at: archiveURL,
+            inputs: [source],
+            compressLevel: 6,
+            password: "aes-lifecycle-pwd",
+            encryptMethod: 1
+        ) { _ in }
+
+        let reader = ZIPArchiveProvider()
+        let snapshot = try await reader.openWithPassword(
+            url: archiveURL,
+            password: SecurePassword("aes-lifecycle-pwd")
+        )
+        let entry = try XCTUnwrap(snapshot.entries.first { !$0.isDirectory })
+        var scrub: [UInt8] = Array(repeating: 0xA5, count: 64 * 1024)
+        scrub.shuffle()
+        let readBack = try await reader.readEntry(id: entry.entry.id, maximumBytes: 1 << 20)
+        XCTAssertEqual(readBack, expected)
+        let outRoot = root.appending(path: "out", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: outRoot, withIntermediateDirectories: true)
+        let materialized = try await reader.materializeEntry(id: entry.entry.id, under: outRoot)
+        XCTAssertEqual(try Data(contentsOf: materialized), expected)
     }
 
     func testRepeatedOpenReplacesThePreviousDocument() async throws {

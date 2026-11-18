@@ -49,21 +49,21 @@ enum ProviderStatusDetector {
 
     private static func detectSevenZip() -> ProviderStatusInfo {
         if let discovery = SevenZipBinaryDiscovery.discover() {
-            let isBundled = discovery.resolvedPath.contains(Bundle.main.resourceURL?.path ?? "\0")
+            let isPinnedBundle = discovery.origin == .bundledPinned
             return ProviderStatusInfo(
                 id: "7zz",
                 name: "7zz",
                 role: AppLocalization().string("7z / RAR 读取"),
                 isAvailable: true,
-                statusText: isBundled
+                statusText: isPinnedBundle
                     ? AppLocalization().string("✅ 内置")
-                    : AppLocalization().string("✅ 已检测到"),
+                    : AppLocalization().string("✅ 外部（Homebrew 兼容）"),
                 version: discovery.version,
-                path: isBundled ? AppLocalization().string("内嵌于应用") : discovery.resolvedPath,
-                updateNote: isBundled
+                path: isPinnedBundle ? AppLocalization().string("内嵌于应用") : discovery.resolvedPath,
+                updateNote: isPinnedBundle
                     ? AppLocalization().string("随应用更新")
-                    : AppLocalization().string("前往官网获取最新版"),
-                updateURL: isBundled ? nil : URL(string: "https://www.7-zip.org")
+                    : AppLocalization().string("兼容回退，非内置 pinned；请前往官网获取最新版"),
+                updateURL: isPinnedBundle ? nil : URL(string: "https://www.7-zip.org")
             )
         }
         return ProviderStatusInfo(

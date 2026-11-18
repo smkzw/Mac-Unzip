@@ -150,6 +150,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSTreatUnknownArgumentsAsOpen</key>
+	<false/>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>

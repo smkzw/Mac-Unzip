@@ -9,12 +9,35 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__APPLE__)
+#include <sys/mman.h>
+#include <sys/types.h>
+#endif
+
+#ifndef memset_s
+static inline int awb_memset_s(void *s, size_t smax, int c, size_t n) {
+    if (s == NULL) {
+        return -1;
+    }
+    if (n > smax) {
+        n = smax;
+    }
+    volatile unsigned char *p = (volatile unsigned char *)s;
+    while (n--) {
+        *p++ = (unsigned char)c;
+    }
+    return 0;
+}
+#define memset_s awb_memset_s
+#endif
+
 struct awb_mz_reader {
     void *handle;
     mz_zip_file *current;
     int64_t *index;       /* array of central directory offsets per entry ordinal */
     uint64_t index_count; /* number of entries in the index */
     uint8_t index_built;  /* 1 once the index has been fully populated */
+    char *owned_password; /* owned locked copy; minizip only stores the pointer */
 };
 
 struct awb_mz_writer {
@@ -22,7 +45,48 @@ struct awb_mz_writer {
     uint8_t entry_open;
     uint16_t compress_method;
     int32_t encrypt_method;
+    char *owned_password; /* owned locked copy; minizip only stores the pointer */
 };
+
+static void awb_mz_clear_owned_password(char **password) {
+    if (password == NULL || *password == NULL) {
+        return;
+    }
+    /* Zero the whole allocation including the trailing NUL, then unlock. */
+    size_t capacity = strlen(*password) + 1;
+    memset_s(*password, capacity, 0, capacity);
+#if defined(__APPLE__)
+    (void)munlock(*password, capacity);
+#endif
+    free(*password);
+    *password = NULL;
+}
+
+static int32_t awb_mz_adopt_password(char **destination, const char *password) {
+    if (destination == NULL) {
+        return AWB_MZ_INVALID_ARGUMENT;
+    }
+    awb_mz_clear_owned_password(destination);
+    if (password == NULL || password[0] == '\0') {
+        return AWB_MZ_OK;
+    }
+    size_t length = strlen(password);
+    char *copy = (char *)malloc(length + 1);
+    if (copy == NULL) {
+        return AWB_MZ_MEMORY_ERROR;
+    }
+    memcpy(copy, password, length + 1);
+#if defined(__APPLE__)
+    if (mlock(copy, length + 1) != 0) {
+        /* mlock failure must not leave an unlocked password copy around. */
+        memset_s(copy, length + 1, 0, length + 1);
+        free(copy);
+        return AWB_MZ_MEMORY_ERROR;
+    }
+#endif
+    *destination = copy;
+    return AWB_MZ_OK;
+}
 
 static int32_t awb_mz_map_result(int32_t result) {
     switch (result) {
@@ -198,13 +262,20 @@ int32_t awb_mz_reader_open_with_password(const char *path, const char *password,
         return AWB_MZ_MEMORY_ERROR;
     }
 
-    if (password != NULL && password[0] != '\0') {
-        mz_zip_reader_set_password(reader->handle, password);
+    int32_t adopt = awb_mz_adopt_password(&reader->owned_password, password);
+    if (adopt != AWB_MZ_OK) {
+        mz_zip_reader_delete(&reader->handle);
+        free(reader);
+        return adopt;
+    }
+    if (reader->owned_password != NULL) {
+        mz_zip_reader_set_password(reader->handle, reader->owned_password);
     }
 
     int32_t result = mz_zip_reader_open_file(reader->handle, path);
     if (result != MZ_OK) {
         mz_zip_reader_delete(&reader->handle);
+        awb_mz_clear_owned_password(&reader->owned_password);
         free(reader);
         return awb_mz_map_result(result);
     }
@@ -292,11 +363,13 @@ void awb_mz_reader_close(awb_mz_reader **reader) {
         return;
     }
     if ((*reader)->handle != NULL) {
+        mz_zip_reader_set_password((*reader)->handle, NULL);
         mz_zip_reader_close((*reader)->handle);
         mz_zip_reader_delete(&(*reader)->handle);
     }
     free((*reader)->index);
     (*reader)->index = NULL;
+    awb_mz_clear_owned_password(&(*reader)->owned_password);
     free(*reader);
     *reader = NULL;
 }
@@ -356,8 +429,14 @@ int32_t awb_mz_writer_open_with_password(const char *path, const char *password,
     mz_zip_writer_set_follow_links(writer->handle, 0);
     mz_zip_writer_set_store_links(writer->handle, 0);
 
-    /* Set encryption password and method */
-    mz_zip_writer_set_password(writer->handle, password);
+    int32_t adopt = awb_mz_adopt_password(&writer->owned_password, password);
+    if (adopt != AWB_MZ_OK) {
+        mz_zip_writer_delete(&writer->handle);
+        free(writer);
+        return adopt;
+    }
+    /* Set encryption password and method; minizip stores the pointer only. */
+    mz_zip_writer_set_password(writer->handle, writer->owned_password);
     if (encrypt_method == AWB_MZ_ENCRYPT_AES256) {
         mz_zip_writer_set_aes(writer->handle, 1);
     } else {
@@ -368,6 +447,7 @@ int32_t awb_mz_writer_open_with_password(const char *path, const char *password,
     int32_t result = mz_zip_writer_open_file(writer->handle, path, 0, 0);
     if (result != MZ_OK) {
         mz_zip_writer_delete(&writer->handle);
+        awb_mz_clear_owned_password(&writer->owned_password);
         free(writer);
         return awb_mz_map_result(result);
     }
@@ -410,8 +490,14 @@ int32_t awb_mz_writer_open_configured(const char *path, int32_t compress_level, 
     mz_zip_writer_set_follow_links(writer->handle, 0);
     mz_zip_writer_set_store_links(writer->handle, 0);
 
-    if (password != NULL && password[0] != '\0') {
-        mz_zip_writer_set_password(writer->handle, password);
+    int32_t adopt = awb_mz_adopt_password(&writer->owned_password, password);
+    if (adopt != AWB_MZ_OK) {
+        mz_zip_writer_delete(&writer->handle);
+        free(writer);
+        return adopt;
+    }
+    if (writer->owned_password != NULL) {
+        mz_zip_writer_set_password(writer->handle, writer->owned_password);
         if (encrypt_method == AWB_MZ_ENCRYPT_AES256) {
             mz_zip_writer_set_aes(writer->handle, 1);
         } else {
@@ -422,12 +508,13 @@ int32_t awb_mz_writer_open_configured(const char *path, int32_t compress_level, 
     int32_t result = mz_zip_writer_open_file(writer->handle, path, 0, 0);
     if (result != MZ_OK) {
         mz_zip_writer_delete(&writer->handle);
+        awb_mz_clear_owned_password(&writer->owned_password);
         free(writer);
         return awb_mz_map_result(result);
     }
 
     *out_writer = writer;
-    writer->encrypt_method = (password != NULL && password[0] != '\0') ? encrypt_method : AWB_MZ_ENCRYPT_NONE;
+    writer->encrypt_method = (writer->owned_password != NULL) ? encrypt_method : AWB_MZ_ENCRYPT_NONE;
     return AWB_MZ_OK;
 }
 
@@ -560,12 +647,14 @@ int32_t awb_mz_writer_close(awb_mz_writer **writer) {
             result = mz_zip_writer_entry_close((*writer)->handle);
             (*writer)->entry_open = 0;
         }
+        mz_zip_writer_set_password((*writer)->handle, NULL);
         int32_t close_result = mz_zip_writer_close((*writer)->handle);
         if (result == MZ_OK) {
             result = close_result;
         }
         mz_zip_writer_delete(&(*writer)->handle);
     }
+    awb_mz_clear_owned_password(&(*writer)->owned_password);
     free(*writer);
     *writer = NULL;
     return awb_mz_map_result(result);

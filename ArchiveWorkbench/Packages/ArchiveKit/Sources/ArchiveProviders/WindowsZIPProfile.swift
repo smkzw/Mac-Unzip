@@ -41,6 +41,24 @@ extension ZIPArchiveProvider {
         encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) throws {
+        try createWindowsZIP(
+            at: outputURL,
+            inputs: inputs.map { ArchiveCreationInput(sourceURL: $0) },
+            compressLevel: compressLevel,
+            password: password,
+            encryptMethod: encryptMethod,
+            progress: progress
+        )
+    }
+
+    public func createWindowsZIP(
+        at outputURL: URL,
+        inputs: [ArchiveCreationInput],
+        compressLevel: Int32 = AWB_MZ_LEVEL_NORMAL,
+        password: String? = nil,
+        encryptMethod: Int32 = AWB_MZ_ENCRYPT_NONE,
+        progress: @Sendable (WindowsZIPCreationProgress) -> Void
+    ) throws {
         try Task.checkCancellation()
         guard !FileManager.default.fileExists(atPath: outputURL.path) else {
             throw WindowsZIPProfileError.outputExists
@@ -265,27 +283,39 @@ private struct WindowsZIPPreflight {
     ]
 
     func collect(inputs: [URL]) throws -> [WindowsZIPInputEntry] {
+        try collect(inputs: inputs.map { ArchiveCreationInput(sourceURL: $0) })
+    }
+
+    func collect(inputs: [ArchiveCreationInput]) throws -> [WindowsZIPInputEntry] {
         guard !inputs.isEmpty else { throw WindowsZIPProfileError.noInputs }
         var candidates: [(url: URL, path: String, isDirectory: Bool, modifiedAt: Date?)] = []
         for input in inputs {
-            let values = try input.resourceValues(forKeys: resourceKeys)
+            let source = input.sourceURL
+            let rootName = input.archiveRootName
+            let values = try source.resourceValues(forKeys: resourceKeys)
             if values.isSymbolicLink == true {
-                throw WindowsZIPProfileError.unsupportedItem(input.lastPathComponent)
+                throw WindowsZIPProfileError.unsupportedItem(rootName)
             }
             if values.isRegularFile == true {
-                candidates.append((input, input.lastPathComponent, false, values.contentModificationDate))
+                candidates.append((source, rootName, false, values.contentModificationDate))
             } else if values.isDirectory == true {
-                let nestedEntries = try entries(under: input)
+                let nestedEntries = try entries(under: source)
                 let hasVisibleEntry = nestedEntries.contains { entry in
                     !shouldSuppress(components: entry.path.split(separator: "/").map(String.init))
                 }
                 if !hasVisibleEntry {
-                    candidates.append((input, input.lastPathComponent, true, values.contentModificationDate))
-                } else {
+                    candidates.append((source, rootName, true, values.contentModificationDate))
+                } else if rootName == source.lastPathComponent {
+                    // Default: keep historical flatten of selected directory contents.
                     candidates.append(contentsOf: nestedEntries)
+                } else {
+                    // Renamed root: place contents under the explicit archive root name.
+                    candidates.append(contentsOf: nestedEntries.map {
+                        ($0.url, rootName + "/" + $0.path, $0.isDirectory, $0.modifiedAt)
+                    })
                 }
             } else {
-                throw WindowsZIPProfileError.unsupportedItem(input.lastPathComponent)
+                throw WindowsZIPProfileError.unsupportedItem(rootName)
             }
         }
 
@@ -338,17 +368,26 @@ private struct WindowsZIPPreflight {
             throw WindowsZIPProfileError.unsupportedItem(root.lastPathComponent)
         }
         var result: [(url: URL, path: String, isDirectory: Bool, modifiedAt: Date?)] = []
-        // The enumerator yields symlink-resolved paths; resolve the root too so the
-        // prefix matches even when root sits under a symlinked component (/tmp -> /private/tmp).
-        let prefix = root.resolvingSymlinksInPath().path + "/"
+        // Enumerator URLs often use /private/var while URL.path stays on /var.
+        // realpath() aligns both; keep the enumerator basename so symlink rejection
+        // reports the link name rather than its target.
+        let resolvedRootPath = Self.realPath(root.path)
+        let prefix = resolvedRootPath.hasSuffix("/") ? resolvedRootPath : resolvedRootPath + "/"
         while let url = enumerator.nextObject() as? URL {
             let values = try url.resourceValues(forKeys: resourceKeys)
-            guard url.path.hasPrefix(prefix) else {
+            let resolvedEntryPath = Self.realPath(url.path)
+            guard resolvedEntryPath.hasPrefix(prefix) else {
                 throw WindowsZIPProfileError.unsupportedItem(url.lastPathComponent)
             }
-            let relativePath = String(url.path.dropFirst(prefix.count))
+            let relativePath = String(resolvedEntryPath.dropFirst(prefix.count))
+            // For symlinks, prefer the unresolved basename so callers see the link name.
+            let reportedPath = values.isSymbolicLink == true
+                ? (url.path.hasPrefix(root.path + "/")
+                    ? String(url.path.dropFirst(root.path.count + 1))
+                    : url.lastPathComponent)
+                : relativePath
             if values.isSymbolicLink == true {
-                throw WindowsZIPProfileError.unsupportedItem(relativePath)
+                throw WindowsZIPProfileError.unsupportedItem(reportedPath)
             }
             if values.isRegularFile == true {
                 result.append((url, relativePath, false, values.contentModificationDate))
@@ -393,6 +432,14 @@ private struct WindowsZIPPreflight {
                 || reserved.contains(upperStem)
                 || isNumberedDevice
             if invalid { throw WindowsZIPProfileError.invalidName(component) }
+        }
+    }
+
+    private static func realPath(_ path: String) -> String {
+        path.withCString { cPath in
+            guard let resolved = realpath(cPath, nil) else { return path }
+            defer { free(resolved) }
+            return String(cString: resolved)
         }
     }
 }

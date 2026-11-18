@@ -39,8 +39,8 @@ struct MediaPreviewView: View {
                     .accessibilityLabel(AppLocalization().format("正在预览 %@", displayName(for: entry)))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 32)
-                    .padding(.top, isVisualCapture ? 36 : 18)
-                    .padding(.bottom, 18)
+                    .padding(.top, 18)
+                    .padding(.bottom, 12)
 
                 previewPanel(for: entry)
 
@@ -64,19 +64,14 @@ struct MediaPreviewView: View {
 
     @ViewBuilder
     private func previewPanel(for entry: ArchiveEntry) -> some View {
-        if isVisualCapture {
-            preview(for: entry)
-                .frame(maxWidth: .infinity)
-                .frame(height: 468)
-                .padding(.horizontal, 26)
-                .padding(.top, 12)
-                .padding(.bottom, 10)
-        } else {
-            preview(for: entry)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.horizontal, 32)
-                .padding(.bottom, 20)
-        }
+        // Prefer flexible height. A hard 468pt height under visual-capture
+        // overflowed 900×700 chrome (toolbar + strip + status) and aborted
+        // Auto Layout via NavigationSplitView constraint thrash.
+        preview(for: entry)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, isVisualCapture ? 26 : 32)
+            .padding(.top, isVisualCapture ? 8 : 0)
+            .padding(.bottom, isVisualCapture ? 10 : 20)
     }
 
     @ViewBuilder
@@ -92,7 +87,7 @@ struct MediaPreviewView: View {
             ArchiveImagePreviewStateView(
                 filename: displayName(for: entry),
                 cacheURL: previewCacheURL,
-                fallbackImage: entry.displayPath == "首页主视觉.png" ? sampleImage : nil
+                fallbackImage: entry.displayPath == "示例主视觉.png" ? sampleImage : nil
             )
         case .video:
             NativeVideoPreviewStateView(cacheURL: previewCacheURL)
@@ -179,7 +174,7 @@ struct MediaPreviewView: View {
 
     @ViewBuilder
     private func thumbnail(for entry: ArchiveEntry) -> some View {
-        if ["首页主视觉.png", "产品截图.heic"].contains(entry.displayPath), let image = sampleImage {
+        if ["示例主视觉.png", "示例截图.heic"].contains(entry.displayPath), let image = sampleImage {
             rasterThumbnail(image: image, showsPlayButton: false)
         } else if entry.displayPath == "演示视频.mp4", let image = sampleImage {
             rasterThumbnail(image: image, showsPlayButton: true)
@@ -193,27 +188,28 @@ struct MediaPreviewView: View {
     }
 
     private func rasterThumbnail(image: NSImage, showsPlayButton: Bool) -> some View {
-        GeometryReader { proxy in
-            ZStack {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-                if showsPlayButton {
-                    Circle()
-                        .fill(playButtonBackground)
-                        .frame(width: 36, height: 36)
-                    Image(systemName: "play.fill")
-                        .foregroundStyle(.primary)
-                }
+        // Avoid GeometryReader inside NavigationSplitView — it previously
+        // contributed to Update-Constraints-in-Window aborts under visual-capture.
+        ZStack {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            if showsPlayButton {
+                Circle()
+                    .fill(playButtonBackground)
+                    .frame(width: 36, height: 36)
+                Image(systemName: "play.fill")
+                    .foregroundStyle(.primary)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var sampleImage: NSImage? {
-        let url = Bundle.main.url(forResource: "首页主视觉", withExtension: "png", subdirectory: "SampleMedia")
-            ?? Bundle.main.url(forResource: "首页主视觉", withExtension: "png")
+        let url = Bundle.main.url(forResource: "示例主视觉", withExtension: "png", subdirectory: "SampleMedia")
+            ?? Bundle.main.url(forResource: "示例主视觉", withExtension: "png")
         return url.flatMap(NSImage.init(contentsOf:))
     }
 

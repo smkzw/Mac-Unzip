@@ -83,12 +83,16 @@ struct RootWindowView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var model: AppModel
     @State private var creationDraft: ArchiveCreationDraft?
+    @State private var creationDraftSequence: UInt64 = 0
     @State private var renameAlertPresented = false
     @State private var renameText = ""
     @State private var pendingOpenURL: URL?
     @State private var pendingCreationInputs: [URL]?
     @State private var pendingExtractHereURLs: [URL]?
     @State private var isDropTargeted = false
+    @State private var showMixedDropDecision = false
+    @State private var mixedDropArchives: [URL] = []
+    @State private var mixedDropOthers: [URL] = []
     private let visualCapture: Bool
     private let visualCaptureStyle: VisualCaptureStyle
     private let minimumWindow: Bool
@@ -96,36 +100,38 @@ struct RootWindowView: View {
     private let extractionDestinationURL: URL?
     private let finderAction: String?
     private let finderFilesPath: String?
+    private let wantsMediaFixturePreview: Bool
+    private let wantsDeferredFixtureDocument: Bool
+    private let includeLongFilenameFixture: Bool
+    private let wantsCreationFixture: Bool
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         let fixtureIndex = arguments.firstIndex(of: "-fixture")
         let hasMediaValue = fixtureIndex.map { $0 + 1 < arguments.count && arguments[$0 + 1] == "media" } ?? false
-        let isMediaFixture = arguments.contains("-ui-testing") && hasMediaValue
-        let initialModel = isMediaFixture
-            ? AppModel.mediaFixture(includeLongFilename: arguments.contains("-long-filename-fixture"))
-            : AppModel()
+        // Prefer boolean -media-fixture; keep legacy "-fixture media" (requires
+        // NSTreatUnknownArgumentsAsOpen=false so "media" is not treated as a file).
+        let isMediaFixture = arguments.contains("-ui-testing")
+            && (hasMediaValue || arguments.contains("-media-fixture"))
+        includeLongFilenameFixture = arguments.contains("-long-filename-fixture")
+        // Media fixture is applied in init so the first committed frame is already
+        // the browse UI. Creation sheet still opens in onAppear (needs a window).
+        let initialModel: AppModel
         if isMediaFixture {
-            initialModel.previewCacheURL = FixturePreviewCache.makePDF()
-            initialModel.previewCacheEntryID = initialModel.entries.first {
-                $0.displayPath == "品牌指南.pdf"
-            }?.id
-        }
-        _model = State(initialValue: initialModel)
-        if arguments.contains("-creation-fixture") {
-            var fixture = ArchiveCreationDraft(inputs: [
-                URL(fileURLWithPath: "/Users/示例/品牌资料", isDirectory: true),
-                URL(fileURLWithPath: "/Users/示例/交付说明.pdf"),
-            ])
-            fixture.outputURL = URL(fileURLWithPath: "/Users/示例/品牌资料.zip")
-            _creationDraft = State(initialValue: fixture)
+            initialModel = AppModel.mediaFixture(includeLongFilename: includeLongFilenameFixture)
+            initialModel.viewMode = .media
         } else {
-            _creationDraft = State(initialValue: nil)
+            initialModel = AppModel()
         }
         if arguments.contains("-appearance-dark") {
             initialModel.appearanceMode = .dark
         } else if arguments.contains("-appearance-light") {
             initialModel.appearanceMode = .light
         }
+        _model = State(initialValue: initialModel)
+        _creationDraft = State(initialValue: nil)
+        wantsMediaFixturePreview = isMediaFixture
+        wantsDeferredFixtureDocument = false
+        wantsCreationFixture = arguments.contains("-creation-fixture")
         visualCapture = arguments.contains("-visual-capture")
         minimumWindow = arguments.contains("-minimum-window")
         if let index = arguments.firstIndex(of: "-open-archive"), index + 1 < arguments.count {
@@ -159,7 +165,18 @@ struct RootWindowView: View {
 
     var body: some View {
         Group {
-            if model.hasDocument {
+            // Visual-capture creation fixture: render the panel as the window
+            // content. SwiftUI sheets on this multi-display setup are not
+            // capturable via screencapture -l/-R (empty / wrong surface).
+            if visualCapture, wantsCreationFixture, let draftBinding = creationDraftBindingForCapture {
+                CreateArchiveView(
+                    model: model,
+                    draft: draftBinding,
+                    chooseOutput: presentCreationSavePanel,
+                    dismiss: { creationDraft = nil }
+                )
+                .frame(width: UIConstants.createPanelWidth, height: UIConstants.createPanelHeight)
+            } else if model.hasDocument {
                 ArchiveDocumentView(
                     model: model,
                     visualCaptureStyle: visualCapture ? visualCaptureStyle : nil,
@@ -187,103 +204,21 @@ struct RootWindowView: View {
                         .controlSize(.large)
                         .accessibilityIdentifier("正在读取压缩包")
                 } else {
-                    VStack(spacing: 12) {
-                        if let errorPresentation = model.activeErrorPresentation {
-                            ArchiveErrorBanner(
-                                errorType: errorPresentation,
-                                onRecoveryAction: nil,
-                                onDismiss: { model.dismissError() },
-                                retryPassword: $model.passwordRetryText,
-                                passwordAttemptCount: model.passwordAttemptCount,
-                                onRetryPassword: { password in model.retryWithPassword(password) },
-                                onResetLockout: { model.passwordAttemptCount = 0 }
-                            )
-                        }
-                        ContentUnavailableView {
-                            Label("MacUnzip", systemImage: "archivebox")
-                        } description: {
-                            Text(AppLocalization().string("打开 ZIP、7z、RAR、TAR、DMG、ISO 压缩包，安全查看其中的文件。\n也可以直接将压缩包文件拖放到此窗口。"))
-                        } actions: {
-                            HStack(spacing: 12) {
-                                Button("打开压缩包") { presentOpenPanel() }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.large)
-                                    .keyboardShortcut(.defaultAction)
-                                    .accessibilityIdentifier("打开压缩包")
-                                Button {
-                                    presentCreationInputPanel()
-                                } label: {
-                                    Label {
-                                        Text("新建压缩包")
-                                    } icon: {
-                                        Image(systemName: "externaldrive.badge.plus")
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.large)
-                                .help(AppLocalization().string("创建 ZIP、7z、RAR、TAR.GZ、TAR.XZ、TAR.ZST 压缩包"))
-                                .accessibilityIdentifier("新建压缩包")
-                            }
-                        }
-                        if !model.statusMessage.isEmpty {
-                            Text(model.statusMessage)
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("欢迎页状态消息")
-                        }
-                        let recentURLs = RecentArchivesManager.shared.recentURLs
-                        let recentMax = UserDefaults.standard.object(forKey: SettingsKeys.recentArchivesCount) == nil
-                            ? 10
-                            : UserDefaults.standard.integer(forKey: SettingsKeys.recentArchivesCount)
-                        if recentMax > 0 && !recentURLs.isEmpty {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text("最近打开")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Button(AppLocalization().string("清除")) {
-                                        RecentArchivesManager.shared.clearRecent()
-                                    }
-                                    .font(.caption2)
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.secondary)
-                                }
-                                ForEach(recentURLs.prefix(recentMax), id: \.self) { url in
-                                    Button {
-                                        RecentArchivesManager.shared.noteRecentArchive(url)
-                                        Task { await model.openArchive(url: url) }
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "archivebox")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                            VStack(alignment: .leading, spacing: 1) {
-                                                Text(url.lastPathComponent)
-                                                    .lineLimit(1)
-                                                    .truncationMode(.middle)
-                                                Text(url.deletingLastPathComponent().lastPathComponent)
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.tertiary)
-                                                    .lineLimit(1)
-                                                    .truncationMode(.middle)
-                                            }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help(url.path)
-                                }
-                            }
-                            .padding(.top, 8)
-                            .frame(maxWidth: 320)
-                        }
-                    }
+                    WelcomeHomeView(
+                        model: model,
+                        isDropTargeted: isDropTargeted,
+                        onOpen: { presentOpenPanel() },
+                        onCreate: { presentCreationInputPanel() }
+                    )
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(AppLocalization().string(model.hasDocument ? "MacUnzip" : "欢迎"))
-        .frame(minWidth: 900, minHeight: 560)
+        .frame(
+            minWidth: (visualCapture && wantsCreationFixture) ? UIConstants.createPanelWidth : 900,
+            minHeight: (visualCapture && wantsCreationFixture) ? UIConstants.createPanelHeight : 560
+        )
         .focusedValue(\.appModel, model)
         .background(WindowCloseHandler(model: model))
         // Drag-and-drop support for archive files
@@ -296,7 +231,7 @@ struct RootWindowView: View {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.accentColor.opacity(0.06))
                         )
-                    Text("松开以打开压缩包")
+                    Text(AppLocalization().string("松开以打开或新建压缩包"))
                         .font(.title3.weight(.medium))
                         .foregroundStyle(Color.accentColor)
                 }
@@ -315,7 +250,8 @@ struct RootWindowView: View {
             handleDrop: handleDrop,
             routeDroppedURLs: routeDroppedURLs,
             presentOpenPanel: presentOpenPanel,
-            presentCreationInputPanel: presentCreationInputPanel
+            presentCreationInputPanel: presentCreationInputPanel,
+            makeCreationDraft: makeCreationDraft
         ))
         .task {
             await handleLaunchArguments()
@@ -333,11 +269,12 @@ struct RootWindowView: View {
             renameText: $renameText,
             pendingOpenURL: $pendingOpenURL,
             pendingCreationInputs: $pendingCreationInputs,
-            creationDraft: $creationDraft
+            creationDraft: $creationDraft,
+            makeCreationDraft: makeCreationDraft
         ))
         .sheet(
             isPresented: Binding(
-                get: { creationDraft != nil },
+                get: { creationDraft != nil && !(visualCapture && wantsCreationFixture) },
                 set: { if !$0 { creationDraft = nil } }
             )
         ) {
@@ -379,6 +316,48 @@ struct RootWindowView: View {
                 Text(AppLocalization().format("即将把 %ld 个压缩包解压到各自所在的文件夹。", urls.count))
             }
         }
+        .alert(
+            AppLocalization().string("混合拖入"),
+            isPresented: $showMixedDropDecision
+        ) {
+            Button(AppLocalization().string("打开其中的压缩包")) {
+                showMixedDropDecision = false
+                if let first = mixedDropArchives.first {
+                    RecentArchivesManager.shared.noteRecentArchive(first)
+                    if model.hasUnsavedChanges {
+                        pendingOpenURL = first
+                    } else {
+                        Task { await model.openArchive(url: first) }
+                    }
+                }
+                mixedDropArchives = []
+                mixedDropOthers = []
+            }
+            Button(AppLocalization().string(model.hasDocument ? "全部加入当前压缩包" : "全部作为新建输入")) {
+                showMixedDropDecision = false
+                let batch = mixedDropArchives + mixedDropOthers
+                mixedDropArchives = []
+                mixedDropOthers = []
+                if model.hasDocument {
+                    Task { await model.stageAdditions(from: batch) }
+                } else if model.hasUnsavedChanges {
+                    pendingCreationInputs = batch
+                } else {
+                    creationDraft = makeCreationDraft(inputs: batch)
+                }
+            }
+            Button(AppLocalization().string("取消"), role: .cancel) {
+                showMixedDropDecision = false
+                mixedDropArchives = []
+                mixedDropOthers = []
+            }
+        } message: {
+            Text(AppLocalization().format(
+                "这次拖入同时包含 %ld 个压缩包和 %ld 个其他项目。请选择打开压缩包，或全部作为文件处理。",
+                mixedDropArchives.count,
+                mixedDropOthers.count
+            ))
+        }
         .onAppear {
             MainAppWindowOpener.openWindow = openWindow
             if let pending = PendingWindowCommandBox.shared.take() {
@@ -389,6 +368,9 @@ struct RootWindowView: View {
                     }
                 }
             }
+            let deferWindowSizing = wantsDeferredFixtureDocument
+                || wantsCreationFixture
+                || wantsMediaFixturePreview
             DispatchQueue.main.async {
                 guard let window = NSApp.keyWindow
                     ?? NSApp.windows.first(where: \.isVisible)
@@ -400,38 +382,93 @@ struct RootWindowView: View {
                 window.titleVisibility = .hidden
                 window.contentView?.setAccessibilityLabel(label)
                 window.contentView?.setAccessibilityIdentifier("MacUnzipMainWindowContent")
-                if minimumWindow, let screen = window.screen ?? NSScreen.main {
-                    let visibleFrame = screen.visibleFrame
-                    let size = NSSize(width: 900, height: min(700, visibleFrame.height))
-                    window.setFrame(
-                        NSRect(
-                            x: visibleFrame.midX - size.width / 2,
-                            y: visibleFrame.midY - size.height / 2,
-                            width: size.width,
-                            height: size.height
-                        ),
-                        display: true
-                    )
-                } else if visualCapture, let screen = window.screen ?? NSScreen.main {
-                    let targetAspect = CGFloat(1_487.0 / 1_058.0)
-                    let visibleFrame = screen.visibleFrame
-                    var targetHeight = min(872, visibleFrame.height)
-                    var targetWidth = targetHeight * targetAspect
-                    if targetWidth > visibleFrame.width {
-                        targetWidth = visibleFrame.width
-                        targetHeight = targetWidth / targetAspect
-                    }
-                    let origin = NSPoint(
-                        x: visibleFrame.midX - targetWidth / 2,
-                        y: visibleFrame.midY - targetHeight / 2
-                    )
-                    window.setFrame(
-                        NSRect(origin: origin, size: NSSize(width: targetWidth, height: targetHeight)),
-                        display: true
-                    )
+                if visualCapture || minimumWindow || wantsMediaFixturePreview || wantsCreationFixture {
+                    // Prevent autosaved 900×700 frames from overriding capture sizes.
+                    window.setFrameAutosaveName("")
+                }
+                // When fixtures will swap the root view shortly, wait for that
+                // pass before the first setFrame — competing sizes during
+                // NavigationSplitView / sheet materialization trip Auto Layout.
+                if !deferWindowSizing {
+                    applyPreferredFrame(to: window)
                 }
                 if let contentView = window.contentView {
                     labelSplitViewContainers(in: contentView)
+                }
+            }
+            // Apply fixtures after the WindowGroup commits a real window.
+            if deferWindowSizing {
+                // Use asyncAfter (not Task.sleep) so a brief view identity churn
+                // cannot cancel fixture application before capture scripts run.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    if wantsMediaFixturePreview, model.previewCacheURL == nil {
+                        model.previewCacheURL = FixturePreviewCache.makePDF()
+                        model.previewCacheEntryID = model.entries.first {
+                            $0.displayPath == "产品指南.pdf"
+                        }?.id
+                    }
+                    // Pin host onto the built-in screen first for media/welcome.
+                    // For creation, pin first then present the sheet so it inherits
+                    // an on-screen parent — but do not setFrame the parent again
+                    // after the sheet appears (that dismisses/detaches it).
+                    if let window = NSApp.keyWindow
+                        ?? NSApp.windows.first(where: \.isVisible)
+                        ?? NSApp.windows.first {
+                        applyPreferredFrame(to: window)
+                        window.makeKeyAndOrderFront(nil)
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                    if wantsCreationFixture, creationDraft == nil {
+                        // Use real temp sample files so CreateArchiveView does not
+                        // immediately alert "文件不存在" for fictional paths.
+                        let sampleRoot = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("MacUnzipCreationFixture", isDirectory: true)
+                        try? FileManager.default.removeItem(at: sampleRoot)
+                        try? FileManager.default.createDirectory(at: sampleRoot, withIntermediateDirectories: true)
+                        let assets = sampleRoot.appendingPathComponent("Design Assets", isDirectory: true)
+                        try? FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+                        let note = sampleRoot.appendingPathComponent("Launch Notes.pdf")
+                        try? Data("%PDF-1.4\n%MacUnzip sample\n".utf8).write(to: note)
+                        try? Data("sample asset\n".utf8).write(
+                            to: assets.appendingPathComponent("示例主视觉.txt")
+                        )
+                        var fixture = ArchiveCreationDraft(inputs: [assets, note])
+                        // Fictional public destination for screenshots / UI tests —
+                        // do not surface host-specific /var/folders paths.
+                        fixture.outputURL = URL(fileURLWithPath: "/Users/Sample/Design Assets.zip")
+                        // Defer one turn so the parent frame commit lands first.
+                        DispatchQueue.main.async {
+                            creationDraft = fixture
+                        }
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        reclaimSheetWindowsOnscreen()
+                        if wantsCreationFixture, visualCapture,
+                           let window = NSApp.keyWindow
+                            ?? NSApp.windows.first(where: \.isVisible)
+                            ?? NSApp.windows.first {
+                            applyPreferredFrame(to: window)
+                        }
+                        // Marker for capture scripts — proves fixture UI is up.
+                        let kind: String
+                        if model.hasDocument {
+                            kind = "media:\(model.documentTitle):\(model.entries.count)"
+                        } else if creationDraft != nil {
+                            kind = "creation"
+                        } else {
+                            kind = "welcome"
+                        }
+                        let marker = URL(fileURLWithPath: "/tmp/macunzip_visual_ready")
+                        try? kind.write(to: marker, atomically: true, encoding: .utf8)
+                    }
+                }
+            } else if visualCapture {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    try? "welcome".write(
+                        to: URL(fileURLWithPath: "/tmp/macunzip_visual_ready"),
+                        atomically: true,
+                        encoding: .utf8
+                    )
                 }
             }
         }
@@ -482,33 +519,43 @@ struct RootWindowView: View {
         return true
     }
 
-    /// Routes dropped URLs: all archives → open first; any folder/file → create-archive.
+    /// Routes dropped URLs through the shared decision function.
     private func routeDroppedURLs(_ urls: [URL]) {
-        let allArchives = urls.allSatisfy { url in
-            var isDir: ObjCBool = false
-            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-            return exists && !isDir.boolValue && ArchiveFileTypes.isSupportedArchive(url)
-        }
-        if allArchives {
-            guard let first = urls.first else { return }
+        let context: DropRouteContext = model.hasDocument ? .openDocument : .welcome
+        guard let decision = DropRouting.decide(
+            urls: urls,
+            context: context,
+            isSupportedArchive: ArchiveFileTypes.isSupportedArchive
+        ) else { return }
+
+        switch decision {
+        case .openFirstArchive(let first, let ignoredCount):
             RecentArchivesManager.shared.noteRecentArchive(first)
-            let ignoredCount = urls.count - 1
             if model.hasUnsavedChanges {
                 pendingOpenURL = first
             } else {
                 Task {
                     await model.openArchive(url: first)
                     if ignoredCount > 0, model.hasDocument {
-                        model.statusMessage = AppLocalization().format("已打开第一个压缩包，其余 %ld 个文件未处理。", ignoredCount)
+                        model.statusMessage = AppLocalization().format(
+                            "已打开第一个压缩包，其余 %ld 个文件未处理。",
+                            ignoredCount
+                        )
                     }
                 }
             }
-            return
-        }
-        if model.hasUnsavedChanges {
-            pendingCreationInputs = urls
-        } else {
-            creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
+        case .createArchiveInputs(let batch):
+            if model.hasUnsavedChanges {
+                pendingCreationInputs = batch
+            } else {
+                creationDraft = makeCreationDraft(inputs: batch)
+            }
+        case .addToOpenDocument(let batch):
+            Task { await model.stageAdditions(from: batch) }
+        case .askMixed(let archives, let others):
+            mixedDropArchives = archives
+            mixedDropOthers = others
+            showMixedDropDecision = true
         }
     }
 
@@ -535,7 +582,7 @@ struct RootWindowView: View {
                     if finderAction == "compress-zip" {
                         model.creationFormat = .zip
                     }
-                    creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
+                    creationDraft = makeCreationDraft(inputs: urls)
                 }
             }
         } else if let initialArchiveURL, !model.hasDocument, !model.isLoading {
@@ -602,20 +649,23 @@ struct RootWindowView: View {
         }
     }
 
+
+    private func makeCreationDraft(inputs: [URL]) -> ArchiveCreationDraft {
+        creationDraftSequence &+= 1
+        // Always enter through conflict detection/merge — never bypass for welcome/mixed drops.
+        return CreationInputMerging.makeDraft(
+            inputs: inputs,
+            format: model.creationFormat,
+            generation: creationDraftSequence
+        )
+    }
+
     private func presentCreationInputPanel() {
-        let panel = NSOpenPanel()
-        panel.title = ArchiveCreationCopy.inputPanelTitle()
-        panel.prompt = ArchiveCreationCopy.inputPanelPrompt()
-        panel.message = ArchiveCreationCopy.inputPanelMessage()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-        panel.canCreateDirectories = false
-        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        // Show the empty create panel first; Finder selection happens inside the panel.
         if model.hasUnsavedChanges {
-            pendingCreationInputs = panel.urls
+            pendingCreationInputs = []
         } else {
-            creationDraft = ArchiveCreationDraft(inputs: panel.urls, format: model.creationFormat)
+            creationDraft = makeCreationDraft(inputs: [])
         }
     }
 
@@ -628,7 +678,7 @@ struct RootWindowView: View {
         if let output = creationDraft?.outputURL {
             panel.directoryURL = output.deletingLastPathComponent()
         } else if let firstInput = creationDraft?.inputs.first {
-            panel.directoryURL = firstInput.deletingLastPathComponent()
+            panel.directoryURL = firstInput.sourceURL.deletingLastPathComponent()
         }
         let ext = URL(fileURLWithPath: suggestedFilename).pathExtension
         if let ut = UTType(filenameExtension: ext) {
@@ -802,6 +852,110 @@ struct RootWindowView: View {
             labelSplitViewContainers(in: subview)
         }
     }
+
+    private var creationDraftBindingForCapture: Binding<ArchiveCreationDraft>? {
+        guard creationDraft != nil else { return nil }
+        return Binding(
+            get: { creationDraft ?? ArchiveCreationDraft(inputs: []) },
+            set: { creationDraft = $0 }
+        )
+    }
+
+    /// Prefer the screen that actually owns the window; fall back to intersection, then main.
+    private func preferredScreen(for window: NSWindow) -> NSScreen? {
+        if let screen = window.screen { return screen }
+        let frame = window.frame
+        if let hit = NSScreen.screens.first(where: { $0.frame.intersects(frame) }) {
+            return hit
+        }
+        return NSScreen.main
+    }
+
+    /// Prefer the zero-origin built-in screen for capture launches.
+    private var captureTargetScreen: NSScreen? {
+        NSScreen.screens.first(where: { $0.frame.origin == .zero }) ?? NSScreen.main
+    }
+
+    /// Creation sheets can inherit an off-screen parent frame; pin ~640 panels back.
+    private func reclaimSheetWindowsOnscreen() {
+        guard let screen = captureTargetScreen else { return }
+        let visible = screen.visibleFrame
+        for window in NSApp.windows {
+            let frame = window.frame
+            let looksLikeCreatePanel =
+                abs(frame.width - UIConstants.createPanelWidth) < 40
+                && abs(frame.height - UIConstants.createPanelHeight) < 80
+            guard looksLikeCreatePanel || !visible.intersects(frame.insetBy(dx: 8, dy: 8)) else {
+                continue
+            }
+            var origin = NSPoint(
+                x: visible.midX - frame.width / 2,
+                y: visible.midY - frame.height / 2
+            )
+            origin.x = min(max(origin.x, visible.minX), max(visible.minX, visible.maxX - frame.width))
+            origin.y = min(max(origin.y, visible.minY), max(visible.minY, visible.maxY - frame.height))
+            window.setFrame(NSRect(origin: origin, size: frame.size), display: true)
+            if let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+                // Best-effort; AppKit may still keep a sheet tied to its parent.
+                _ = screenNumber
+            }
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    /// Reclaim onto the owning screen. Prefer keeping the WindowGroup launch size
+    /// (especially with fixtures) — resizing during NavigationSplitView layout
+    /// previously aborted Auto Layout.
+    private func applyPreferredFrame(to window: NSWindow) {
+        // Capture / fixture launches always use the zero-origin built-in screen.
+        // A secondary display above the laptop previously left windows at Y≈-900
+        // in CG space and made sheet captures empty.
+        let screen: NSScreen?
+        if visualCapture || minimumWindow || wantsCreationFixture || wantsMediaFixturePreview {
+            screen = captureTargetScreen
+        } else {
+            screen = preferredScreen(for: window)
+        }
+        guard let screen else { return }
+        let visible = screen.visibleFrame
+        let launch = MacUnzipUIConstants.launchWindowSize
+        let current = window.frame.size
+        let size: NSSize
+        if wantsCreationFixture && visualCapture {
+            size = NSSize(
+                width: UIConstants.createPanelWidth,
+                height: min(UIConstants.createPanelHeight, visible.height)
+            )
+        } else if minimumWindow {
+            size = NSSize(width: 900, height: min(700, visible.height))
+        } else if visualCapture {
+            size = NSSize(
+                width: min(launch.width, visible.width),
+                height: min(launch.height, visible.height)
+            )
+        } else if wantsMediaFixturePreview {
+            // Media fixture + inspector needs >900pt; 900-wide NavigationSplitView
+            // aborts Auto Layout when the inspector column materializes.
+            size = NSSize(width: min(1_180, visible.width), height: min(760, visible.height))
+        } else if current.width < 800 || current.height < 500 {
+            size = NSSize(width: min(1_180, visible.width), height: min(760, visible.height))
+        } else {
+            size = current
+        }
+        var origin = NSPoint(
+            x: visible.midX - size.width / 2,
+            y: visible.midY - size.height / 2
+        )
+        origin.x = min(max(origin.x, visible.minX), max(visible.minX, visible.maxX - size.width))
+        origin.y = min(max(origin.y, visible.minY), max(visible.minY, visible.maxY - size.height))
+        let target = NSRect(origin: origin, size: size)
+        guard !window.frame.equalTo(target) else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            context.allowsImplicitAnimation = false
+            window.setFrame(target, display: true)
+        }
+    }
 }
 
 private struct RootAlertsModifier: ViewModifier {
@@ -811,6 +965,7 @@ private struct RootAlertsModifier: ViewModifier {
     @Binding var pendingOpenURL: URL?
     @Binding var pendingCreationInputs: [URL]?
     @Binding var creationDraft: ArchiveCreationDraft?
+    let makeCreationDraft: ([URL]) -> ArchiveCreationDraft
 
     func body(content: Content) -> some View {
         content
@@ -880,14 +1035,14 @@ private struct RootAlertsModifier: ViewModifier {
                         Task {
                             let saved = await model.saveArchiveResolvingNested()
                             guard saved else { return }
-                            creationDraft = ArchiveCreationDraft(inputs: inputs, format: model.creationFormat)
+                            creationDraft = makeCreationDraft(inputs)
                         }
                     }
                 }
                 Button("不保存并继续") {
                     if let inputs = pendingCreationInputs {
                         pendingCreationInputs = nil
-                        creationDraft = ArchiveCreationDraft(inputs: inputs, format: model.creationFormat)
+                        creationDraft = makeCreationDraft(inputs)
                     }
                 }
                 Button("取消", role: .cancel) { pendingCreationInputs = nil }
@@ -925,6 +1080,7 @@ private struct NotificationHandlers: ViewModifier {
     let routeDroppedURLs: ([URL]) -> Void
     let presentOpenPanel: () -> Void
     let presentCreationInputPanel: () -> Void
+    let makeCreationDraft: ([URL]) -> ArchiveCreationDraft
 
     private func isKeyWindow() -> Bool {
         shouldHandleNotification(for: model)
@@ -991,7 +1147,7 @@ private struct NotificationHandlers: ViewModifier {
                 if model.hasUnsavedChanges {
                     pendingCreationInputs = urls
                 } else {
-                    creationDraft = ArchiveCreationDraft(inputs: urls, format: model.creationFormat)
+                    creationDraft = makeCreationDraft(urls)
                 }
             }
     }
@@ -1017,445 +1173,5 @@ private struct EditNotificationHandler: ViewModifier {
                 guard shouldHandleNotification(for: model) else { return }
                 onExtractSelected()
             }
-    }
-}
-
-private struct CreateArchiveView: View {
-    @Bindable var model: AppModel
-    @Binding var draft: ArchiveCreationDraft
-    let chooseOutput: (String) -> URL?
-    let dismiss: () -> Void
-    @State private var showRARLicenseConfirmation = false
-    @State private var rarRevertFormat: CreationFormat?
-
-    private var passwordsMatch: Bool {
-        !model.creationEncryptionEnabled
-            || !model.creationFormat.supportsEncryption
-            || (!model.creationPassword.isEmpty && model.creationPassword == model.creationPasswordConfirm)
-    }
-
-    private var canCreate: Bool {
-        draft.canCreate && passwordsMatch && !model.isCreating
-            && model.engineInstalled(for: model.creationFormat)
-            && (model.creationFormat != .zip || (model.preflightIssues.isEmpty && !model.isRunningPreflight))
-    }
-
-    private var createDisabledReason: String {
-        let localization = AppLocalization()
-        if draft.inputs.isEmpty { return localization.string("请先添加要压缩的文件") }
-        if draft.outputURL == nil { return localization.string("请选择保存位置") }
-        if !model.engineInstalled(for: model.creationFormat) { return missingEngineMessage(for: model.creationFormat) }
-        if model.creationEncryptionEnabled && model.creationFormat.supportsEncryption && model.creationPassword.isEmpty { return localization.string("请输入密码") }
-        if !passwordsMatch { return localization.string("两次输入的密码不一致") }
-        if model.creationFormat == .zip {
-            if model.isRunningPreflight { return localization.string("正在检查文件名兼容性…") }
-            if !model.preflightIssues.isEmpty { return localization.string("请先自动修正文件名兼容性问题") }
-        }
-        if model.isCreating { return localization.string("正在创建中…") }
-        return ""
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                formatPicker
-                inputList
-                compressionSection
-                if model.creationFormat.supportsEncryption {
-                    encryptionSection
-                }
-                if model.creationFormat == .zip {
-                    preflightSection
-                }
-                compatibility
-                destination
-                Divider()
-                footer
-            }
-            .padding(24)
-        }
-        .alert(
-            "无法创建压缩包",
-            isPresented: Binding(
-                get: { model.creationErrorMessage != nil },
-                set: { if !$0 { model.creationErrorMessage = nil } }
-            )
-        ) {
-            Button("好") { model.creationErrorMessage = nil }
-        } message: {
-            Text(model.creationErrorMessage ?? "")
-        }
-        .alert(
-            AppLocalization().string(RARLicenseConfirmation.confirmationTitle),
-            isPresented: $showRARLicenseConfirmation
-        ) {
-            Button(AppLocalization().string(RARLicenseConfirmation.confirmButton)) {
-                RARLicenseConfirmation().confirm()
-            }
-            Button(AppLocalization().string(RARLicenseConfirmation.cancelButton), role: .cancel) {
-                model.creationFormat = rarRevertFormat ?? .zip
-            }
-        } message: {
-            Text(AppLocalization().string(RARLicenseConfirmation.confirmationMessage))
-        }
-        .alert(
-            AppLocalization().string("文件已存在"),
-            isPresented: Binding(
-                get: { model.pendingOverwriteURL != nil },
-                set: { if !$0 { model.resolveOverwriteConfirmation(replace: false) } }
-            )
-        ) {
-            Button(AppLocalization().string("替换"), role: .destructive) {
-                model.resolveOverwriteConfirmation(replace: true)
-            }
-            Button(AppLocalization().string("取消"), role: .cancel) {
-                model.resolveOverwriteConfirmation(replace: false)
-            }
-        } message: {
-            Text(AppLocalization().format(
-                "“%@”已存在。继续创建将替换原有文件。",
-                model.pendingOverwriteURL?.lastPathComponent ?? ""
-            ))
-        }
-        .frame(width: 700, height: 680)
-        .interactiveDismissDisabled(model.isCreating)
-        .onChange(of: model.lastCreatedURL) { _, outputURL in
-            if outputURL != nil { dismiss() }
-        }
-        .onAppear {
-            if model.creationFormat == .zip {
-                Task { await model.runPreflight(inputs: draft.inputs) }
-            }
-        }
-        .onChange(of: model.creationFormat) { oldFormat, newFormat in
-            if let current = draft.outputURL {
-                let retagged = ArchiveCreationDraft.retaggedFilename(current.lastPathComponent, for: newFormat)
-                draft.outputURL = current.deletingLastPathComponent().appendingPathComponent(retagged)
-            }
-            if newFormat == .zip {
-                Task { await model.runPreflight(inputs: draft.inputs) }
-            } else {
-                model.resetPreflight()
-            }
-            if newFormat == .rar, model.engineInstalled(for: .rar),
-               !RARLicenseConfirmation().isConfirmed {
-                rarRevertFormat = oldFormat == .rar ? rarRevertFormat : oldFormat
-                showRARLicenseConfirmation = true
-            }
-        }
-        .onDisappear {
-            model.resetCreationState()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("创建归档面板")
-        .accessibilityIdentifier("创建归档面板")
-    }
-
-    private var header: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "archivebox.fill")
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 48, height: 48)
-                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("新建压缩包")
-                    .font(.title2.weight(.semibold))
-                Text(ArchiveCreationCopy.subtitle())
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-
-    // MARK: - Format Picker
-
-    private var formatPicker: some View {
-        GroupBox("格式") {
-            VStack(alignment: .leading, spacing: 8) {
-                Picker("格式", selection: $model.creationFormat) {
-                    ForEach(CreationFormat.allCases, id: \.self) { format in
-                        Text(model.engineInstalled(for: format)
-                            ? format.displayName
-                            : format.displayName + AppLocalization().string("（未安装）")
-                        ).tag(format)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .accessibilityIdentifier("格式选择")
-
-                Text(model.creationFormat.capabilityText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if !model.engineInstalled(for: model.creationFormat) {
-                    Text(missingEngineMessage(for: model.creationFormat))
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .accessibilityIdentifier("引擎缺失提示")
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private func missingEngineMessage(for format: CreationFormat) -> String {
-        let localization = AppLocalization()
-        switch format {
-        case .sevenZip: return localization.string("创建 7z 需要免费的 7zz 工具。可在「终端」运行 brew install 7zip，或从 7-zip.org 下载，安装后在「设置 → 引擎」确认已检测到。")
-        case .rar: return localization.string("创建 RAR 需要 RARLAB 官方 rar 工具。请从 rarlab.com 下载 macOS 版并安装，然后在「设置 → 引擎」确认已检测到。")
-        default: return ""
-        }
-    }
-
-    private func inputSubtitle(for url: URL) -> String {
-        let parent = url.deletingLastPathComponent().standardizedFileURL.path
-        let tempRoot = FileManager.default.temporaryDirectory.standardizedFileURL.path
-        if parent.hasPrefix(tempRoot) {
-            return AppLocalization().string("已为 Windows 兼容性自动修正")
-        }
-        return parent
-    }
-
-    private var inputList: some View {
-        GroupBox(ArchiveCreationCopy.inputCount(draft.inputs.count)) {
-            List(draft.inputs, id: \.self) { url in
-                HStack(spacing: 10) {
-                    Image(systemName: url.hasDirectoryPath ? "folder.fill" : "doc.fill")
-                        .foregroundStyle(url.hasDirectoryPath ? .blue : .secondary)
-                        .frame(width: 20)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(url.lastPathComponent)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Text(inputSubtitle(for: url))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-                .accessibilityElement(children: .combine)
-            }
-            .frame(height: 120)
-        }
-    }
-
-    // MARK: - Compression Section
-
-    private var compressionSection: some View {
-        GroupBox("压缩") {
-            VStack(alignment: .leading, spacing: 10) {
-                if model.creationFormat == .zip {
-                    Picker("压缩级别", selection: $model.creationCompressionLevel) {
-                        ForEach(ZIPCompressionLevel.allCases, id: \.self) { level in
-                            Text(level.displayName).tag(level)
-                        }
-                    }
-                    .labelsHidden()
-                    .accessibilityIdentifier("ZIP压缩级别")
-                } else {
-                    Text("默认压缩")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    // MARK: - Encryption Section (ZIP only)
-
-    private var encryptionSection: some View {
-        GroupBox("加密") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle("加密", isOn: $model.creationEncryptionEnabled)
-                    .accessibilityIdentifier("加密开关")
-
-                if model.creationEncryptionEnabled {
-                    SecureField("密码", text: $model.creationPassword)
-                        .accessibilityIdentifier("加密密码")
-                    SecureField("确认密码", text: $model.creationPasswordConfirm)
-                        .accessibilityIdentifier("确认密码")
-
-                    if !model.creationPassword.isEmpty
-                        && model.creationPassword != model.creationPasswordConfirm {
-                        Text("密码不一致")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .accessibilityIdentifier("密码不一致")
-                    }
-
-                    if model.creationFormat == .zip {
-                        Picker("加密方式", selection: $model.creationEncryptionMethod) {
-                            ForEach(EncryptionMethod.allCases, id: \.self) { method in
-                                Text(method.displayName).tag(method)
-                            }
-                        }
-                        .labelsHidden()
-                        .accessibilityIdentifier("加密方式")
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    // MARK: - Preflight Section (ZIP only)
-
-    @ViewBuilder
-    private var preflightSection: some View {
-        if !model.preflightIssues.isEmpty {
-            GroupBox("Windows 兼容性检查") {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(model.preflightIssues) { issue in
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.caption)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(issue.filename)
-                                    .font(.callout.weight(.medium))
-                                    .lineLimit(1)
-                                Text("\(issue.issue) — \(issue.suggestion)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    HStack(spacing: 12) {
-                        Button("自动修正") {
-                            Task {
-                                let sanitized = await model.fixPreflightIssues(inputs: draft.inputs)
-                                if !sanitized.isEmpty {
-                                    draft.inputs = sanitized
-                                }
-                                await model.runPreflight(inputs: draft.inputs)
-                            }
-                        }
-                        .accessibilityIdentifier("自动修正")
-                    }
-                    .padding(.top, 4)
-                }
-                .padding(.vertical, 4)
-            }
-            .accessibilityIdentifier("预检问题列表")
-        }
-    }
-
-    private var compatibility: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(compatibilityTitle)
-                    .fontWeight(.semibold)
-                Text(compatibilityDetail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .background(.green.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("兼容性摘要")
-    }
-
-    private var compatibilityTitle: String {
-        let localization = AppLocalization()
-        switch model.creationFormat {
-        case .zip: return localization.string("Windows 11 可直接打开")
-        case .sevenZip: return localization.string("7-Zip / Keka / The Unarchiver 兼容")
-        case .rar: return localization.string("WinRAR / 7-Zip / Keka 兼容")
-        case .tarGz, .tarXz, .tarZst: return localization.string("macOS / Linux / Windows (7-Zip) 兼容")
-        }
-    }
-
-    private var compatibilityDetail: String {
-        let localization = AppLocalization()
-        switch model.creationFormat {
-        case .zip:
-            return localization.string("使用 UTF-8 文件名，自动排除 macOS 元数据；创建前检查 Windows 保留名、非法字符和名称冲突。")
-        case .sevenZip:
-            return localization.string("AES-256 加密，高压缩率；Windows 需 7-Zip 打开，macOS 可用 Keka 或 The Unarchiver。")
-        case .rar:
-            return localization.string("RARLAB 专有格式，广泛兼容；需已安装并授权 RARLAB rar 命令行工具。")
-        case .tarGz, .tarXz, .tarZst:
-            return localization.string("保留 Unix 权限；适合 macOS/Linux 分发，Windows 需 7-Zip 解压。符号链接出于安全考虑不予包含。")
-        }
-    }
-
-    private var destination: some View {
-        GroupBox("保存位置") {
-            HStack(spacing: 12) {
-                Image(systemName: "folder")
-                    .foregroundStyle(.secondary)
-                Text(draft.outputURL?.path ?? ArchiveCreationCopy.noSelection())
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .foregroundStyle(draft.outputURL == nil ? .secondary : .primary)
-                Spacer()
-                Button("选择…") {
-                    if let url = chooseOutput(draft.suggestedFilename(for: model.creationFormat)) {
-                        draft.outputURL = url
-                    }
-                }
-                .disabled(model.isCreating)
-                .help(model.isCreating ? "正在创建中，暂不能更改保存位置" : "选择压缩包的保存位置")
-                .accessibilityIdentifier("选择保存位置")
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    @ViewBuilder
-    private var footer: some View {
-        if model.isCreating {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(model.operationMessage)
-                    Spacer()
-                    Text(model.creationProgress, format: .percent.precision(.fractionLength(0)))
-                        .monospacedDigit()
-                }
-                ProgressView(value: model.creationProgress)
-                    .accessibilityIdentifier("创建进度")
-                HStack {
-                    Spacer()
-                    Button("取消") { model.cancelCreation() }
-                        .accessibilityIdentifier("取消创建")
-                }
-            }
-        } else {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ArchiveCreationCopy.verificationNote())
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                    if !canCreate {
-                        Text(createDisabledReason)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-                Spacer()
-                Button("取消", action: dismiss)
-                    .keyboardShortcut(.cancelAction)
-                Button("新建压缩包") {
-                    guard let outputURL = draft.outputURL else { return }
-                    model.startCreation(at: outputURL, inputs: draft.inputs)
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canCreate)
-                .help(canCreate ? AppLocalization().string("创建压缩包") : createDisabledReason)
-                .accessibilityIdentifier("确认创建归档")
-            }
-        }
     }
 }

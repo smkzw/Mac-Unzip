@@ -13,7 +13,11 @@ final class WindowsZIPCreationTests: XCTestCase {
         ])
         let output = input.rootURL.deletingLastPathComponent()
             .appending(path: UUID().uuidString + ".zip")
-        defer { try? FileManager.default.removeItem(at: output) }
+        defer {
+            if FileManager.default.fileExists(atPath: output.path) {
+                try? FileManager.default.removeItem(at: output)
+            }
+        }
         let provider = ZIPArchiveProvider()
 
         try await provider.createWindowsZIP(at: output, inputs: [input.rootURL])

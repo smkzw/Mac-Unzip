@@ -88,6 +88,26 @@ if [[ -d "${BUILD_DIR}" ]]; then
 fi
 mkdir -p "${BUILD_DIR}"
 
+# Always (re)stage pinned 7zz after clean — never rely on a leftover binary alone.
+PINNED_7ZZ_SHA256="3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e"
+echo "  Preparing pinned 7zz via Scripts/prepare_7zz.sh..."
+"${PROJECT_DIR}/Scripts/prepare_7zz.sh"
+STAGED_7ZZ="${PROJECT_DIR}/App/Binaries/7zz"
+[[ -x "${STAGED_7ZZ}" ]] || { echo "ERROR: prepare_7zz.sh did not produce App/Binaries/7zz"; exit 1; }
+STAGED_SHA="$(shasum -a 256 "${STAGED_7ZZ}" | awk '{print $1}')"
+[[ "${STAGED_SHA}" == "${PINNED_7ZZ_SHA256}" ]] || {
+  echo "ERROR: staged 7zz hash mismatch after prepare."
+  echo "  expected: ${PINNED_7ZZ_SHA256}"
+  echo "  actual:   ${STAGED_SHA}"
+  exit 1
+}
+for notice in 7zz-License.txt 7zz-readme.txt 7zz-SOURCE.txt; do
+  [[ -f "${PROJECT_DIR}/App/Binaries/${notice}" ]] || {
+    echo "ERROR: missing ${notice} next to staged 7zz"
+    exit 1
+  }
+done
+
 if [[ "${SKIP_SIGN}" == "true" ]]; then
   echo "  Signing: SKIPPED (ad-hoc)"
   xcodebuild archive \
@@ -185,13 +205,54 @@ if otool -L "${BIN_FOR_CHECK}" | grep -E '/opt/homebrew|/usr/local/opt' >/dev/nu
 fi
 echo "  Self-contained dylibs: OK"
 
-# Require bundled 7zz for Pro feature parity (website claims 7z/RAR/DMG/ISO).
-if [[ ! -f "${APP_PATH}/Contents/Resources/Binaries/7zz" ]]; then
+# Require pinned bundled 7zz + license notices (7z/RAR/DMG/ISO support).
+BUNDLED_7ZZ="${APP_PATH}/Contents/Resources/Binaries/7zz"
+if [[ ! -x "${BUNDLED_7ZZ}" ]]; then
   echo "ERROR: Missing bundled 7zz at Contents/Resources/Binaries/7zz."
-  echo "  Copy a validated 7zz into ArchiveWorkbench/App/Binaries/ before packaging."
+  echo "  Scripts/prepare_7zz.sh must stage App/Binaries/7zz before packaging."
   exit 1
 fi
-echo "  Bundled 7zz: OK"
+BUNDLED_SHA="$(shasum -a 256 "${BUNDLED_7ZZ}" | awk '{print $1}')"
+if [[ "${BUNDLED_SHA}" != "${PINNED_7ZZ_SHA256}" ]]; then
+  echo "ERROR: bundled 7zz SHA-256 mismatch."
+  echo "  expected: ${PINNED_7ZZ_SHA256}"
+  echo "  actual:   ${BUNDLED_SHA}"
+  exit 1
+fi
+BUNDLED_MODE="$(stat -f '%Lp' "${BUNDLED_7ZZ}")"
+if [[ "$((8#${BUNDLED_MODE} & 8#022))" -ne 0 ]]; then
+  echo "ERROR: bundled 7zz is group/world writable (${BUNDLED_MODE})"
+  exit 1
+fi
+BUNDLED_BANNER="$("${BUNDLED_7ZZ}" i 2>/dev/null | awk '/7-Zip/{print; exit}')"
+echo "  Bundled 7zz banner: ${BUNDLED_BANNER}"
+echo "${BUNDLED_BANNER}" | grep -q "26.03" || { echo "ERROR: bundled 7zz version is not 26.03"; exit 1; }
+echo "${BUNDLED_BANNER}" | grep -q "arm64" || { echo "ERROR: bundled 7zz is not arm64"; exit 1; }
+BUNDLED_ARCH="$(lipo -info "${BUNDLED_7ZZ}" 2>/dev/null || true)"
+echo "${BUNDLED_ARCH}" | grep -q "arm64" || { echo "ERROR: lipo missing arm64 for bundled 7zz"; exit 1; }
+if echo "${BUNDLED_ARCH}" | grep -q "x86_64"; then
+  echo "ERROR: bundled 7zz unexpectedly contains x86_64"
+  exit 1
+fi
+for notice in 7zz-License.txt 7zz-readme.txt 7zz-SOURCE.txt; do
+  [[ -f "${APP_PATH}/Contents/Resources/Binaries/${notice}" ]] || {
+    echo "ERROR: missing ${notice} in app bundle Resources/Binaries"
+    exit 1
+  }
+done
+# Resource executable must remain runnable after packaging (signature-covered path).
+"${BUNDLED_7ZZ}" i >/dev/null || { echo "ERROR: bundled 7zz is not executable in-app"; exit 1; }
+# Signature must cover the bundled helper when codesign is present.
+if [[ "${SKIP_SIGN}" != "true" ]]; then
+  codesign --verify --verbose=2 "${BUNDLED_7ZZ}" || {
+    echo "ERROR: bundled 7zz is not covered by a valid code signature"
+    exit 1
+  }
+else
+  # Ad-hoc archive still seals Resources; deep verify the app payload when possible.
+  codesign --verify --deep --verbose=2 "${APP_PATH}" 2>/dev/null || true
+fi
+echo "  Bundled 7zz: OK (26.03 arm64, pinned hash, notices present)"
 
 # -----------------------------------------------------------------------------
 # Step 4: Create DMG
@@ -242,8 +303,23 @@ echo "  Size: $(du -h "${OUTPUT_DMG}" | cut -f1)"
 echo ""
 echo "=== Step 5: Generating checksums ==="
 
-shasum -a 256 "${OUTPUT_DMG}" > "${OUTPUT_DMG}.sha256"
+# Public checksum file must use a relative basename only (never a machine absolute path).
+(
+  cd "${BUILD_DIR}"
+  shasum -a 256 "$(basename "${OUTPUT_DMG}")" > "$(basename "${OUTPUT_DMG}").sha256"
+)
 echo "  SHA-256: $(cat "${OUTPUT_DMG}.sha256")"
+SHA_NAME_FIELD="$(awk '{print $2}' "${OUTPUT_DMG}.sha256")"
+[[ "${SHA_NAME_FIELD}" == "$(basename "${OUTPUT_DMG}")" ]] || {
+  echo "ERROR: .sha256 filename field must be the public relative DMG name (got: ${SHA_NAME_FIELD})"
+  exit 1
+}
+case "${SHA_NAME_FIELD}" in
+  /*|*/*)
+    echo "ERROR: .sha256 must not contain absolute or nested paths"
+    exit 1
+    ;;
+esac
 
 # -----------------------------------------------------------------------------
 # Step 6: Notarization (NOT EXECUTED - DOCUMENTED ONLY)

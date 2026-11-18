@@ -185,6 +185,12 @@ public actor ZIPArchiveProvider: ArchiveProvider {
         guard let snapshot = entriesByID[id] else {
             throw ArchiveError.helperFailed
         }
+        guard !snapshot.isDirectory, !snapshot.isSymbolicLink else {
+            throw ArchiveError.unsafePath
+        }
+        if snapshot.isEncrypted && !hasPassword {
+            throw ArchiveError.passwordRequired
+        }
         let decision = budget.evaluate(ResourceEstimate(
             compressedBytes: snapshot.compressedSize,
             expandedBytes: snapshot.uncompressedSize,

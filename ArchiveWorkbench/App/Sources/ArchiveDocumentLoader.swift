@@ -19,7 +19,7 @@ protocol ArchiveDocumentLoading: Actor {
     ) async throws -> URL
     func createWindowsZIP(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compressLevel: Int32,
         password: String?,
         encryptMethod: Int32,
@@ -29,17 +29,17 @@ protocol ArchiveDocumentLoading: Actor {
     /// Compression is inferred from the output file name when nil.
     func createTARArchive(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compression: TARCompression?
     ) async throws -> ArchiveDocumentSnapshot
     func createSevenZip(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         password: String?
     ) async throws -> ArchiveDocumentSnapshot
     func createRAR(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         password: String?
     ) async throws -> ArchiveDocumentSnapshot
     func stageChange(_ change: PendingChange) async throws
@@ -60,7 +60,7 @@ extension ArchiveDocumentLoading {
 
     func createWindowsZIP(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compressLevel: Int32,
         password: String?,
         encryptMethod: Int32,
@@ -71,7 +71,7 @@ extension ArchiveDocumentLoading {
 
     func createTARArchive(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compression: TARCompression?
     ) async throws -> ArchiveDocumentSnapshot {
         throw ArchiveError.helperFailed
@@ -417,14 +417,14 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
 
     func createWindowsZIP(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compressLevel: Int32,
         password: String?,
         encryptMethod: Int32,
         progress: @Sendable (WindowsZIPCreationProgress) -> Void
     ) async throws -> ArchiveDocumentSnapshot {
         try Task.checkCancellation()
-        let inputAccess = inputs.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let inputAccess = inputs.map { ($0.sourceURL, $0.sourceURL.startAccessingSecurityScopedResource()) }
         let outputAccessed = outputURL.startAccessingSecurityScopedResource()
         defer {
             for (url, accessed) in inputAccess where accessed {
@@ -433,7 +433,14 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             if outputAccessed { outputURL.stopAccessingSecurityScopedResource() }
         }
 
-        try await provider.createWindowsZIP(at: outputURL, inputs: inputs, compressLevel: compressLevel, password: password, encryptMethod: encryptMethod, progress: progress)
+        try await provider.createWindowsZIP(
+            at: outputURL,
+            inputs: inputs,
+            compressLevel: compressLevel,
+            password: password,
+            encryptMethod: encryptMethod,
+            progress: progress
+        )
         try Task.checkCancellation()
         try resetPreviewSession()
         let snapshot: ArchiveDocumentSnapshot
@@ -450,7 +457,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
 
     func createTARArchive(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         compression: TARCompression?
     ) async throws -> ArchiveDocumentSnapshot {
         try Task.checkCancellation()
@@ -458,7 +465,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         guard !FileManager.default.fileExists(atPath: outputURL.path) else {
             throw WindowsZIPProfileError.outputExists
         }
-        let inputAccess = inputs.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let inputAccess = inputs.map { ($0.sourceURL, $0.sourceURL.startAccessingSecurityScopedResource()) }
         let outputAccessed = outputURL.startAccessingSecurityScopedResource()
         defer {
             for (url, accessed) in inputAccess where accessed {
@@ -479,7 +486,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
 
     func createSevenZip(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         password: String?
     ) async throws -> ArchiveDocumentSnapshot {
         try Task.checkCancellation()
@@ -489,7 +496,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         guard let sevenZipProvider else {
             throw ArchiveError.providerNotInstalled
         }
-        let inputAccess = inputs.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let inputAccess = inputs.map { ($0.sourceURL, $0.sourceURL.startAccessingSecurityScopedResource()) }
         let outputAccessed = outputURL.startAccessingSecurityScopedResource()
         defer {
             for (url, accessed) in inputAccess where accessed {
@@ -497,9 +504,11 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             }
             if outputAccessed { outputURL.stopAccessingSecurityScopedResource() }
         }
+        let prepared = try Self.preparedURLsForExternalCreate(inputs: inputs)
+        defer { prepared.cleanup() }
         try await sevenZipProvider.createArchive(
             at: outputURL,
-            inputs: inputs,
+            inputs: prepared.urls,
             password: password
         )
         try Task.checkCancellation()
@@ -511,7 +520,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
 
     func createRAR(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         password: String?
     ) async throws -> ArchiveDocumentSnapshot {
         try Task.checkCancellation()
@@ -525,7 +534,7 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
         guard license.isConfirmed else {
             throw RARCreateProviderError.licenseNotConfirmed
         }
-        let inputAccess = inputs.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let inputAccess = inputs.map { ($0.sourceURL, $0.sourceURL.startAccessingSecurityScopedResource()) }
         let outputAccessed = outputURL.startAccessingSecurityScopedResource()
         defer {
             for (url, accessed) in inputAccess where accessed {
@@ -533,12 +542,14 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             }
             if outputAccessed { outputURL.stopAccessingSecurityScopedResource() }
         }
+        let prepared = try Self.preparedURLsForExternalCreate(inputs: inputs)
+        defer { prepared.cleanup() }
         let rarProvider = RARCreateProvider(binaryPath: discovery.resolvedPath, binarySHA256: discovery.sha256)
         var options = RARCreateOptions()
         options.password = password
         try await rarProvider.create(
             archiveURL: outputURL,
-            sources: inputs.map(\.path),
+            sources: prepared.urls.map(\.path),
             options: options
         )
         try Task.checkCancellation()
@@ -546,6 +557,21 @@ actor ArchiveDocumentLoader: ArchiveDocumentLoading {
             return try await open(url: outputURL, password: password)
         }
         return try await open(url: outputURL)
+    }
+
+    /// External CLIs key off basename. When archiveRootName differs, stage hardlinks
+    /// (falling back to copy across volumes) under the desired names and clean them up
+    /// afterwards. Staging never outlives the create call.
+    static func preparedURLsForExternalCreate(
+        inputs: [ArchiveCreationInput],
+        linker: ExternalCreateNameStaging.FileOp? = nil,
+        copier: ExternalCreateNameStaging.FileOp? = nil
+    ) throws -> (urls: [URL], cleanup: () -> Void) {
+        try ExternalCreateNameStaging.prepare(
+            inputs: inputs,
+            linker: linker,
+            copier: copier
+        )
     }
 
     func stageChange(_ change: PendingChange) async throws {

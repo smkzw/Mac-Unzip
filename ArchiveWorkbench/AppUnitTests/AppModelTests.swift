@@ -17,7 +17,7 @@ final class AppModelTests: XCTestCase {
         let selectedEntryID = model.selectedEntryID
         let currentDirectory = model.currentDirectory
         let scrollAnchor = model.scrollAnchor
-        let searchText = "品牌"
+        let searchText = "指南"
         let pendingChanges = [PendingChange.remove(entryPath: "待处理修改.txt")]
         model.searchText = searchText
         model.pendingChanges = pendingChanges
@@ -34,18 +34,18 @@ final class AppModelTests: XCTestCase {
     @MainActor
     func testSelectedEntryDerivesStatusFromPDFMetadata() {
         let model = AppModel.mediaFixture()
-        model.selectedEntryID = model.entries.first(where: { $0.displayPath == "品牌指南.pdf" })?.id
+        model.selectedEntryID = model.entries.first(where: { $0.displayPath == "产品指南.pdf" })?.id
 
         XCTAssertEqual(model.statusMessage, "已选择 1 项 · 6.3 MB")
     }
 
     func testCreationDraftDefaultsOutputNextToSources() {
-        let folder = URL(fileURLWithPath: "/tmp/品牌资料", isDirectory: true)
+        let folder = URL(fileURLWithPath: "/tmp/DesignAssets", isDirectory: true)
         var single = ArchiveCreationDraft(inputs: [folder])
 
-        XCTAssertEqual(single.suggestedFilename, "品牌资料.zip")
+        XCTAssertEqual(single.suggestedFilename, "DesignAssets.zip")
         // Default save path sits next to the source item — no save panel required.
-        XCTAssertEqual(single.outputURL?.path, "/tmp/品牌资料.zip")
+        XCTAssertEqual(single.outputURL?.path, "/tmp/DesignAssets.zip")
         XCTAssertTrue(single.canCreate)
 
         single.outputURL = URL(fileURLWithPath: "/tmp/Custom.zip")
@@ -61,7 +61,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(multiple.canCreate)
 
         let sevenZipSingle = ArchiveCreationDraft(inputs: [folder], format: .sevenZip)
-        XCTAssertEqual(sevenZipSingle.outputURL?.path, "/tmp/品牌资料.7z")
+        XCTAssertEqual(sevenZipSingle.outputURL?.path, "/tmp/DesignAssets.7z")
 
         let sevenZipMultiple = ArchiveCreationDraft(
             inputs: [folder, URL(fileURLWithPath: "/tmp/说明.txt")],
@@ -315,10 +315,10 @@ final class AppModelTests: XCTestCase {
             locale: Locale(identifier: "en")
         )
         let model = AppModel.mediaFixture(localization: localization)
-        let entry = try XCTUnwrap(model.entries.first { $0.displayPath == "首页主视觉.png" })
+        let entry = try XCTUnwrap(model.entries.first { $0.displayPath == "示例主视觉.png" })
         let metadata = try XCTUnwrap(model.metadataByEntryID[entry.id])
 
-        XCTAssertEqual(entry.displayPath, "首页主视觉.png")
+        XCTAssertEqual(entry.displayPath, "示例主视觉.png")
         XCTAssertEqual(metadata.type, "PNG image")
         XCTAssertEqual(metadata.size, "8.4 MB (8,796,293 bytes)")
         XCTAssertEqual(metadata.compressedSize, "7.2 MB (7,522,311 bytes)")

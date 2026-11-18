@@ -1,5 +1,7 @@
 # Mac解霸 (MacUnzip) v1.1.9
 
+> 历史版本记录。当前版本见 [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases)。
+
 ## 本次更新
 - **拖入即压缩**：将文件夹、普通文件或多选混合拖入 App 窗口或 Dock 图标，自动开启新建压缩包流程（默认保存到源文件所在目录）
   - 全部是压缩包 → 打开第一个（原行为不变）
@@ -21,5 +23,4 @@ xattr -dr com.apple.quarantine /Applications/MacUnzip.app
 SHA-256 见随附文件 `MacUnzip-1.1.9.dmg.sha256`。
 
 ## 开源
-源码：https://github.com/smkzw/Mac-Unzip  
-官网：https://gerymk.qd.je/
+源码：https://github.com/smkzw/Mac-Unzip

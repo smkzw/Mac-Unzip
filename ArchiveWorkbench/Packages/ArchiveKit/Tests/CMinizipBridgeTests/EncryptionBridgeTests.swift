@@ -1,4 +1,5 @@
 import CMinizipBridge
+import Darwin
 import Foundation
 import XCTest
 
@@ -343,5 +344,85 @@ final class EncryptionBridgeTests: XCTestCase {
         // Known issue: reading 7zz-created AES ZIP returns PASSWORD_ERROR during open.
         // Likely a PBKDF2 or salt-format difference. Self-roundtrip works correctly.
         throw XCTSkip("7zz AES read interop under investigation - self-roundtrip verified")
+    }
+
+    func testOwnedPasswordSurvivesCallerBufferClear() throws {
+        let archiveURL = tempRoot.appending(path: "owned-password.zip")
+        let content = Data("owned-password-payload".utf8)
+        var mutablePassword = Array("bridge-owned-secret".utf8)
+        mutablePassword.append(0)
+
+        var writer: OpaquePointer?
+        let writerStatus = archiveURL.withUnsafeFileSystemRepresentation { path in
+            mutablePassword.withUnsafeBufferPointer { pwd in
+                awb_mz_writer_open_with_password(
+                    path,
+                    UnsafeRawPointer(pwd.baseAddress!).assumingMemoryBound(to: CChar.self),
+                    AWB_MZ_ENCRYPT_AES256,
+                    &writer
+                )
+            }
+        }
+        XCTAssertEqual(writerStatus, AWB_MZ_OK)
+        // Clear the caller's buffer after open; bridge must keep its own copy.
+        mutablePassword.withUnsafeMutableBufferPointer { buf in
+            memset_s(buf.baseAddress, buf.count, 0, buf.count)
+        }
+        XCTAssertEqual("secret.txt".withCString {
+            awb_mz_writer_open_entry(writer, $0, UInt64(content.count), 0)
+        }, AWB_MZ_OK)
+        XCTAssertEqual(content.withUnsafeBytes {
+            awb_mz_writer_write_entry(writer, $0.bindMemory(to: UInt8.self).baseAddress, Int32($0.count))
+        }, Int32(content.count))
+        XCTAssertEqual(awb_mz_writer_close_entry(writer), AWB_MZ_OK)
+        XCTAssertEqual(awb_mz_writer_close(&writer), AWB_MZ_OK)
+
+        var readerPassword = Array("bridge-owned-secret".utf8)
+        readerPassword.append(0)
+        var reader: OpaquePointer?
+        let readerStatus = archiveURL.withUnsafeFileSystemRepresentation { path in
+            readerPassword.withUnsafeBufferPointer { pwd in
+                awb_mz_reader_open_with_password(
+                    path,
+                    UnsafeRawPointer(pwd.baseAddress!).assumingMemoryBound(to: CChar.self),
+                    &reader
+                )
+            }
+        }
+        XCTAssertEqual(readerStatus, AWB_MZ_OK)
+        readerPassword.withUnsafeMutableBufferPointer { buf in
+            memset_s(buf.baseAddress, buf.count, 0, buf.count)
+        }
+        defer { awb_mz_reader_close(&reader) }
+        var info = awb_mz_entry_info()
+        XCTAssertEqual(awb_mz_reader_first(reader, &info), AWB_MZ_OK)
+        XCTAssertEqual(awb_mz_reader_open_current(reader), AWB_MZ_OK)
+        var buffer = [UInt8](repeating: 0, count: content.count)
+        let read = buffer.withUnsafeMutableBufferPointer {
+            awb_mz_reader_read_current(reader, $0.baseAddress, Int32($0.count))
+        }
+        XCTAssertEqual(read, Int32(content.count))
+        XCTAssertEqual(Data(buffer), content)
+    }
+
+    func testOpenFileFailureClearsOwnedPassword() throws {
+        let missing = tempRoot.appending(path: "missing-encrypted.zip")
+        var password = Array("temporary-secret".utf8)
+        password.append(0)
+        var reader: OpaquePointer?
+        let status = missing.withUnsafeFileSystemRepresentation { path in
+            password.withUnsafeBufferPointer { pwd in
+                awb_mz_reader_open_with_password(
+                    path,
+                    UnsafeRawPointer(pwd.baseAddress!).assumingMemoryBound(to: CChar.self),
+                    &reader
+                )
+            }
+        }
+        XCTAssertNotEqual(status, AWB_MZ_OK)
+        XCTAssertNil(reader)
+        password.withUnsafeMutableBufferPointer { buf in
+            memset_s(buf.baseAddress, buf.count, 0, buf.count)
+        }
     }
 }

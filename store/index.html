@@ -1,534 +1,72 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MacUnzip — The Last Archive Tool You'll Ever Need</title>
-    
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%230A0E27'/><stop offset='100%25' stop-color='%231C1F3E'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><rect x='20' y='22' width='60' height='56' rx='12' stroke='%23E4E4E7' stroke-width='2' fill='none'%2F><path d='M32 64V34h8l8 14 8-14h8v30h-8V46l-8 12-8-12v18z' fill='%236366F1'%2F></svg>">
-    
-    <meta name="description" content="Free and open source macOS archive utility with built-in preview, military-grade security, and 40+ format support. Download the DMG from GitHub—no account, no subscription.">
-    <meta name="keywords" content="macOS unzip, archive extractor, RAR extraction, 7zip Mac, file compression, open source">
-    
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="MacUnzip — Free Open Source macOS Archive Utility">
-    <meta property="og:description" content="Built-in preview • Military-grade security • 40+ formats • Free &amp; open source">
-    <meta property="og:url" content="https://gerymk.qd.je/en.html">
-    <meta property="og:image" content="https://gerymk.qd.je/mockups/app-interface-dark.svg">
-    
-    <link rel="alternate" hreflang="en" href="https://gerymk.qd.je/en.html">
-    <link rel="alternate" hreflang="zh" href="https://gerymk.qd.je/">
-    <link rel="alternate" hreflang="x-default" href="https://gerymk.qd.je/">
-    <link rel="canonical" href="https://gerymk.qd.je/en.html">
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "MacUnzip",
-      "softwareVersion": "1.2.1",
-      "operatingSystem": "macOS 26+",
-      "applicationCategory": "UtilitiesApplication",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock"
-      }
-    }
-    </script>
-
-    <style>
-        :root {
-            --primary: #6366F1; --primary-dark: #4F46E5; --primary-light: #818CF8;
-            --accent: #EC4899; --accent-glow: rgba(236, 72, 153, 0.4);
-            --bg-dark: #0A0E27; --bg-elevated: #151935; --bg-card: rgba(255,255,255,0.03); --bg-card-hover: rgba(255,255,255,0.07);
-            --border-subtle: rgba(255,255,255,0.08); --border-highlight: rgba(99,102,241,0.3);
-            --text-main: #FAFAFA; --text-secondary: #A1A1AA; --text-muted: #71717A;
-            --success: #10B981; --warning: #F59E0B; --error: #EF4444;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
-            --shadow-lg: 0 20px 40px rgba(0,0,0,0.6);
-            --shadow-xl: 0 30px 60px rgba(0,0,0,0.7);
-            --shadow-glow: 0 0 40px rgba(99,102,241,0.3), 0 0 80px rgba(236,72,153,0.2);
-            --gradient-hero: linear-gradient(135deg, #6366F1 0%, #EC4899 50%, #8B5CF6 100%);
-            --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 24px; --radius-full: 9999px;
-            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; font-size: 16px; -webkit-font-smoothing: antialiased; }
-        section[id] { scroll-margin-top: 80px; }
-        
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-main);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: 
-                radial-gradient(circle at 20% 30%, rgba(99,102,241,0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(236,72,153,0.12) 0%, transparent 50%);
-            z-index: -1;
-        }
-
-        ::selection { background: var(--primary); color: white; }
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: var(--bg-dark); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--primary), var(--accent)); border-radius: 5px; }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
-        .section { padding: 6rem 0; }
-
-        /* Navigation */
-        .nav {
-            position: fixed; top: 0; left: 0; right: 0; height: 72px; z-index: 1000;
-            display: flex; align-items: center; justify-content: space-between; padding: 0 2rem;
-            background: rgba(10,14,39,0.85); backdrop-filter: blur(30px) saturate(180%);
-            border-bottom: 1px solid var(--border-subtle);
-        }
-
-        .nav-brand { font-size: 1.4rem; font-weight: 800; background: var(--gradient-hero); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .nav-links { display: flex; gap: 2rem; align-items: center; }
-        .nav-link { color: var(--text-secondary); font-weight: 500; font-size: 0.9rem; text-decoration: none; transition: var(--transition-fast); }
-        .nav-link:hover { color: var(--text-main); }
-
-        .lang-switch { display: flex; gap: 0.25rem; background: var(--bg-card); padding: 0.25rem; border-radius: 8px; border: 1px solid var(--border-subtle); }
-        .lang-btn { padding: 0.35rem 0.8rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-radius: 6px; font-weight: 600; font-size: 0.8rem; transition: var(--transition-fast); }
-        .lang-btn.active { background: var(--gradient-hero); color: white; }
-
-        /* Hero */
-        .hero { min-height: 100vh; display: flex; align-items: center; padding: 120px 0 80px; }
-        .hero-content { text-align: center; max-width: 900px; margin: 0 auto; }
-
-        .hero-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; background: rgba(99,102,241,0.1); border: 1px solid var(--border-highlight); border-radius: 50px; font-size: 0.85rem; margin-bottom: 2rem; color: var(--text-secondary); }
-        .badge-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-        .hero h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -2px; background: linear-gradient(135deg, #fff 0%, #E4E4E7 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .hero p { font-size: clamp(1rem, 2vw, 1.3rem); color: var(--text-secondary); margin-bottom: 2.5rem; line-height: 1.7; }
-
-        .cta-group { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 4rem; flex-wrap: wrap; }
-        .btn { padding: 0.9rem 2rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); border: none; cursor: pointer; transition: var(--transition-bounce); text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; position: relative; overflow: hidden; }
-        .btn-primary { background: var(--gradient-hero); color: white; box-shadow: 0 10px 40px rgba(99,102,241,0.4); }
-        .btn-primary:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 20px 60px rgba(99,102,241,0.6); }
-        .btn-primary::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: btn-shimmer 3s infinite; }
-        @keyframes btn-shimmer { 0% { left: -100%; } 100% { left: 100%; } }
-        .btn-secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-subtle); }
-        .btn-secondary:hover { background: var(--bg-card-hover); transform: translateY(-2px); border-color: var(--border-highlight); }
-
-        /* Product Showcase */
-        .product-showcase { margin-top: 3rem; }
-        .showcase-window { background: var(--bg-elevated); border-radius: 20px; border: 1px solid var(--border-subtle); box-shadow: var(--shadow-xl); overflow: hidden; }
-        .window-chrome { display: flex; gap: 8px; padding: 14px 16px; background: rgba(0,0,0,0.3); border-bottom: 1px solid var(--border-subtle); }
-        .chrome-dot { width: 12px; height: 12px; border-radius: 50%; }
-        .chrome-dot:nth-child(1) { background: #FF5F57; }
-        .chrome-dot:nth-child(2) { background: #FEBC2B; }
-        .chrome-dot:nth-child(3) { background: #28C840; }
-        .window-content { padding: 2rem; display: grid; place-items: center; }
-        .app-mockup { width: 100%; max-width: 700px; height: auto; border-radius: var(--radius-md); }
-        .mode-switcher { display: flex; gap: 0.5rem; justify-content: center; padding: 1rem; border-top: 1px solid var(--border-subtle); }
-        .mode-btn { padding: 0.4rem 1.2rem; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-secondary); border-radius: var(--radius-full); cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: var(--transition-fast); }
-        .mode-btn.active { background: var(--gradient-hero); border-color: transparent; color: white; }
-
-        /* Features */
-        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 3rem; }
-        .feature-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2rem; transition: var(--transition-smooth); }
-        .feature-card:hover { transform: translateY(-6px); border-color: var(--border-highlight); box-shadow: var(--shadow-glow); }
-        .feature-icon { font-size: 2.5rem; margin-bottom: 1rem; }
-        .feature-card h3 { font-size: 1.2rem; margin-bottom: 0.75rem; }
-        .feature-card p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
-
-        /* Pricing */
-        .pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; max-width: 800px; margin: 3rem auto 0; }
-        .pricing-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 2.5rem; text-align: center; transition: var(--transition-smooth); position: relative; }
-        .pricing-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
-        .pricing-card.featured { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-glow); }
-        .pricing-card .badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--gradient-hero); color: white; padding: 0.3rem 1rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; }
-        .pricing-card h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
-        .price { font-size: 3rem; font-weight: 900; margin: 1rem 0; }
-        .price .currency { font-size: 1.5rem; vertical-align: super; }
-        .price .original { text-decoration: line-through; color: var(--text-muted); font-size: 1.2rem; font-weight: 400; margin-left: 0.5rem; }
-        .pricing-card ul { list-style: none; text-align: left; margin: 1.5rem 0; }
-        .pricing-card li { padding: 0.5rem 0; color: var(--text-secondary); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
-        .pricing-card li::before { content: '✓'; color: var(--success); font-weight: 700; }
-
-        /* FAQ */
-        .faq-list { max-width: 700px; margin: 3rem auto 0; }
-        .faq-item { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: 0.75rem; overflow: hidden; }
-        .faq-question { width: 100%; padding: 1.2rem 1.5rem; background: var(--bg-card); border: none; color: var(--text-main); font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: var(--transition-fast); }
-        .faq-question:hover { background: var(--bg-card-hover); }
-        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-        .faq-answer-inner { padding: 0 1.5rem 1.2rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; }
-        .faq-item.open .faq-answer { max-height: 500px; }
-        .faq-item.open .faq-icon { transform: rotate(180deg); }
-        .faq-icon { transition: transform 0.3s ease; }
-
-        /* Footer */
-        .footer { border-top: 1px solid var(--border-subtle); padding: 3rem 0; }
-        .footer-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; }
-        .footer-links { display: flex; gap: 2rem; }
-        .footer-links a { color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: var(--transition-fast); }
-        .footer-links a:hover { color: var(--text-main); }
-        .footer-copy { color: var(--text-muted); font-size: 0.8rem; }
-
-        /* Section Headers */
-        .section-header { text-align: center; margin-bottom: 1rem; }
-        .section-header h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; margin-bottom: 1rem; }
-        .section-header p { color: var(--text-secondary); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
-
-        /* Responsive */
-        .nav-toggle {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.5rem;
-        }
-        .nav-toggle span {
-            width: 24px;
-            height: 2px;
-            background: var(--text-main);
-            border-radius: 2px;
-            transition: var(--transition-smooth);
-        }
-
-        @media (max-width: 768px) {
-            .nav-toggle { display: flex; }
-            .nav-links {
-                display: none;
-                position: absolute;
-                top: 80px;
-                left: 0;
-                right: 0;
-                flex-direction: column;
-                background: rgba(10,14,39,0.98);
-                backdrop-filter: blur(30px);
-                padding: 1.5rem 2rem;
-                gap: 1rem;
-                border-bottom: 1px solid var(--border-subtle);
-            }
-            .nav-links.open { display: flex; }
-            .features-grid { grid-template-columns: 1fr; }
-            .pricing-grid { grid-template-columns: 1fr; }
-            .hero h1 { font-size: 2.2rem; }
-            .cta-group { flex-direction: column; align-items: center; }
-            .footer-content { flex-direction: column; text-align: center; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation: none !important; transition: none !important; }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browse, preview, extract, and create archives with MacUnzip, an open-source app for Apple silicon Macs.">
+  <title>MacUnzip — Archive utility for macOS</title>
+  <link rel="icon" type="image/svg+xml" href="../ArchiveWorkbench/Assets/Logo.svg">
+  <link rel="stylesheet" href="site.css">
+  <link rel="alternate" hreflang="zh-Hans" href="index-zh.html">
 </head>
 <body>
-    <nav class="nav" role="navigation" aria-label="Main navigation">
-        <a href="en.html" class="nav-brand" aria-label="MacUnzip Home">MacUnzip</a>
-        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
-            <span></span><span></span><span></span>
-        </button>
-        <div class="nav-links">
-            <a href="#features" class="nav-link">Features</a>
-            <a href="#opensource" class="nav-link">Open Source</a>
-            <a href="#faq" class="nav-link">FAQ</a>
-            <a href="https://github.com/smkzw/Mac-Unzip" class="nav-link" target="_blank" rel="noopener">GitHub</a>
-            <div class="lang-switch" role="group" aria-label="Language selection">
-                <button class="lang-btn active" data-lang="en" aria-pressed="true">EN</button>
-                <button class="lang-btn" data-lang="zh" aria-pressed="false">中文</button>
-            </div>
-            <a href="https://github.com/smkzw/Mac-Unzip/releases/download/v1.2.1/MacUnzip-1.2.1.dmg" class="btn btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem;" target="_blank" rel="noopener">Free Download</a>
-        </div>
-    </nav>
+  <header>
+    <div class="shell bar">
+      <a href="index.html" class="brand">
+        <img src="../ArchiveWorkbench/Assets/Logo.svg" width="30" height="30" alt="">
+        MacUnzip
+      </a>
+      <nav aria-label="Project">
+        <a href="https://github.com/smkzw/Mac-Unzip">GitHub</a>
+        <a href="index-zh.html" lang="zh-Hans">简体中文</a>
+      </nav>
+    </div>
+  </header>
 
-    <section class="hero">
-        <div class="hero-content">
-            <div class="hero-badge">
-                <span class="badge-dot" aria-hidden="true"></span>
-                Native macOS app • v1.2.1 • macOS 26+ · Apple Silicon • Free &amp; open source
-            </div>
-            
-            <h1>The Last Archive Tool<br>You'll Ever Need</h1>
-            
-            <p>Extract ZIP, RAR, 7z, TAR and 40+ formats with military-grade security, native media preview, and zero telemetry. Free forever. Open source.</p>
-            
-            <div class="cta-group">
-                <a href="https://github.com/smkzw/Mac-Unzip/releases/download/v1.2.1/MacUnzip-1.2.1.dmg" class="btn btn-primary" target="_blank" rel="noopener">
-                    Download Free DMG
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-                </a>
-                <a href="https://github.com/smkzw/Mac-Unzip" class="btn btn-secondary" target="_blank" rel="noopener">
-                    Source on GitHub
-                </a>
-            </div>
-
-            <div class="product-showcase">
-                <div class="showcase-window">
-                    <div class="window-chrome" aria-hidden="true">
-                        <div class="chrome-dot"></div>
-                        <div class="chrome-dot"></div>
-                        <div class="chrome-dot"></div>
-                    </div>
-                    <div class="window-content">
-                        <img src="mockups/app-interface-dark.svg" alt="MacUnzip interface showing archive browser with file list, preview panel, and sidebar navigation" class="app-mockup" id="mainMockup" width="800" height="600">
-                    </div>
-                    <div class="mode-switcher" role="group" aria-label="Interface theme preview">
-                        <button class="mode-btn active" data-mode="dark" aria-pressed="true">Dark</button>
-                        <button class="mode-btn" data-mode="light" aria-pressed="false">Light</button>
-                    </div>
-                </div>
-            </div>
+  <main class="shell">
+    <section class="hero" aria-labelledby="title">
+      <div>
+        <h1 id="title">MacUnzip</h1>
+        <p>Browse, preview, extract, and create archives on your Mac.</p>
+        <div class="actions">
+          <a class="primary" href="https://github.com/smkzw/Mac-Unzip/releases">Download on GitHub</a>
+          <a href="https://github.com/smkzw/Mac-Unzip">View source</a>
         </div>
+        <p class="requirements">macOS 26+ · Apple silicon (arm64) · MIT License</p>
+      </div>
+      <figure class="preview">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="../ArchiveWorkbench/Assets/screenshots/app_media_dark.png">
+          <img src="../ArchiveWorkbench/Assets/screenshots/app_media_light.png" alt="MacUnzip browsing an archive with an image preview" width="2676" height="1968">
+        </picture>
+        <figcaption>MacUnzip with fictional example files.</figcaption>
+      </figure>
     </section>
 
-    <section class="section" id="features">
-        <div class="container">
-            <div class="section-header">
-                <h2>Why MacUnzip?</h2>
-                <p>Built from scratch in Swift for Apple Silicon. Not an Electron wrapper. Not a Python script. A real Mac app.</p>
-            </div>
-            
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">🔒</div>
-                    <h3>Military-Grade Security</h3>
-                    <p>8-layer defense: path traversal blocking, symlink scanning, FD-relative operations, resource bomb detection, atomic writes, process isolation, sandboxed preview, and quarantine tagging. Every archive is treated as potentially hostile.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">⚡</div>
-                    <h3>Native Performance</h3>
-                    <p>Pure Swift 6 with async/await concurrency. Zero Electron overhead. Extraction runs at full Apple Silicon speed with memory-mapped I/O and parallel decompression.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">👁️</div>
-                    <h3>Built-in Preview</h3>
-                    <p>View images, videos, PDFs, and markdown files inside archives without extracting. QuickLook integration lets you preview any file with a single spacebar press.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">📦</div>
-                    <h3>40+ Formats</h3>
-                    <p>ZIP, RAR, 7z, TAR, GZ, BZ2, XZ, DMG, ISO, and more. Create archives in 6 formats with optional AES-256 encryption. Nested archive browsing included.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">🔓</div>
-                    <h3>Free &amp; Open Source</h3>
-                    <p>The full app is open source on GitHub. No license key, no activation, no account. Download the DMG and use every feature—forever free.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon" aria-hidden="true">🛡️</div>
-                    <h3>Zero Telemetry</h3>
-                    <p>No analytics. No crash reporting. No usage tracking. Your files never leave your machine. We can't see what you do because we never look.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+    <div class="details">
+      <section>
+        <h2>Preview files</h2>
+        <p>Browse and search archives, preview supported images, videos, PDFs, and documents, and extract selected files.</p>
+      </section>
+      <section>
+        <h2>Work with common formats</h2>
+        <p>Browse and create ZIP, 7z, and compressed TAR archives. The v1.3.0 Release build includes <code>7zz</code> 26.03 for 7z, RAR reading, and read-only DMG and ISO access. No Homebrew setup is needed. RAR creation needs the external RARLAB <code>rar</code> tool.</p>
+      </section>
+      <section>
+        <h2>Process archives locally</h2>
+        <p>Extraction applies path and resource checks. The optional online engine-version check retrieves version metadata.</p>
+      </section>
+    </div>
+  </main>
 
-    <section class="section" id="opensource">
-        <div class="container">
-            <div class="section-header">
-                <h2>Free &amp; Open Source</h2>
-                <p>MacUnzip is fully open source. Download the DMG and use every feature—no purchase, no license, no account.</p>
-            </div>
-            
-            <div class="pricing-grid">
-                <div class="pricing-card featured">
-                    <span class="badge">OPEN SOURCE</span>
-                    <h3>MacUnzip · v1.2.1</h3>
-                    <div class="price">Free</div>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Open source • All features included</p>
-                    <ul>
-                        <li>Extract ZIP, RAR, 7z, TAR, GZ, DMG, ISO &amp; more</li>
-                        <li>Create encrypted archives (AES-256)</li>
-                        <li>Media preview (images, video, PDF)</li>
-                        <li>Nested archive browsing</li>
-                        <li>Crash recovery / resume extraction</li>
-                        <li>Password-protected archive support</li>
-                        <li>Finder &amp; QuickLook extensions</li>
-                        <li>Community support via GitHub</li>
-                        <li>All future updates free</li>
-                    </ul>
-                    <a href="https://github.com/smkzw/Mac-Unzip/releases/download/v1.2.1/MacUnzip-1.2.1.dmg" class="btn btn-primary" style="width: 100%; justify-content: center;" target="_blank" rel="noopener">Download Free DMG</a>
-                    <a href="https://github.com/smkzw/Mac-Unzip" class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 0.75rem;" target="_blank" rel="noopener">View Source on GitHub</a>
-                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.75rem;">
-                        First open may require right-click → Open (ad-hoc signed). Or run: <code>xattr -d com.apple.quarantine /Applications/MacUnzip.app</code>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="section" id="faq">
-        <div class="container">
-            <div class="section-header">
-                <h2>FAQ</h2>
-            </div>
-
-            <div class="faq-list">
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>What macOS versions are supported?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">MacUnzip requires macOS 26 or later on Apple Silicon (M1/M2/M3/M4). Intel Macs are not supported.</div></div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>Is MacUnzip really free?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">Yes. MacUnzip is free and open source forever. There is no purchase, no subscription, no license key, and no hidden fees. All features are included in the public build.</div></div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>Is the source code available?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">Yes. The full app source is on GitHub at <a href="https://github.com/smkzw/Mac-Unzip" target="_blank" rel="noopener">github.com/smkzw/Mac-Unzip</a>.</div></div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>Do I need an account or license?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">No. Download the DMG, open the app, and use it. No account, no activation, no license key required.</div></div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>Gatekeeper blocked the app on first open. What do I do?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">The DMG is ad-hoc signed. Right-click the app in Finder and choose Open, or strip the quarantine flag with: <code>xattr -d com.apple.quarantine /Applications/MacUnzip.app</code></div></div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question" aria-expanded="false">
-                        <span>Does it collect any data?</span>
-                        <span class="faq-icon" aria-hidden="true">▼</span>
-                    </button>
-                    <div class="faq-answer"><div class="faq-answer-inner">No telemetry, no analytics SDK, no crash reporting. Your files never leave your machine. There is one optional, user-initiated engine version check (off by default) that only fetches a small versions manifest.</div></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-copy">© 2026 MacUnzip v1.2.1. Free &amp; open source. Built for macOS with Swift.</div>
-                <div class="footer-links">
-                    <a href="https://github.com/smkzw/Mac-Unzip" target="_blank" rel="noopener">GitHub</a>
-                    <a href="https://github.com/smkzw/Mac-Unzip/releases" target="_blank" rel="noopener">Releases</a>
-                    <a href="mailto:smkzw@163.com">Support</a>
-                    <a href="/">中文版</a>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-    (function() {
-        'use strict';
-
-        // Mobile menu toggle
-        var navToggle = document.querySelector('.nav-toggle');
-        var navLinks = document.querySelector('.nav-links');
-        if (navToggle && navLinks) {
-            navToggle.addEventListener('click', function() {
-                var isOpen = navLinks.classList.toggle('open');
-                navToggle.setAttribute('aria-expanded', String(isOpen));
-            });
-        }
-
-        // Language switching — absolute paths match live deploy (ZH=/, EN=/en.html)
-        document.querySelectorAll('.lang-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var lang = this.getAttribute('data-lang');
-                if (lang === 'zh') {
-                    window.location.href = '/';
-                }
-            });
-        });
-
-        // Close mobile menu after navigating to an in-page section
-        document.querySelectorAll('.nav-links a[href^="#"]').forEach(function(link) {
-            link.addEventListener('click', function() {
-                if (navLinks) {
-                    navLinks.classList.remove('open');
-                    if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
-                }
-            });
-        });
-
-        // Mode switcher
-        document.querySelectorAll('.mode-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.mode-btn').forEach(function(b) {
-                    b.classList.remove('active');
-                    b.setAttribute('aria-pressed', 'false');
-                });
-                this.classList.add('active');
-                this.setAttribute('aria-pressed', 'true');
-
-                var mode = this.getAttribute('data-mode');
-                var img = document.getElementById('mainMockup');
-                var next = 'mockups/app-interface-' + mode + '.svg';
-                var previous = img.getAttribute('src');
-                img.onerror = function() {
-                    img.onerror = null;
-                    img.src = previous;
-                };
-                img.src = next;
-                img.alt = 'MacUnzip interface in ' + mode + ' mode showing archive browser with file list and preview panel';
-            });
-        });
-
-        // FAQ accordion
-        document.querySelectorAll('.faq-question').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var item = this.closest('.faq-item');
-                var isOpen = item.classList.contains('open');
-                document.querySelectorAll('.faq-item.open').forEach(function(i) {
-                    i.classList.remove('open');
-                    i.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
-                });
-                if (!isOpen) {
-                    item.classList.add('open');
-                    this.setAttribute('aria-expanded', 'true');
-                }
-            });
-        });
-
-        // Smooth scroll for anchor links (guard bare "#")
-        document.querySelectorAll('a[href^="#"]').forEach(function(link) {
-            link.addEventListener('click', function(e) {
-                var href = this.getAttribute('href');
-                if (!href || href === '#') return;
-                var target = document.querySelector(href);
-                if (target) {
-                    e.preventDefault();
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            });
-        });
-    })();
-    </script>
+  <footer>
+    <div class="shell bar">
+      <span>MacUnzip</span>
+      <nav aria-label="Project resources">
+        <a href="../LICENSE">MIT License</a>
+        <a href="https://github.com/smkzw/Mac-Unzip/issues">Report an issue</a>
+      </nav>
+    </div>
+  </footer>
 </body>
 </html>

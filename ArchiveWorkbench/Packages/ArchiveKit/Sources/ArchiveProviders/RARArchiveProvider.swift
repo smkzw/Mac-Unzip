@@ -13,9 +13,10 @@ import Foundation
 // - 不允许 mutation 静默 fallback 到不同引擎：this provider is strictly
 //   read-only (.list/.read/.preview). RAR creation requires RARLAB's proprietary
 //   rar binary and is intentionally not implemented here.
-// - Password is passed to 7zz as a -p<password> argv token. 7zz provides no
-//   stdin-based password channel, so this is unavoidable; the token is briefly
-//   visible to same-user process listings (ps) for the lifetime of the process.
+// - Password for this RAR-via-7zz path still uses -pPASSWORD in argv. SevenZipProvider
+//   already moved to bare -p + private stdin; this provider deliberately keeps the
+//   existing argv channel (do not spread that rewrite across RAR surfaces).
+//   RARLAB's official `rar` create tool has no equivalent private stdin channel.
 
 // MARK: - RAR-specific errors
 
@@ -803,7 +804,7 @@ public actor RARArchiveProvider: ArchiveProvider {
                 throw CancellationError()
             case .timedOut:
                 throw SevenZipProviderError.helperTimedOut
-            case .spawnFailed, .drainFailure:
+            case .spawnFailed, .drainFailure, .privateInputTooLarge, .privateInputWriteFailed:
                 throw ArchiveError.helperFailed
             }
         }

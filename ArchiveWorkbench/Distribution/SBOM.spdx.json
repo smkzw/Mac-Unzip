@@ -2,148 +2,194 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "MacUnzip-SBOM",
-  "documentNamespace": "https://smkzw.com/macunzip/sbom",
+  "name": "MacUnzip source dependency inventory",
+  "documentNamespace": "https://github.com/smkzw/Mac-Unzip/spdx/source-inventory/20261118T163238Z",
   "creationInfo": {
-    "created": "2026-07-27T00:00:00Z",
+    "created": "2026-11-18T16:32:38Z",
     "creators": [
       "Organization: smkzw",
       "Tool: manual-spdx-2.3"
     ],
     "licenseListVersion": "3.21"
   },
-  "documentDescribes": ["SPDXRef-Package-MacUnzip"],
+  "documentDescribes": [
+    "SPDXRef-Package-MacUnzip"
+  ],
   "packages": [
     {
       "SPDXID": "SPDXRef-Package-MacUnzip",
       "name": "MacUnzip",
-      "versionInfo": "1.0.0",
-      "downloadLocation": "https://smkzw.com/macunzip",
+      "downloadLocation": "https://github.com/smkzw/Mac-Unzip",
       "filesAnalyzed": false,
-      "supplier": "Organization: smkzw",
       "primaryPackagePurpose": "APPLICATION",
-      "licenseConcluded": "NOASSERTION",
-      "licenseDeclared": "NOASSERTION",
-      "copyrightText": "Copyright (c) 2026 smkzw. All rights reserved.",
-      "description": "MacUnzip - macOS archive management application supporting ZIP, 7z, RAR, TAR, DMG, and ISO formats.",
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "TODO_REPLACE_WITH_ACTUAL_SHA256_OF_RELEASE_BINARY"
-        }
-      ],
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:generic/com.smkzw.MacUnzip@1.0.0"
-        }
-      ]
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2026 smkzw",
+      "description": "MacUnzip application source. Third-party packages are listed separately."
     },
     {
       "SPDXID": "SPDXRef-Package-minizip-ng",
       "name": "minizip-ng",
-      "versionInfo": "4.2.1",
       "downloadLocation": "https://github.com/zlib-ng/minizip-ng/archive/26b4619120f714cb76c0c52cdd48223bee944d73.tar.gz",
       "filesAnalyzed": false,
-      "supplier": "NOASSERTION",
-      "originator": "Organization: zlib-ng",
       "primaryPackagePurpose": "LIBRARY",
       "licenseConcluded": "Zlib",
       "licenseDeclared": "Zlib",
-      "licenseInfoFromFiles": ["Zlib"],
       "copyrightText": "Copyright (C) Nathan Moinvaziri",
-      "description": "ZIP manipulation library. Vendored source compiled into CMinizipBridge target.",
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_VENDORED_SOURCES"
-        }
-      ],
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:github/zlib-ng/minizip-ng@4.2.1"
-        }
-      ]
+      "versionInfo": "4.2.1",
+      "description": "Vendored ZIP engine at upstream commit 26b4619120f714cb76c0c52cdd48223bee944d73."
     },
     {
       "SPDXID": "SPDXRef-Package-libarchive",
       "name": "libarchive",
-      "versionInfo": "3.8.8",
-      "downloadLocation": "https://github.com/libarchive/libarchive/releases/download/v3.8.8/libarchive-3.8.8.tar.gz",
+      "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
-      "supplier": "NOASSERTION",
-      "originator": "Organization: libarchive",
       "primaryPackagePurpose": "LIBRARY",
-      "licenseConcluded": "BSD-2-Clause",
+      "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "BSD-2-Clause",
-      "licenseInfoFromFiles": ["BSD-2-Clause"],
-      "copyrightText": "Copyright (c) 2003-2020 Tim Kientzle and contributors",
-      "description": "Multi-format archive and compression library. Linked via system library (Homebrew) through CLibArchiveBridge.",
-      "checksums": [
-        {
-          "algorithm": "SHA256",
-          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_LIBARCHIVE_TARBALL"
-        }
-      ],
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:brew/libarchive@3.8.8"
-        }
-      ]
+      "copyrightText": "NOASSERTION",
+      "description": "Homebrew dylib copied into the app bundle. Record the resolved binary in the release SBOM."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-xz",
+      "name": "XZ Utils (liblzma)",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "Homebrew dylib copied into the app bundle."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-zstd",
+      "name": "Zstandard (libzstd)",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "Homebrew dylib copied into the app bundle."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-lz4",
+      "name": "LZ4 (liblz4)",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "Homebrew dylib copied into the app bundle."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-libb2",
+      "name": "libb2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "Homebrew dylib copied into the app bundle."
     },
     {
       "SPDXID": "SPDXRef-Package-7zz",
-      "name": "7zz",
-      "versionInfo": "26.02",
-      "downloadLocation": "https://www.7-zip.org/a/7z2602-mac.tar.xz",
+      "name": "7zz (MacUnzip Release arm64 executable)",
+      "versionInfo": "26.03",
+      "packageFileName": "7zz",
+      "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
-      "supplier": "Organization: Igor Pavlov",
-      "originator": "Person: Igor Pavlov",
       "primaryPackagePurpose": "APPLICATION",
-      "licenseConcluded": "LGPL-2.1-or-later",
-      "licenseDeclared": "LGPL-2.1-or-later",
-      "licenseInfoFromFiles": ["LGPL-2.1-or-later"],
-      "copyrightText": "Copyright (C) 1999-2026 Igor Pavlov",
-      "description": "7-Zip command-line archiver. External dependency - NOT bundled with MacUnzip. Invoked via Process() only if user has installed it separately.",
+      "licenseConcluded": "LicenseRef-7Zip-26.03-upstream",
+      "licenseDeclared": "LicenseRef-7Zip-26.03-upstream",
+      "copyrightText": "7-Zip Copyright (C) 1999-2026 Igor Pavlov.",
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "TODO_REPLACE_WITH_SHA256_OF_7ZZ_BINARY"
+          "checksumValue": "3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e"
         }
       ],
-      "externalRefs": [
+      "sourceInfo": "arm64 slice of 7zz in the official macOS archive. Corresponding upstream source: https://github.com/ip7z/7zip/releases/download/26.03/7z2603-src.tar.xz",
+      "description": "Bundled at MacUnzip.app/Contents/Resources/Binaries/7zz with 7zz-License.txt, 7zz-readme.txt, 7zz-SOURCE.txt."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7zz-upstream-macos",
+      "name": "7-Zip upstream macOS archive",
+      "versionInfo": "26.03",
+      "packageFileName": "7z2603-mac.tar.xz",
+      "downloadLocation": "https://github.com/ip7z/7zip/releases/download/26.03/7z2603-mac.tar.xz",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "ARCHIVE",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LicenseRef-7Zip-26.03-upstream",
+      "copyrightText": "7-Zip Copyright (C) 1999-2026 Igor Pavlov.",
+      "checksums": [
         {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:brew/p7zip@26.02"
+          "algorithm": "SHA256",
+          "checksumValue": "5ca87677072c59f5602e5c49baa27d4694bacd2259b4e507f0094249d4281480"
         }
-      ]
+      ],
+      "sourceInfo": "Official ip7z release archive. Corresponding upstream source: https://github.com/ip7z/7zip/releases/download/26.03/7z2603-src.tar.xz"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-rar",
+      "name": "RARLAB rar",
+      "downloadLocation": "https://www.rarlab.com/download.htm",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "APPLICATION",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "External tool for RAR creation and selected extraction methods."
     },
     {
       "SPDXID": "SPDXRef-Package-Apple-libcompression",
       "name": "Apple libcompression",
-      "versionInfo": "macOS-SDK-26",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
-      "supplier": "Organization: Apple Inc.",
-      "originator": "Organization: Apple Inc.",
       "primaryPackagePurpose": "LIBRARY",
-      "licenseConcluded": "LicenseRef-Apple-SDK",
-      "licenseDeclared": "LicenseRef-Apple-SDK",
-      "copyrightText": "Copyright (c) Apple Inc. All rights reserved.",
-      "description": "Apple Compression library (compression.framework). Part of macOS SDK, linked via -lcompression for deflate/lzma/lz4/zstd hardware-accelerated compression.",
-      "externalRefs": [
-        {
-          "referenceCategory": "OTHER",
-          "referenceType": "advisory",
-          "referenceLocator": "https://developer.apple.com/documentation/compression"
-        }
-      ]
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "description": "Apple Compression library provided by macOS."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-swift-markdown-ui",
+      "name": "MarkdownUI",
+      "downloadLocation": "https://github.com/gonzalezreal/swift-markdown-ui/archive/5f613358148239d0292c0cef674a3c2314737f9e.tar.gz",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2020 Guillermo Gonzalez",
+      "versionInfo": "2.4.1",
+      "description": "SwiftPM resolution at 5f613358148239d0292c0cef674a3c2314737f9e."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-networkimage",
+      "name": "NetworkImage",
+      "downloadLocation": "https://github.com/gonzalezreal/NetworkImage/archive/2849f5323265386e200484b0d0f896e73c3411b9.tar.gz",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2020 Guille Gonzalez",
+      "versionInfo": "6.0.1",
+      "description": "SwiftPM resolution at 2849f5323265386e200484b0d0f896e73c3411b9."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-swift-cmark",
+      "name": "swift-cmark",
+      "downloadLocation": "https://github.com/swiftlang/swift-cmark/archive/924936d0427cb25a61169739a7660230bffa6ea6.tar.gz",
+      "filesAnalyzed": false,
+      "primaryPackagePurpose": "LIBRARY",
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "versionInfo": "0.8.0",
+      "description": "SwiftPM resolution at 924936d0427cb25a61169739a7660230bffa6ea6."
     }
   ],
   "relationships": [
@@ -164,30 +210,66 @@
     },
     {
       "spdxElementId": "SPDXRef-Package-MacUnzip",
-      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-7zz"
-    },
-    {
-      "spdxElementId": "SPDXRef-Package-minizip-ng",
-      "relationshipType": "BUILD_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-swift-markdown-ui"
     },
     {
       "spdxElementId": "SPDXRef-Package-libarchive",
-      "relationshipType": "BUILD_DEPENDENCY_OF",
-      "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-xz"
     },
     {
-      "spdxElementId": "SPDXRef-Package-Apple-libcompression",
-      "relationshipType": "BUILD_DEPENDENCY_OF",
+      "spdxElementId": "SPDXRef-Package-libarchive",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-zstd"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-libarchive",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-lz4"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-libarchive",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-libb2"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-swift-markdown-ui",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-networkimage"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-swift-markdown-ui",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-swift-cmark"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-MacUnzip",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-Package-7zz",
+      "comment": "Applies to the Release configuration."
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-7zz",
+      "relationshipType": "GENERATED_FROM",
+      "relatedSpdxElement": "SPDXRef-Package-7zz-upstream-macos"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-rar",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
       "relatedSpdxElement": "SPDXRef-Package-MacUnzip"
     }
   ],
+  "comment": "Source and build-configuration inventory, including the pinned 7-Zip release binaries. An artifact-specific SBOM must also identify the resolved dylibs and other release contents.",
   "hasExtractedLicensingInfos": [
     {
-      "licenseId": "LicenseRef-Apple-SDK",
-      "name": "Apple SDK License Agreement",
-      "extractedText": "Use of Apple SDK components is governed by the Apple Software License Agreement. See https://www.apple.com/legal/sla/ for the current terms. These components are provided as part of the macOS operating system and may only be used on Apple-branded hardware."
+      "licenseId": "LicenseRef-7Zip-26.03-upstream",
+      "name": "7-Zip 26.03 upstream notice (LGPL, BSD terms and unRAR restriction)",
+      "extractedText": "  7-Zip for Linux and macOS\n  ~~~~~~~~~~~~~~~~~~~~~~~~~\n  License for use and distribution\n  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n  7-Zip Copyright (C) 1999-2026 Igor Pavlov.\n\n  The licenses for 7zz and 7zzs files are:\n\n         - The \"GNU LGPL\" as main license for most of the code\n         - The \"GNU LGPL\" with \"unRAR license restriction\" for some code\n         - The \"BSD 3-clause License\" for some code\n         - The \"BSD 2-clause License\" for some code\n\n  Redistributions in binary form must reproduce related license information from this file.\n\n  Note:\n    You can use 7-Zip on any computer, including a computer in a commercial\n    organization. You don't need to register or pay for 7-Zip.\n\n\nGNU LGPL information\n--------------------\n\n    This library is free software; you can redistribute it and/or\n    modify it under the terms of the GNU Lesser General Public\n    License as published by the Free Software Foundation; either\n    version 2.1 of the License, or (at your option) any later version.\n\n    This library is distributed in the hope that it will be useful,\n    but WITHOUT ANY WARRANTY; without even the implied warranty of\n    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n    Lesser General Public License for more details.\n\n    You can receive a copy of the GNU Lesser General Public License from\n    http://www.gnu.org/\n\n\n\n\nBSD 3-clause License in 7-Zip code\n----------------------------------\n\n  The \"BSD 3-clause License\" is used for the following code in 7z.dll\n    1) LZFSE data decompression.\n       That code was derived from the code in the \"LZFSE compression library\" developed by Apple Inc,\n       that also uses the \"BSD 3-clause License\".\n    2) ZSTD data decompression.\n       that code was developed using original zstd decoder code as reference code.\n       The original zstd decoder code was developed by Facebook Inc,\n       that also uses the \"BSD 3-clause License\".\n\n  Copyright (c) 2015-2016, Apple Inc. All rights reserved.\n  Copyright (c) Facebook, Inc. All rights reserved.\n  Copyright (c) 2023-2026 Igor Pavlov.\n\nText of the \"BSD 3-clause License\"\n----------------------------------\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\n3. Neither the name of the copyright holder nor the names of its contributors may\n   be used to endorse or promote products derived from this software without\n   specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n---\n\n\n\n\nBSD 2-clause License in 7-Zip code\n----------------------------------\n\n  The \"BSD 2-clause License\" is used for the XXH64 code in 7-Zip.\n\n  XXH64 code in 7-Zip was derived from the original XXH64 code developed by Yann Collet.\n\n  Copyright (c) 2012-2021 Yann Collet.\n  Copyright (c) 2023-2026 Igor Pavlov.\n\nText of the \"BSD 2-clause License\"\n----------------------------------\n\nRedistribution and use in source and binary forms, with or without modification,\nare permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON\nANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n---\n\n\n\n\nunRAR license restriction\n-------------------------\n\nThe decompression engine for RAR archives was developed using source\ncode of unRAR program.\nAll copyrights to original unRAR code are owned by Alexander Roshal.\n\nThe license for original unRAR code has the following restriction:\n\n  The unRAR sources cannot be used to re-create the RAR compression algorithm,\n  which is proprietary. Distribution of modified unRAR sources in separate form\n  or as a part of other software is permitted, provided that it is clearly\n  stated in the documentation and source comments that the code may\n  not be used to develop a RAR (WinRAR) compatible archiver.\n\n--",
+      "seeAlsos": [
+        "https://github.com/ip7z/7zip/releases/tag/26.03"
+      ],
+      "comment": "From the official macOS archive's License.txt, distributed with the bundled executable as 7zz-License.txt."
     }
   ]
 }

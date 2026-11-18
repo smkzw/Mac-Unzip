@@ -14,11 +14,24 @@ concurrency:
 jobs:
   unit:
     name: ArchiveKit unit tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26"
+
+      - name: Verify Swift 6.2 toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          swift --version | tee /tmp/swift-version.txt
+          grep -E 'Swift version 6\.2' /tmp/swift-version.txt
 
       - name: Cache Homebrew
         uses: actions/cache@v6
@@ -38,30 +51,44 @@ jobs:
         run: |
           brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
 
+      - name: Prepare pinned 7zz
+        working-directory: ArchiveWorkbench
+        run: |
+          ./Scripts/prepare_7zz.sh
+          test -x App/Binaries/7zz
+          export MACUNZIP_PINNED_7ZZ="$PWD/App/Binaries/7zz"
+          echo "MACUNZIP_PINNED_7ZZ=$MACUNZIP_PINNED_7ZZ" >> "$GITHUB_ENV"
+          echo "MACUNZIP_REQUIRE_PINNED_7ZZ=1" >> "$GITHUB_ENV"
+
       - name: Run ArchiveKit tests
         working-directory: ArchiveWorkbench/Packages/ArchiveKit
+        env:
+          MACUNZIP_PINNED_7ZZ: ${{ env.MACUNZIP_PINNED_7ZZ }}
+          MACUNZIP_REQUIRE_PINNED_7ZZ: "1"
         run: |
           swift test --parallel
 
   app:
     name: MacUnzip build & tests
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     needs: unit
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Select Xcode
+      - name: Select Xcode 26
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "latest-stable"
+          xcode-version: "26"
 
-      - name: Show toolchain
+      - name: Show toolchain (Swift 6.2)
         run: |
           xcodebuild -version
           swift --version
           echo "DEVELOPER_DIR=$(xcode-select -p)"
+          swift --version | tee /tmp/swift-version-app.txt
+          grep -E 'Swift version 6\.2' /tmp/swift-version-app.txt
 
       - name: Cache Homebrew
         uses: actions/cache@v6
@@ -90,6 +117,14 @@ jobs:
           brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
           xcodegen --version
 
+      - name: Prepare pinned 7zz
+        working-directory: ArchiveWorkbench
+        run: |
+          ./Scripts/prepare_7zz.sh
+          test -x App/Binaries/7zz
+          echo "MACUNZIP_PINNED_7ZZ=$PWD/App/Binaries/7zz" >> "$GITHUB_ENV"
+          echo "MACUNZIP_REQUIRE_PINNED_7ZZ=1" >> "$GITHUB_ENV"
+
       - name: Generate Xcode project
         working-directory: ArchiveWorkbench
         run: xcodegen generate
@@ -105,24 +140,31 @@ jobs:
       - name: Build MacUnzip
         working-directory: ArchiveWorkbench
         run: |
-          mkdir -p App/Binaries
+          # Independent derived data for Release so verify/zip use the same real path.
           xcodebuild -project MacUnzip.xcodeproj \
                      -scheme MacUnzip \
                      -configuration Release \
                      -destination 'platform=macOS' \
+                     -derivedDataPath "$PWD/build/ReleaseDD" \
                      -clonedSourcePackagesDirPath "$HOME/spm" \
                      CODE_SIGN_IDENTITY="" \
                      CODE_SIGNING_REQUIRED=NO \
                      CODE_SIGNING_ALLOWED=NO \
                      build
+          test -x "build/ReleaseDD/Build/Products/Release/MacUnzip.app/Contents/MacOS/MacUnzip"
 
-      - name: Run unit tests
+      - name: Run unit tests (no UI suite)
         working-directory: ArchiveWorkbench
+        env:
+          MACUNZIP_PINNED_7ZZ: ${{ env.MACUNZIP_PINNED_7ZZ }}
+          MACUNZIP_REQUIRE_PINNED_7ZZ: "1"
         run: |
+          # Separate Debug derived data — never reuse ReleaseDD products for tests.
           xcodebuild -project MacUnzip.xcodeproj \
                      -scheme MacUnzip \
                      -configuration Debug \
                      -destination 'platform=macOS' \
+                     -derivedDataPath "$PWD/build/DebugDD" \
                      -clonedSourcePackagesDirPath "$HOME/spm" \
                      -only-testing:MacUnzipUnitTests \
                      -only-testing:HelperSpikeTests \
@@ -131,10 +173,10 @@ jobs:
                      CODE_SIGNING_ALLOWED=NO \
                      test
 
-      - name: Verify self-contained dylibs
+      - name: Verify self-contained dylibs and pinned 7zz
         working-directory: ArchiveWorkbench
         run: |
-          APP="build/Products/Release/MacUnzip.app"
+          APP="build/ReleaseDD/Build/Products/Release/MacUnzip.app"
           BIN="$APP/Contents/MacOS/MacUnzip"
           test -f "$BIN"
           if otool -L "$BIN" | grep -E '/opt/homebrew|/usr/local/opt'; then
@@ -143,12 +185,19 @@ jobs:
             exit 1
           fi
           test -f "$APP/Contents/Frameworks/libarchive.13.dylib"
-          echo "Self-contained check OK"
+          BUNDLED="$APP/Contents/Resources/Binaries/7zz"
+          test -x "$BUNDLED"
+          ACTUAL="$(shasum -a 256 "$BUNDLED" | awk '{print $1}')"
+          EXPECTED="3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e"
+          test "$ACTUAL" = "$EXPECTED"
+          test -f "$APP/Contents/Resources/Binaries/7zz-License.txt"
+          test -f "$APP/Contents/Resources/Binaries/7zz-SOURCE.txt"
+          echo "Self-contained + pinned 7zz check OK"
 
       - name: Package artifact as zip
         run: |
           ditto -c -k --keepParent \
-            ArchiveWorkbench/build/Products/Release/MacUnzip.app \
+            ArchiveWorkbench/build/ReleaseDD/Build/Products/Release/MacUnzip.app \
             MacUnzip-${{ github.sha }}.zip
 
       - name: Upload Build Artifacts

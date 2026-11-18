@@ -300,13 +300,27 @@ struct ProviderSettingsTab: View {
     }
 
     private var sevenZZPath: String {
-        cachedDiscovery?.resolvedPath ?? AppLocalization().string("未检测到")
+        guard let discovery = cachedDiscovery else {
+            return AppLocalization().string("未检测到")
+        }
+        switch discovery.origin {
+        case .bundledPinned:
+            return AppLocalization().string("内嵌于应用（pinned）")
+        case .externalFallback:
+            return discovery.resolvedPath
+        }
     }
 
     private var sevenZZStatus: String {
-        cachedDiscovery != nil
-            ? AppLocalization().string("可用")
-            : AppLocalization().string("未检测到")
+        guard let discovery = cachedDiscovery else {
+            return AppLocalization().string("未检测到")
+        }
+        switch discovery.origin {
+        case .bundledPinned:
+            return AppLocalization().string("可用（内置 pinned）")
+        case .externalFallback:
+            return AppLocalization().string("可用（外部兼容回退）")
+        }
     }
 
     private var sevenZZVersion: String {

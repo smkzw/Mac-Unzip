@@ -73,12 +73,12 @@ enum ComponentRegistry {
         ThirdPartyComponent(
             id: "7-zip",
             name: "7-Zip (7zz)",
-            version: "24.x",
+            version: "26.03",
             licenseName: "LGPL-2.1+",
-            copyright: "Copyright (C) 1999-2024 Igor Pavlov",
+            copyright: "Copyright (C) 1999-2026 Igor Pavlov",
             url: "https://7-zip.org",
             licenseText: """
-            7-Zip Copyright (C) 1999-2024 Igor Pavlov.
+            7-Zip Copyright (C) 1999-2026 Igor Pavlov.
 
             The licenses for files are:
               1) 7z.dll: GNU LGPL + unRAR restriction

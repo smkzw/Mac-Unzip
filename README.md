@@ -1,235 +1,80 @@
 <p align="center">
-  <img src="ArchiveWorkbench/Assets/logo-v2.png" alt="Mac Unzip" width="256" height="256">
+  <img src="ArchiveWorkbench/Assets/logo-v2.png" alt="MacUnzip icon" width="104" height="104">
 </p>
 
-<h1 align="center">🗜️ Mac Unzip <sub>Mac 解霸</sub></h1>
+<h1 align="center">MacUnzip</h1>
+
+<p align="center">Browse, preview, extract, and create archives on your Mac.</p>
 
 <p align="center">
-  <strong>⚡ Blazing-fast. 🔒 Vault-grade security. 🍎 100% Native.</strong><br>
-  <em>The archive utility your Mac deserved all along.</em>
-</p>
-
-<p align="center">
-  <strong>English</strong> | <a href="README_zh.md">中文</a> | <a href="README_fr.md">Français</a> | <a href="README_es.md">Español</a> | <a href="README_it.md">Italiano</a> | <a href="README_ja.md">日本語</a> | <a href="README_ko.md">한국어</a>
+  <a href="https://github.com/smkzw/Mac-Unzip/releases"><strong>Download on GitHub</strong></a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS%2026-blue" alt="Platform">
-  <img src="https://img.shields.io/badge/arch-Apple%20Silicon-orange" alt="Architecture">
-  <img src="https://img.shields.io/badge/Swift-6.2-red" alt="Swift">
-  <img src="https://img.shields.io/badge/license-Personal%20Free%20%2F%20Commercial%20Paid-green" alt="License">
+  <a href="README_zh.md">简体中文</a> ·
+  <a href="ArchiveWorkbench/README_fr.md">Français</a> ·
+  <a href="ArchiveWorkbench/README_es.md">Español</a> ·
+  <a href="ArchiveWorkbench/README_it.md">Italiano</a> ·
+  <a href="ArchiveWorkbench/README_ja.md">日本語</a> ·
+  <a href="ArchiveWorkbench/README_ko.md">한국어</a>
 </p>
 
 <p align="center">
-  <a href="#-screenshots">📸 Screenshots</a> &nbsp;•&nbsp;
-  <a href="#-core-capabilities">🚀 Features</a> &nbsp;•&nbsp;
-  <a href="#-security-architecture">🛡️ Security</a> &nbsp;•&nbsp;
-  <a href="#-installation--building">⬇️ Install</a>
+  <img src="https://img.shields.io/badge/macOS-26%2B-2563EB" alt="macOS 26 or later">
+  <img src="https://img.shields.io/badge/Apple%20silicon-arm64-334155" alt="Apple silicon arm64">
+  <img src="https://img.shields.io/badge/Swift-6.2-F05138" alt="Swift 6.2">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-18794E" alt="MIT License"></a>
 </p>
 
----
+![MacUnzip browsing an example archive and previewing an image in light mode](ArchiveWorkbench/Assets/screenshots/app_media_light.png)
 
-## ✨ Why Mac Unzip
+## Browse, preview, extract
 
-**Your files deserve better than a wrapper.**
+Drop an archive into the window to browse or search its contents. Open supported nested archives, extract selected files, or extract the whole archive. Preview supported images, videos, PDFs, Markdown, and Office documents inside the app. Preview availability depends on the file and the system. Some previews use temporary local storage.
 
-Most "Mac" archive tools aren't Mac apps at all. They're Electron shells burning 400 MB of RAM to display a file list. Or thin wrappers around a raw 7zip binary that treat security as an afterthought. One crafted archive, one symlink, one `../` in a filename, and your entire home directory is game over.
+Start a new archive by dropping in files and folders. Creation includes a preflight check, format-specific compression settings, and AES-256 protection for ZIP and 7z. ZIP also has a Windows compatibility preset.
 
-🍎 **Mac Unzip is different.** Built from the ground up in Swift 6.2 and SwiftUI. Zero wrappers. Zero runtimes. Zero telemetry. Zero network calls. Just pure, native, Apple Silicon performance doing exactly one thing exceptionally well: handling your archives safely at the speed of thought.
+[Welcome screen](ArchiveWorkbench/Assets/screenshots/app_welcome.png) · [Dark mode](ArchiveWorkbench/Assets/screenshots/app_media_dark.png) · [Create an archive](ArchiveWorkbench/Assets/screenshots/creation.png)
 
-> 💡 *"We didn't optimize an Electron app. We wrote a Mac app."*
+The screenshots show fictional example files.
 
----
+## Supported formats
 
-## 🚀 Core Capabilities
+| Format | Browse and extract | Create |
+| --- | --- | --- |
+| ZIP | Yes, including supported AES and ZipCrypto archives | Yes |
+| TAR, TAR.GZ, TAR.BZ2, TAR.XZ, TAR.ZST | Yes | TAR.GZ, TAR.XZ, TAR.ZST |
+| 7z | Yes, including supported password-protected archives | Yes |
+| RAR | With `7zz`. Some methods use the external RARLAB tool when available | With the external [RARLAB `rar` tool](https://www.rarlab.com/download.htm) |
+| DMG, ISO | Read-only access to supported images via `7zz`, with extraction to a separate destination | — |
 
-### 📂 Extraction — Open. Browse. Done.
+## Install
 
-- ⚡ **Instant open** — Drop an archive in, contents appear immediately. No "extracting…" spinner. No waiting.
-- 🔐 **Password-protected ZIP** — AES-256 and ZipCrypto, handled natively
-- 🪆 **Nested archive navigation** — Archives within archives? Double-click to drill down, back button to climb out
-- 🎯 **Selective extraction** — Grab one file from a 10 GB archive without unpacking the rest
-- ⏱️ **Real-time progress** — Live progress bar with instant cancellation for those "oops, wrong file" moments
+MacUnzip requires **macOS 26 or later on Apple silicon (arm64)**.
 
-### 📦 Creation — Six Formats. One Click.
+1. Open [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases) and choose a release with a DMG asset.
+2. Open the DMG and drag **MacUnzip** to **Applications**. Refer to the release notes for signing and verification details.
+3. Release builds of v1.3.0 include 7-Zip `7zz` 26.03 (arm64) for 7z, with no Homebrew setup required. RAR creation still uses the separately installed RARLAB `rar` tool.
 
-- 🗜️ **ZIP / 7z / RAR / TAR.GZ / TAR.XZ / TAR.ZST** — Create them all
-- 🔒 **AES-256 encryption** — Military-grade protection for sensitive payloads (ZIP / 7z)
-- 🖱️ **Drag & drop** — Toss in files and folders; directory structure preserved recursively
-- 📊 **Compression levels** — From "store" (instant) to "ultra" (maximum squeeze)
-- ✅ **Preflight checks** — Path conflicts, illegal characters, Windows reserved names caught *before* creation begins
-- 🪟 **Cross-platform ready** — UTF-8 filenames, macOS metadata auto-stripped, Windows 11 opens it natively
+## Build from source
 
-### 👁️ Preview — See It Before You Extract It
+Use **Xcode 26 with the Swift 6.2 toolchain** and Homebrew. Run the following commands from an Apple silicon Mac.
 
-- 🖼️ **Images** (PNG / JPEG / HEIC / SVG / WebP) — Thumbnail grid + full-size render
-- 📄 **PDF** — Embedded multi-page reader, right inside the archive browser
-- 🎬 **Video** (MP4 / MOV) — In-app playback. No extraction to disk. No temp files. Just play.
-- 💻 **Text / Code / Markdown** — Syntax-highlighted preview for 50+ languages
-- 🔒 **Sandboxed** — Every preview runs in an isolated cache with size caps and path validation
-
-### 🔄 Workflow — Built for How You Actually Work
-
-- 🪟 **Multi-window** — Work with five archives side by side. Your Mac can handle it.
-- 🖱️ **Finder integration** — Right-click → Compress / Open via macOS Services
-- 🌗 **Dark / Light / System** — Three appearance modes, pixel-perfect in each
-- 🔍 **Global search** — Find one file in an archive with 50,000 entries. Instantly.
-- 💾 **Crash recovery** — Power outage mid-extraction? Resume where you left off. No orphans. No restarts.
-
----
-
-## 📋 Format Support
-
-| Operation | Formats |
-|-----------|---------|
-| 📂 **Open** | ZIP, 7z, RAR, TAR.GZ, TAR.XZ, TAR.ZST, DMG, ISO |
-| 📦 **Create** | ZIP, 7z, RAR, TAR.GZ, TAR.XZ, TAR.ZST |
-| 🔐 **Encrypt** | AES-256 (ZIP / 7z) |
-
----
-
-## 🛡️ Security Architecture
-
-**This isn't "add an if-statement and ship it" security.**
-
-Every layer of the extraction pipeline is designed to handle *hostile* archives. The kind someone crafts specifically to break your machine. Mac Unzip doesn't flinch.
-
-| 🧱 Defense Layer | ⚙️ Mechanism |
-|---------------|-----------|
-| 🚫 Path traversal | `ArchivePathPolicy` rejects `..`, absolute paths, control characters, empty components |
-| 🔗 Symlink attacks | Full scan before extraction; any symlink aborts the entire operation |
-| 📁 File descriptor safety | FD-relative operations throughout (`openat` / `mkdirat`) with `O_NOFOLLOW` + `O_EXCL` |
-| 💣 Resource bombs | Four-dimensional budget: compression ratio, expanded size, entry count, directory depth |
-| ⚛️ Atomic writes | Write to temp → `fsync` → atomic rename; automatic cleanup on failure |
-| 🏗️ Process isolation | External tools (7zz / rar) invoked via explicit argv arrays. Shell injection: structurally impossible. |
-| 📦 Preview sandbox | Isolated cache with size caps and path validation. Nothing escapes. |
-| 🍎 Quarantine | Files from archives tagged with `com.apple.quarantine` for Gatekeeper evaluation |
-
-> 🔒 *"We treat every archive as potentially hostile until proven otherwise."*
-
----
-
-## 📸 Screenshots
-
-### 🏠 Welcome
-
-Drop an archive in and go. No onboarding. No account. No nonsense.
-
-![Welcome](ArchiveWorkbench/Assets/screenshots/app_welcome.png)
-
-### 🌙 Archive Browsing (Dark Mode)
-
-Full media preview, file details, quick actions — all in one view.
-
-![Archive Browsing - Dark](ArchiveWorkbench/Assets/screenshots/app_media_dark.png)
-
-### ☀️ Archive Browsing (Light Mode)
-
-![Archive Browsing - Light](ArchiveWorkbench/Assets/screenshots/app_media_light.png)
-
----
-
-## 📖 Usage Guide
-
-### 📂 Extracting Files
-
-1. 🖱️ Drop an archive into the window (or File → Open)
-2. 👀 Browse contents, select what you need
-3. 📤 Click "Extract" in the toolbar, choose a destination
-4. ✅ Done. Your files are in place.
-
-### 📦 Creating Archives
-
-1. ➕ Click "New Archive" on the welcome screen (or File → New)
-2. 🗂️ Choose output format: ZIP / 7z / RAR / TAR.GZ / TAR.XZ / TAR.ZST
-3. 🖱️ Drag in files and folders
-4. 🔐 Optional: set a password, adjust compression level
-5. 💾 Click "Create" and pick a save location
-
-### 👁️ Previewing Files
-
-Click any file in the archive browser:
-- 🖼️ Images render at full resolution
-- 📄 PDFs display inline with page navigation
-- 🎬 Videos play in-app (no extraction needed)
-- 💻 Code gets syntax highlighting
-
-### 🪆 Nested Archives
-
-Double-click a compressed file inside an archive to drill in. Hit the back button to climb out. Turtles all the way down. 🐢
-
----
-
-## ⚔️ How It Compares
-
-We're not here to trash other tools. These are different engineering choices with measurable consequences:
-
-| Dimension | 🏚️ Typical Approach | 🏰 Mac Unzip |
-|-----------|---------------------|--------------|
-| Runtime | Electron / bundled Python / Node | Pure native Swift + SwiftUI |
-| Memory (idle) | 200–400 MB 😱 | ~30–50 MB 😌 |
-| Extraction safety | Minimal or no path validation | FD-relative ops + path policy + resource budgets (4 layers) |
-| Symlinks | Extracted blindly → arbitrary overwrite | Full pre-scan; any symlink = full abort |
-| External tools | Shell string interpolation | Explicit argv arrays. Injection impossible. |
-| Preview | Extract to disk first, then open | Sandboxed streaming. Nothing touches your filesystem. |
-| Crash recovery | Orphaned partial files. Start over. | Journaled extraction. Resume from interruption. |
-| Telemetry / Ads | "Free" = you're the product | Zero telemetry. Zero ads. Zero network. Period. |
-| Apple Silicon | Intel binary under Rosetta | Native arm64. Every M-series core utilized. |
-
----
-
-## ⬇️ Installation & Building
-
-### 🛠️ Build from Source
-
-```bash
+```sh
 git clone https://github.com/smkzw/Mac-Unzip.git
 cd Mac-Unzip/ArchiveWorkbench
-open ArchiveWorkbench.xcodeproj
+brew install libarchive xz zstd lz4 libb2
+open MacUnzip.xcodeproj
 ```
 
-In Xcode 26: select the **App** scheme → target your Mac → press **⌘R**. That's it. You're running.
+In Xcode, select the **MacUnzip** scheme and **My Mac**, then run. A Debug build from source can use a detected external [7-Zip `7zz`](https://www.7-zip.org/download.html). The checked-in project can be regenerated with XcodeGen after editing `project.yml`. [Build and distribution guide](ArchiveWorkbench/Distribution/BUILD_PROFILES.md)
 
-### 🔧 External Tool Dependencies (Optional)
+## Security and privacy
 
-| Tool | Purpose | Install |
-|------|---------|---------|
-| 7zz | 7z format support | `brew install 7zip` |
-| rar | RAR creation | Download from RARLAB |
+Archive handling runs locally. Extraction applies path checks and resource limits, with additional checks for unsafe entries according to the selected engine. Settings and recent archives are stored locally. The optional engine-version check is off by default and retrieves version metadata when requested. It does not download or replace executables.
 
-Not installed? No problem. The format gracefully disables itself with a clear message. Everything else keeps working. 🤷
+## License and feedback
 
----
+MacUnzip is released under the [MIT License](LICENSE). Third-party components retain their own licenses. [Third-party notices](ArchiveWorkbench/Distribution/THIRD_PARTY_NOTICES.md) · [Source dependency inventory](ArchiveWorkbench/Distribution/SBOM.spdx.json)
 
-## 💻 System Requirements
-
-| Requirement | Minimum |
-|-------------|---------|
-| 🖥️ OS | macOS 26 |
-| ⚙️ Chip | Apple Silicon (M1 or later) |
-| 🔨 Build tools | Xcode 26 |
-| 💾 Disk space | ~50 MB (app binary) |
-
----
-
-## 📜 License
-
-🙋 **Personal use**: Free. Forever. Distribute freely.
-
-🏢 **Enterprise / commercial use**: Requires a commercial license. See [LICENSE](LICENSE) for details.
-
----
-
-## 🤝 Contributing & Feedback
-
-- 🐛 Found a bug? → [File an Issue](https://github.com/smkzw/Mac-Unzip/issues)
-- 💡 Have an idea? → Open a Pull Request
-- 🔓 Security vulnerability? → Report privately via GitHub Security Advisory
-
----
-
-<p align="center">
-  <strong>🗜️ Mac Unzip</strong><br>
-  <em>Compression, the native way. ⚡</em><br><br>
-  <sub>Built with ❤️ for Apple Silicon. No Electron was harmed (or used) in the making of this app.</sub>
-</p>
+Report issues on [GitHub](https://github.com/smkzw/Mac-Unzip/issues). For build and signing documentation, see the [engineering entry point](ArchiveWorkbench/README.md).

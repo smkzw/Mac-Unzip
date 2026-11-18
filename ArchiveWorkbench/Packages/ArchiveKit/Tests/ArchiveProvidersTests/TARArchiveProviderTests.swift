@@ -316,8 +316,8 @@ struct TARArchiveProviderTests {
         }
     }
 
-    @Test("reject symlink entries")
-    func rejectSymlinks() async throws {
+    @Test("list symlink entries as non-extractable without failing open")
+    func listSymlinksAsNonExtractable() async throws {
         var tempURLs: [URL] = []
         defer { TARFixture.cleanup(tempURLs) }
 
@@ -325,14 +325,132 @@ struct TARArchiveProviderTests {
         tempURLs.append(tarURL)
 
         let provider = TARArchiveProvider()
+        let snapshot = try await provider.open(url: tarURL)
+        let link = try #require(snapshot.entries.first { $0.isSymbolicLink })
+        #expect(link.isExtractable == false)
+        let regular = try #require(snapshot.entries.first { $0.entry.displayPath.contains("target.txt") })
+        #expect(regular.isExtractable == true)
+
         do {
-            _ = try await provider.open(url: tarURL)
-            Issue.record("Expected symlinkRejected error")
+            _ = try await provider.readEntry(id: link.entry.id, maximumBytes: 4096)
+            Issue.record("Expected symlinkRejected on read")
         } catch let error as TARProviderError {
             guard case .symlinkRejected = error else {
                 Issue.record("Expected symlinkRejected, got \(error)")
                 return
             }
+        }
+
+        let out = FileManager.default.temporaryDirectory
+            .appending(path: "tar-symlink-out-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        tempURLs.append(out)
+        do {
+            _ = try await provider.materializeEntry(id: link.entry.id, under: out)
+            Issue.record("Expected symlinkRejected on materialize")
+        } catch let error as TARProviderError {
+            guard case .symlinkRejected = error else {
+                Issue.record("Expected symlinkRejected, got \(error)")
+                return
+            }
+        }
+    }
+
+    @Test("extractAll rejects symlink archive before any write")
+    func extractAllRejectsSymlinkBeforeWrite() async throws {
+        var tempURLs: [URL] = []
+        defer { TARFixture.cleanup(tempURLs) }
+        let tarURL = try TARFixture.createTARWithSymlink()
+        tempURLs.append(tarURL)
+        let provider = TARArchiveProvider()
+        _ = try await provider.open(url: tarURL)
+        let out = FileManager.default.temporaryDirectory
+            .appending(path: "tar-extract-symlink-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        tempURLs.append(out)
+        do {
+            _ = try await provider.extractAll(under: out)
+            Issue.record("Expected symlinkRejected before write")
+        } catch let error as TARProviderError {
+            guard case .symlinkRejected = error else {
+                Issue.record("Expected symlinkRejected, got \(error)")
+                return
+            }
+        }
+        let remaining = (try? FileManager.default.contentsOfDirectory(atPath: out.path)) ?? []
+        #expect(remaining.isEmpty)
+    }
+
+    @Test("empty gzip is not empty TAR; empty tar lists; damaged tar is openFailed")
+    func emptyAndDamagedFormats() async throws {
+        var tempURLs: [URL] = []
+        defer { TARFixture.cleanup(tempURLs) }
+
+        let emptyTar = FileManager.default.temporaryDirectory
+            .appending(path: "empty-\(UUID().uuidString).tar")
+        tempURLs.append(emptyTar)
+        try runProcess("/usr/bin/tar", ["-cf", emptyTar.path, "-T", "/dev/null"])
+
+        let emptyGz = FileManager.default.temporaryDirectory
+            .appending(path: "empty-\(UUID().uuidString).gz")
+        tempURLs.append(emptyGz)
+        try runProcess("/bin/bash", ["-lc", ": | gzip > \(emptyGz.path)"])
+
+        let badTar = FileManager.default.temporaryDirectory
+            .appending(path: "bad-\(UUID().uuidString).tar")
+        tempURLs.append(badTar)
+        try Data("not-a-tar".utf8).write(to: badTar)
+
+        let provider = TARArchiveProvider()
+        let emptySnapshot = try await provider.open(url: emptyTar)
+        #expect(emptySnapshot.entries.isEmpty)
+
+        do {
+            _ = try await provider.open(url: emptyGz)
+            Issue.record("Expected notTAR for empty gzip")
+        } catch let error as TARProviderError {
+            guard case .notTAR = error else {
+                Issue.record("Expected notTAR, got \(error)")
+                return
+            }
+        }
+
+        do {
+            _ = try await provider.open(url: badTar)
+            Issue.record("Expected openFailed for damaged tar")
+        } catch let error as TARProviderError {
+            guard case .openFailed = error else {
+                Issue.record("Expected openFailed, got \(error)")
+                return
+            }
+        }
+    }
+
+    @Test("replaced archive file is rejected on read")
+    func rejectsStaleArchiveIdentity() async throws {
+        var tempURLs: [URL] = []
+        defer { TARFixture.cleanup(tempURLs) }
+        let src = try TARFixture.createSourceDirectory()
+        tempURLs.append(src)
+        let tarURL = try TARFixture.createTAR(from: src)
+        tempURLs.append(tarURL)
+        let provider = TARArchiveProvider()
+        let snapshot = try await provider.open(url: tarURL)
+        let hello = try #require(snapshot.entries.first { $0.entry.displayPath.hasSuffix("hello.txt") })
+
+        // Replace the archive file after open.
+        let otherSrc = try TARFixture.createSourceDirectory()
+        tempURLs.append(otherSrc)
+        let replacement = try TARFixture.createTAR(from: otherSrc)
+        tempURLs.append(replacement)
+        try FileManager.default.removeItem(at: tarURL)
+        try FileManager.default.copyItem(at: replacement, to: tarURL)
+
+        do {
+            _ = try await provider.readEntry(id: hello.entry.id, maximumBytes: 4096)
+            Issue.record("Expected corruptedArchive after replacement")
+        } catch let error as ArchiveError {
+            #expect(error == .corruptedArchive)
         }
     }
 
@@ -528,5 +646,21 @@ struct TARArchiveProviderTests {
         #expect(dirEntries.contains { $0.entry.displayPath == "subdir" })
         #expect(fileEntries.contains { $0.entry.displayPath == "hello.txt" })
         #expect(fileEntries.contains { $0.entry.displayPath == "subdir/nested.txt" })
+    }
+
+    private func runProcess(_ executable: String, _ arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        let err = Pipe()
+        process.standardError = err
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let message = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            throw NSError(domain: "TARArchiveProviderTests", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: message
+            ])
+        }
     }
 }

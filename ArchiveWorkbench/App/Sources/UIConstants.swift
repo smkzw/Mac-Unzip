@@ -1,77 +1,65 @@
 import SwiftUI
 
-/// Centralized constants for UI layout, spacing, and styling to avoid magic numbers
-/// throughout the codebase. Extracted from ArchiveDocumentView.swift and other locations.
-/// 
-/// This struct provides consistent values across the application, improving maintainability
-/// and theme customization capabilities.
-struct UIConstants {
-    // MARK: - Spacing
-    
-    /// Small padding value (6 points)
-    static let paddingSmall: CGFloat = 6
-    
-    /// Medium padding value (12 points)
-    static let paddingMedium: CGFloat = 12
-    
-    /// Large padding value (32 points) used for status bar content
-    static let paddingLarge: CGFloat = 32
-    
-    // MARK: - Layout
-    
-    /// Default window width (1180 points)
+/// Shared layout and visual tokens. Prefer system materials/fonts/semantic colors;
+/// keep a single accent and quiet spacing hierarchy.
+enum UIConstants {
+    // MARK: Spacing
+
+    static let space2: CGFloat = 2
+    static let space4: CGFloat = 4
+    static let space6: CGFloat = 6
+    static let space8: CGFloat = 8
+    static let space10: CGFloat = 10
+    static let space12: CGFloat = 12
+    static let space16: CGFloat = 16
+    static let space20: CGFloat = 20
+    static let space24: CGFloat = 24
+    static let space32: CGFloat = 32
+
+    static let paddingSmall: CGFloat = space6
+    static let paddingMedium: CGFloat = space12
+    static let paddingLarge: CGFloat = space32
+
+    // MARK: Layout
+
     static let defaultWindowWidth: CGFloat = 1180
-    
-    /// Default window height (760 points)
     static let defaultWindowHeight: CGFloat = 760
-    
-    /// Status bar height (38 points)
-    static let statusBarHeight: CGFloat = 38
-    
-    /// Inspector column minimum/ideal/max widths
-    static let inspectorColumnMinWidth: CGFloat = 265
+    static let statusBarHeight: CGFloat = 36
+    static let toolbarHeight: CGFloat = 44
+
+    static let inspectorColumnMinWidth: CGFloat = 260
     static let inspectorColumnIdealWidth: CGFloat = 280
-    static let inspectorColumnMaxWidth: CGFloat = 340
-    
-    // MARK: - Styling
-    
-    /// Warning banner background opacity (0.12) meets WCAG AA contrast ratio (~4.5:1)
-    static let warningOpacity: Double = 0.12
-    
-    /// Progress bar fixed width (140 points)
+    static let inspectorColumnMaxWidth: CGFloat = 320
+
+    static let welcomeContentMaxWidth: CGFloat = 520
+    static let welcomeDropMinHeight: CGFloat = 168
+    static let createPanelWidth: CGFloat = 640
+    /// Tall enough for empty-state destination + pinned footer without relying on scroll.
+    static let createPanelHeight: CGFloat = 640
+    static let createDropMinHeight: CGFloat = 112
+
     static let progressBarWidth: CGFloat = 140
-    
-    // MARK: - Process Limits
-    
-    /// Maximum stderr buffer size for external processes (256 KB)
+    static let cornerRadius: CGFloat = 12
+    static let cornerRadiusSmall: CGFloat = 8
+
+    // MARK: Visual
+
+    /// Single accent — system control accent, not a custom brand gradient.
+    static let accent = Color.accentColor
+    static let warningOpacity: Double = 0.12
+    static let dropFillOpacity: Double = 0.06
+    static let hairline = Color.primary.opacity(0.08)
+
     static let maxProcessStderrBytes: Int = 256 * 1024
-    
-    // MARK: - Animation Durations
-    
-    /// Standard animation duration in seconds
-    static let standardAnimationDuration: Double = 0.25
-    
-    // MARK: - Typography
-    
-    /// Caption font size
+    static let standardAnimationDuration: Double = 0.22
+
     static let captionFontSize: CGFloat = 11
-    
-    /// Caption 2 font size  
-    static let caption2FontSize: CGFloat = 9
-    
-    /// Callout font size
+    static let caption2FontSize: CGFloat = 10
     static let calloutFontSize: CGFloat = 13
 }
 
-// MARK: - Color Constants
-
 extension Color {
-    /// Warning color with proper accessibility contrast
-    static let warningBackground: Color = .orange.opacity(0.12)
-    
-    /// Secondary text color (system equivalent)
+    static let warningBackground: Color = .orange.opacity(UIConstants.warningOpacity)
     static let secondaryText: Color = .secondary
-    
-    /// Primary text color (system equivalent)
     static let primaryText: Color = .primary
 }

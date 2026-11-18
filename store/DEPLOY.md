@@ -1,70 +1,28 @@
-# MacUnzip 官网部署说明（gerymk.qd.je）
+# MacUnzip 静态站部署指南
 
-> **产品模式：完全开源、免费下载。**  
-> 付费购买 / 支付宝扫码 / 激活码 / 退款等文案已从官网全部移除。  
-> 主 CTA 为「免费下载 DMG」，直链 GitHub Release。
+部署源为当前仓库的 `store/` 和下表所列仓库文件。请先核对目标站点和静态目录归属，再在选定站点发布这些文件。站点根路径默认使用英文页，中文页为 `/index-zh.html`。
 
-## 源文件布局（本仓库 `store/`）
+| 仓库源文件 | 静态站路径 |
+| --- | --- |
+| [store/index.html](index.html) | `/index.html` |
+| [store/index-zh.html](index-zh.html) | `/index-zh.html` |
+| [store/site.css](site.css) | `/site.css` |
+| [store/robots.txt](robots.txt) | `/robots.txt` |
+| [ArchiveWorkbench/Assets/Logo.svg](../ArchiveWorkbench/Assets/Logo.svg) | `/ArchiveWorkbench/Assets/Logo.svg` |
+| [ArchiveWorkbench/Assets/screenshots/app_media_light.png](../ArchiveWorkbench/Assets/screenshots/app_media_light.png) | `/ArchiveWorkbench/Assets/screenshots/app_media_light.png` |
+| [ArchiveWorkbench/Assets/screenshots/app_media_dark.png](../ArchiveWorkbench/Assets/screenshots/app_media_dark.png) | `/ArchiveWorkbench/Assets/screenshots/app_media_dark.png` |
+| [LICENSE](../LICENSE) | `/LICENSE` |
 
-| 源文件 | 线上路径 | 说明 |
-|---|---|---|
-| `index-zh.html` | `/` | 中文首页（主语言） |
-| `index.html` | `/en.html` | 英文页 |
-| `engine-versions.json` | `/engine-versions.json` **且** `/store/engine-versions.json` | App 引擎更新清单（仅版本号，无二进制） |
-| `robots.txt` | `/robots.txt` | |
-| `sitemap.xml` | `/sitemap.xml` | |
-| `mockups/*` | `/mockups/*` | |
+保留上述相对位置。发布后打开双语页面，检查语言切换、图片、MIT 文本和 [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases) 下载入口。站点源未配置正式域名。若需要 canonical URL、sitemap 或旧页面重定向，请在确定实际域名和路由后配置。
 
-## 一键 rsync（在开发机执行）
+## 引擎版本检查
 
-```bash
-SRC="/Users/smkzw/Documents/AI Products/.worktrees/build-opt/store"
-# 将 DST 换成你的 VPS webroot，例如 root@gerymk.qd.je:/var/www/gerymk.qd.je/html
-DST="root@gerymk.qd.je:/var/www/gerymk.qd.je/html"
+[engine-versions.json](engine-versions.json)保存 `7zz` 和 `rar` 的版本字符串。它属于应用更新提示的数据源。仓库里的文件路径应保留为 `store/engine-versions.json`。
 
-# 映射源文件到线上路径
-rsync -avz --delete \
-  --exclude 'README-zh.md' \
-  --exclude 'test.html' \
-  --exclude 'mockups.zip' \
-  "$SRC/mockups/" "$DST/mockups/"
-rsync -avz "$SRC/index-zh.html" "$DST/index.html"
-rsync -avz "$SRC/index.html" "$DST/en.html"
-rsync -avz "$SRC/engine-versions.json" "$DST/engine-versions.json"
-rsync -avz "$SRC/engine-versions.json" "$DST/store/engine-versions.json"
-rsync -avz "$SRC/robots.txt" "$DST/robots.txt"
-rsync -avz "$SRC/sitemap.xml" "$DST/sitemap.xml"
-```
+当前 [SettingsView.swift](../ArchiveWorkbench/App/Sources/SettingsView.swift) 依次尝试以下端点：
 
-## 部署后自检
+- `gerymk.qd.je` 上的 `/engine-versions.json` 和 `/store/engine-versions.json`。
+- GitHub raw 文件，按 `release`、`main` 顺序读取 `store/engine-versions.json`。
+- GitHub Contents API，按 `release`、`main` 顺序读取同一文件。
 
-```bash
-curl -sI https://gerymk.qd.je/ | head -5
-curl -sI https://gerymk.qd.je/en.html | head -5
-curl -s https://gerymk.qd.je/engine-versions.json
-curl -s https://gerymk.qd.je/store/engine-versions.json
-curl -sI https://gerymk.qd.je/robots.txt
-curl -sI https://gerymk.qd.je/sitemap.xml
-curl -sI https://gerymk.qd.je/mockups/app-interface-dark.svg
-```
-
-期望：全部 200；`engine-versions.json` 返回 `{"7zz":"26.02","rar":"7.23"}`。
-
-## 下载链接（官网直接引用）
-
-- DMG 直链：`https://github.com/smkzw/Mac-Unzip/releases/download/v1.1.6/MacUnzip-1.1.6.dmg`
-- 最新 Release 页：`https://github.com/smkzw/Mac-Unzip/releases/latest`
-- 主仓库（已公开）：`https://github.com/smkzw/Mac-Unzip`
-- Lite 精简版：`https://github.com/smkzw/MacUnzip-Lite`
-
-## App 侧依赖
-
-`SettingsView` 引擎更新会依次请求：
-
-1. `https://gerymk.qd.je/engine-versions.json`
-2. `https://gerymk.qd.je/store/engine-versions.json`
-3. `raw.githubusercontent.com/.../release/store/engine-versions.json`
-4. `raw.githubusercontent.com/.../main/store/engine-versions.json`
-5. GitHub API contents（release / main）
-
-只要部署上面两份 json，端点 1/2 即可用。
+以上是现有客户端中写入的地址。若另行迁移清单，应先验证旧客户端对原路径和 GitHub 回退的兼容性，并用实际客户端确认读取成功。

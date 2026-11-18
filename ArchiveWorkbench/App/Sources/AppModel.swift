@@ -217,8 +217,16 @@ struct PreflightIssue: Identifiable, Equatable, Sendable {
 }
 
 struct ArchiveCreationDraft: Equatable, Sendable {
-    var inputs: [URL]
+    var inputs: [CreationInput]
     var outputURL: URL?
+    /// Bumped on each new draft so stale async drop callbacks cannot revive a closed panel.
+    var generation: UInt64
+    /// Bumped on every inputs mutation so stale conflict/preflight work cannot commit.
+    var inputsRevision: UInt64
+    /// One-shot conflict seed from RootWindowView merge entry; CreateArchiveView consumes it.
+    var seededPendingConflicts: [CreationInputConflict]
+    var seededPendingIncoming: [CreationInput]
+    var seededConflictReplaceBaseline: Bool
 
     /// Creates a draft. When `outputURL` is omitted, defaults to a file next to
     /// the source items so users can create without opening a save panel.
@@ -226,9 +234,34 @@ struct ArchiveCreationDraft: Equatable, Sendable {
         self.init(inputs: inputs, format: .zip, outputURL: outputURL)
     }
 
-    init(inputs: [URL], format: CreationFormat, outputURL: URL? = nil) {
+    init(inputs: [URL], format: CreationFormat, outputURL: URL? = nil, generation: UInt64 = 0) {
+        self.init(
+            inputs: inputs.map { CreationInput(sourceURL: $0) },
+            format: format,
+            outputURL: outputURL,
+            generation: generation
+        )
+    }
+
+    init(inputs: [CreationInput], format: CreationFormat, outputURL: URL? = nil, generation: UInt64 = 0) {
         self.inputs = inputs
-        self.outputURL = outputURL ?? Self.defaultOutputURL(for: inputs, format: format)
+        self.generation = generation
+        self.inputsRevision = 0
+        self.seededPendingConflicts = []
+        self.seededPendingIncoming = []
+        self.seededConflictReplaceBaseline = false
+        self.outputURL = outputURL ?? Self.defaultOutputURL(
+            for: inputs.map(\.sourceURL),
+            format: format
+        )
+    }
+
+    mutating func bumpInputsRevision() {
+        inputsRevision &+= 1
+    }
+
+    var hasDuplicateArchiveRoots: Bool {
+        CreationInputMerging.hasDuplicateArchiveRoots(inputs)
     }
 
     /// Default save location: the folder containing the source items.
@@ -260,11 +293,14 @@ struct ArchiveCreationDraft: Equatable, Sendable {
     }
 
     func suggestedFilename(for format: CreationFormat) -> String {
-        guard inputs.count == 1, !inputs[0].lastPathComponent.isEmpty else {
+        guard inputs.count == 1, !inputs[0].archiveRootName.isEmpty else {
             return defaultFilename(for: format)
         }
-        return Self.retaggedFilename(inputs[0].lastPathComponent, for: format)
+        return Self.retaggedFilename(inputs[0].archiveRootName, for: format)
     }
+
+    var sourceURLs: [URL] { inputs.map(\.sourceURL) }
+    var providerInputs: [ArchiveCreationInput] { inputs.map(\.asProviderInput) }
 
     /// Replaces the archive extension of `filename` (stripping compound
     /// extensions like ".tar.gz" as a unit) with the given format's extension.
@@ -319,7 +355,7 @@ struct AppLocalization {
 
 enum ArchiveCreationCopy {
     static func subtitle(localization: AppLocalization = AppLocalization()) -> String {
-        localization.string("选择格式与文件，创建跨平台兼容的压缩包")
+        localization.string("创建 Windows 用户可直接打开的 ZIP 压缩包")
     }
 
     static func verificationNote(localization: AppLocalization = AppLocalization()) -> String {
@@ -388,7 +424,7 @@ enum ArchiveShellCopy {
     }
 
     static func openPanelMessage(localization: AppLocalization = AppLocalization()) -> String {
-        localization.string("选择一个压缩包文件")
+        localization.string("选择一个 ZIP 压缩包")
     }
 
     static func extractionPanelTitle(localization: AppLocalization = AppLocalization()) -> String {
@@ -710,6 +746,12 @@ final class AppModel {
     @ObservationIgnored private var usesFixturePreview = false
     @ObservationIgnored private var previewRequestID = UUID()
     @ObservationIgnored private var encryptedEntryIDs: Set<ArchiveEntryID> = []
+    /// Entry IDs that may be listed but must not be dragged/extracted (symlink/hardlink/special).
+    @ObservationIgnored private var nonExtractableEntryIDs: Set<ArchiveEntryID> = []
+    /// Bumped on every document open/close so late drag promises cannot target a new archive.
+    private(set) var documentGeneration: UInt64 = 0
+    /// Identity of the currently open archive file for drag validation.
+    private(set) var openArchiveIdentityPath: String?
     @ObservationIgnored private var extractionTask: Task<Void, Never>?
     @ObservationIgnored private var creationTask: Task<Void, Never>?
     /// Tracks the asynchronous parent-archive re-open started by navigateBack so
@@ -842,6 +884,11 @@ final class AppModel {
             try Task.checkCancellation()
             activeRegistry = await loader.capabilityRegistry
             apply(snapshot)
+            // Encryption flag ≠ still locked: after a successful password open,
+            // preview/drag must not keep treating entries as password-blocked.
+            if currentArchivePassword != nil {
+                encryptedEntryIDs = []
+            }
             checkForCrashRecoveryJournal(for: url)
             // Surface format mismatch warning
             let detection = await loader.lastDetectionResult
@@ -970,6 +1017,8 @@ final class AppModel {
                 completion(.success((file: materializedURL, stagingRoot: stagingDir)))
             } catch {
                 try? FileManager.default.removeItem(at: stagingDir)
+                let presentation = self.errorPresentation(for: error)
+                self.presentError(presentation)
                 completion(.failure(error))
             }
         }
@@ -985,37 +1034,49 @@ final class AppModel {
             !entry.displayPath.hasSuffix("/")
                 && entry.displayPath.hasPrefix(folderPrefix)
         }
+        if files.contains(where: { nonExtractableEntryIDs.contains($0.id) }) {
+            throw ArchiveError.unsafePath
+        }
         let folderName = (folderPath as NSString).lastPathComponent
         let folderURL = stagingDir.appendingPathComponent(folderName, isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: folderURL,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-        // 物化 staging（_tmp）必须先创建；materializeEntryForExtraction 把
-        // 该目录当 root 做 open(O_DIRECTORY)，不存在会 invalidRoot 抛错，
-        // 导致文件夹拖出失败。
-        let tmpRoot = stagingDir.appendingPathComponent("_tmp", isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: tmpRoot,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-        for entry in files {
-            try Task.checkCancellation()
-            let relative = String(entry.displayPath.dropFirst(folderPrefix.count))
-            let target = folderURL.appendingPathComponent(relative)
+        do {
             try FileManager.default.createDirectory(
-                at: target.deletingLastPathComponent(),
-                withIntermediateDirectories: true
+                at: folderURL,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
             )
-            let materialized = try await loader.materializeEntryForExtraction(
-                entryID: entry.id,
-                under: tmpRoot
+            // 物化 staging（_tmp）必须先创建；materializeEntryForExtraction 把
+            // 该目录当 root 做 open(O_DIRECTORY)，不存在会 invalidRoot 抛错，
+            // 导致文件夹拖出失败。
+            let tmpRoot = stagingDir.appendingPathComponent("_tmp", isDirectory: true)
+            try FileManager.default.createDirectory(
+                at: tmpRoot,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
             )
-            try FileManager.default.moveItem(at: materialized, to: target)
+            for entry in files {
+                try Task.checkCancellation()
+                let relative = String(entry.displayPath.dropFirst(folderPrefix.count))
+                let target = folderURL.appendingPathComponent(relative)
+                try FileManager.default.createDirectory(
+                    at: target.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                let materialized = try await loader.materializeEntryForExtraction(
+                    entryID: entry.id,
+                    under: tmpRoot
+                )
+                try FileManager.default.moveItem(at: materialized, to: target)
+            }
+            return folderURL
+        } catch {
+            try? FileManager.default.removeItem(at: stagingDir)
+            throw error
         }
-        return folderURL
+    }
+
+    func isDragCallbackCurrent(generation: UInt64, archiveIdentityPath: String?) -> Bool {
+        generation == documentGeneration && archiveIdentityPath == openArchiveIdentityPath
     }
 
     /// Stages a removal for the currently selected entry.
@@ -1369,7 +1430,7 @@ final class AppModel {
             isPreviewLoading = false
             return
         }
-        if encryptedEntryIDs.contains(selectedEntryID) {
+        if encryptedEntryIDs.contains(selectedEntryID), currentArchivePassword == nil {
             previewErrorMessage = localization.string("这个文件需要压缩包密码才能预览。")
             isPreviewLoading = false
             return
@@ -1774,9 +1835,17 @@ final class AppModel {
     }
 
     /// Maps an error to a structured ArchiveErrorPresentation.
+    /// Maps materialize/drag failures into the same banner presentation used by extract.
+    func errorPresentationForDrag(_ error: Error) -> ArchiveErrorPresentation {
+        errorPresentation(for: error)
+    }
+
     private func errorPresentation(for error: Error) -> ArchiveErrorPresentation {
         if let posix = Self.posixPresentation(for: error) { return posix }
         guard let archiveError = error as? ArchiveError else {
+            if let tarError = error as? TARProviderError {
+                return .generic(userMessage(for: tarError))
+            }
             return .generic(localization.string("无法完成解压缩，未生成任何文件。"))
         }
         switch archiveError {
@@ -1841,7 +1910,7 @@ final class AppModel {
         do {
             let snapshot = try await loader.createWindowsZIP(
                 at: outputURL,
-                inputs: inputs,
+                inputs: inputs.map { ArchiveCreationInput(sourceURL: $0) },
                 compressLevel: 6,
                 password: nil,
                 encryptMethod: 0
@@ -1887,6 +1956,10 @@ final class AppModel {
     }
 
     func startCreation(at outputURL: URL, inputs: [URL]) {
+        startCreation(at: outputURL, inputs: inputs.map { CreationInput(sourceURL: $0) })
+    }
+
+    func startCreation(at outputURL: URL, inputs: [CreationInput]) {
         guard creationTask == nil, !inputs.isEmpty else { return }
         let format = creationFormat
         let password = (creationEncryptionEnabled && format.supportsEncryption) ? creationPassword : nil
@@ -1894,11 +1967,12 @@ final class AppModel {
         let splitEnabled = creationSplitEnabled && format.supportsSplit
         let volumeSize = splitEnabled ? creationVolumeSize : nil
         let zipLevel = creationCompressionLevel
+        let providerInputs = inputs.map(\.asProviderInput)
         creationTask = Task { [weak self] in
             guard let self else { return }
             await self.createArchiveWithOptions(
                 at: outputURL,
-                inputs: inputs,
+                inputs: providerInputs,
                 format: format,
                 password: password,
                 encryptionMethod: encryptionMethod,
@@ -1952,17 +2026,22 @@ final class AppModel {
 
     /// Runs Windows filename preflight checks and populates preflightIssues.
     func runPreflight(inputs: [URL]) async {
+        await runPreflight(inputs: inputs.map { CreationInput(sourceURL: $0) })
+    }
+
+    func runPreflight(inputs: [CreationInput]) async {
         preflightGeneration += 1
         let generation = preflightGeneration
         isRunningPreflight = true
         defer { if generation == preflightGeneration { isRunningPreflight = false } }
         // Collect all relative paths on MainActor (DirectoryEnumerator is not Sendable)
         var pathsToCheck: [String] = []
-        for url in inputs {
+        for input in inputs {
+            let url = input.sourceURL
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
             if isDirectory.boolValue {
-                pathsToCheck.append(url.lastPathComponent)
+                pathsToCheck.append(input.archiveRootName)
                 guard let enumerator = FileManager.default.enumerator(
                     at: url,
                     includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
@@ -1971,10 +2050,15 @@ final class AppModel {
                 let prefix = url.resolvingSymlinksInPath().path + "/"
                 for item in enumerator.allObjects {
                     guard let fileURL = item as? URL else { continue }
-                    pathsToCheck.append(String(fileURL.resolvingSymlinksInPath().path.dropFirst(prefix.count)))
+                    let relative = String(fileURL.resolvingSymlinksInPath().path.dropFirst(prefix.count))
+                    if input.archiveRootName == url.lastPathComponent {
+                        pathsToCheck.append(relative)
+                    } else {
+                        pathsToCheck.append(input.archiveRootName + "/" + relative)
+                    }
                 }
             } else {
-                pathsToCheck.append(url.lastPathComponent)
+                pathsToCheck.append(input.archiveRootName)
             }
         }
         let issues: [PreflightIssue] = await Task.detached(priority: .userInitiated) {
@@ -2028,49 +2112,29 @@ final class AppModel {
         preflightIssues = []
     }
 
+    func fixPreflightIssues(inputs: [CreationInput]) async -> [CreationInput] {
+        let fixedURLs = await fixPreflightIssues(inputs: inputs.map(\.sourceURL))
+        return zip(inputs, fixedURLs).map { original, url in
+            var rootName: String
+            if url.standardizedFileURL.path != original.sourceURL.path,
+               original.archiveRootName == original.sourceURL.lastPathComponent {
+                // Source basename was rematerialized; keep root name in sync.
+                rootName = url.lastPathComponent
+            } else {
+                rootName = original.archiveRootName
+            }
+            // Always sanitize archiveRootName itself (covers auto-renamed illegal roots).
+            if let sanitizedRoot = WindowsFilenameSanitizer.sanitize(rootName) {
+                rootName = sanitizedRoot
+            }
+            return CreationInput(sourceURL: url, archiveRootName: rootName, id: original.id)
+        }
+    }
+
     func fixPreflightIssues(inputs: [URL]) async -> [URL] {
         let stagingDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("MacUnzip_preflight_\(UUID().uuidString)", isDirectory: true)
         let sanitizedURLs: [URL] = await Task.detached(priority: .userInitiated) {
-            let forbidden = CharacterSet(charactersIn: "<>:\"|?*")
-            let reserved = Set(["CON", "PRN", "AUX", "NUL"])
-            let reservedDevicePrefixes = ["COM", "LPT"]
-
-            func sanitize(_ name: String) -> String? {
-                var result = String(name.unicodeScalars.filter {
-                    !forbidden.contains($0) && $0.value >= 0x20
-                })
-                while result.hasSuffix(".") || result.hasSuffix(" ") {
-                    result = String(result.dropLast())
-                }
-                let stem = result.split(separator: ".", maxSplits: 1).first.map(String.init)?.uppercased() ?? ""
-                let isNumberedDevice = reservedDevicePrefixes.contains { prefix in
-                    stem.hasPrefix(prefix) && stem.count == 4 && stem.last?.isNumber == true
-                }
-                if reserved.contains(stem) || isNumberedDevice {
-                    result = "_" + result
-                }
-                if result.utf16.count > 255 {
-                    let ext = URL(fileURLWithPath: result).pathExtension
-                    let suffix = ext.isEmpty ? "" : "." + ext
-                    let budget = max(0, 255 - suffix.utf16.count)
-                    var base = result
-                    if !suffix.isEmpty, base.hasSuffix(suffix) {
-                        base = String(base.dropLast(suffix.count))
-                    }
-                    if base.utf16.count > budget {
-                        let endIndex = base.utf16.index(base.utf16.startIndex, offsetBy: budget)
-                        var cut = base.utf16[..<endIndex]
-                        if let lastUnit = cut.last, UTF16.isLeadSurrogate(lastUnit) {
-                            cut = cut.dropLast()
-                        }
-                        base = String(decoding: cut, as: UTF16.self)
-                    }
-                    result = base + suffix
-                }
-                return result == name ? nil : result
-            }
-
             func fixDirectoryNames(_ dirURL: URL) {
                 guard let enumerator = FileManager.default.enumerator(
                     at: dirURL,
@@ -2081,7 +2145,7 @@ final class AppModel {
                 for item in enumerator.allObjects {
                     guard let fileURL = item as? URL else { continue }
                     let name = fileURL.lastPathComponent
-                    guard let fixed = sanitize(name) else { continue }
+                    guard let fixed = WindowsFilenameSanitizer.sanitize(name) else { continue }
                     let dest = fileURL.deletingLastPathComponent().appendingPathComponent(fixed)
                     renames.append((fileURL, dest))
                 }
@@ -2105,7 +2169,7 @@ final class AppModel {
                     continue
                 }
                 if isDirectory.boolValue {
-                    let dirName = sanitize(url.lastPathComponent) ?? url.lastPathComponent
+                    let dirName = WindowsFilenameSanitizer.sanitize(url.lastPathComponent) ?? url.lastPathComponent
                     let destDir = stagingDir.appendingPathComponent(dirName, isDirectory: true)
                     do {
                         try FileManager.default.copyItem(at: url, to: destDir)
@@ -2114,7 +2178,7 @@ final class AppModel {
                     } catch {
                         results.append(url)
                     }
-                } else if let fixed = sanitize(url.lastPathComponent) {
+                } else if let fixed = WindowsFilenameSanitizer.sanitize(url.lastPathComponent) {
                     let dest = stagingDir.appendingPathComponent(fixed)
                     do {
                         try FileManager.default.copyItem(at: url, to: dest)
@@ -2138,7 +2202,7 @@ final class AppModel {
 
     private func createArchiveWithOptions(
         at outputURL: URL,
-        inputs: [URL],
+        inputs: [ArchiveCreationInput],
         format: CreationFormat,
         password: String?,
         encryptionMethod: EncryptionMethod?,
@@ -2664,15 +2728,16 @@ final class AppModel {
         localization: AppLocalization = AppLocalization()
     ) -> AppModel {
         let model = AppModel(localization: localization)
-        var names = ["首页主视觉.png", "深色标志.svg", "产品截图.heic", "演示视频.mp4", "品牌指南.pdf"]
+        // Fictional public sample names only — never real user / internal project paths.
+        var names = ["示例主视觉.png", "深色标志.svg", "示例截图.heic", "演示视频.mp4", "产品指南.pdf"]
         if includeLongFilename {
-            names.append("季度Campaign_国际化视觉资产_最终批准版本_v12.heic")
+            names.append("Launch_Notes_Sample_Visual_Asset_v12.heic")
         }
         model.entries = names.enumerated().map { index, name in
             let id = ArchiveEntryID(UUID(uuidString: "00000000-0000-0000-0000-00000000000\(index + 1)")!)
             return ArchiveEntry(
                 id: id,
-                rawPath: ArchivePathBytes(Array("图片素材/\(name)".utf8)),
+                rawPath: ArchivePathBytes(Array("Design Assets/\(name)".utf8)),
                 displayPath: name
             )
         }
@@ -2680,12 +2745,12 @@ final class AppModel {
             localization.format("%@ (%@ 字节)", summary, count)
         }
         let details: [String: ArchiveEntryMetadata] = [
-            "首页主视觉.png": ArchiveEntryMetadata(type: localization.string("PNG 图像"), size: bytes("8.4 MB", "8,796,293"), compressedSize: bytes("7.2 MB", "7,522,311"), modifiedDate: "2025/5/20 10:42", path: "图片素材/首页主视觉.png"),
-            "深色标志.svg": ArchiveEntryMetadata(type: localization.string("SVG 图像"), size: bytes("1.2 MB", "1,258,291"), compressedSize: bytes("924 KB", "946,176"), modifiedDate: "2025/5/20 10:35", path: "图片素材/深色标志.svg"),
-            "产品截图.heic": ArchiveEntryMetadata(type: localization.string("HEIC 图像"), size: bytes("12.7 MB", "13,316,915"), compressedSize: bytes("11.8 MB", "12,373,197"), modifiedDate: "2025/5/20 10:38", path: "图片素材/产品截图.heic"),
-            "演示视频.mp4": ArchiveEntryMetadata(type: localization.string("MPEG-4 视频"), size: bytes("102.3 MB", "107,269,325"), compressedSize: bytes("98.1 MB", "102,865,306"), modifiedDate: "2025/5/20 10:40", path: "图片素材/演示视频.mp4"),
-            "品牌指南.pdf": ArchiveEntryMetadata(type: localization.string("PDF 文档"), size: bytes("6.3 MB", "6,606,028"), compressedSize: bytes("5.7 MB", "5,976,883"), modifiedDate: "2025/5/20 10:41", path: "图片素材/品牌指南.pdf"),
-            "季度Campaign_国际化视觉资产_最终批准版本_v12.heic": ArchiveEntryMetadata(type: localization.string("HEIC 图像"), size: bytes("14.8 MB", "15,519,949"), compressedSize: bytes("13.9 MB", "14,575,616"), modifiedDate: "2025/5/20 10:44", path: "图片素材/季度Campaign_国际化视觉资产_最终批准版本_v12.heic")
+            "示例主视觉.png": ArchiveEntryMetadata(type: localization.string("PNG 图像"), size: bytes("8.4 MB", "8,796,293"), compressedSize: bytes("7.2 MB", "7,522,311"), modifiedDate: "2025/5/20 10:42", path: "Design Assets/示例主视觉.png"),
+            "深色标志.svg": ArchiveEntryMetadata(type: localization.string("SVG 图像"), size: bytes("1.2 MB", "1,258,291"), compressedSize: bytes("924 KB", "946,176"), modifiedDate: "2025/5/20 10:35", path: "Design Assets/深色标志.svg"),
+            "示例截图.heic": ArchiveEntryMetadata(type: localization.string("HEIC 图像"), size: bytes("12.7 MB", "13,316,915"), compressedSize: bytes("11.8 MB", "12,373,197"), modifiedDate: "2025/5/20 10:38", path: "Design Assets/示例截图.heic"),
+            "演示视频.mp4": ArchiveEntryMetadata(type: localization.string("MPEG-4 视频"), size: bytes("102.3 MB", "107,269,325"), compressedSize: bytes("98.1 MB", "102,865,306"), modifiedDate: "2025/5/20 10:40", path: "Design Assets/演示视频.mp4"),
+            "产品指南.pdf": ArchiveEntryMetadata(type: localization.string("PDF 文档"), size: bytes("6.3 MB", "6,606,028"), compressedSize: bytes("5.7 MB", "5,976,883"), modifiedDate: "2025/5/20 10:41", path: "Design Assets/产品指南.pdf"),
+            "Launch_Notes_Sample_Visual_Asset_v12.heic": ArchiveEntryMetadata(type: localization.string("HEIC 图像"), size: bytes("14.8 MB", "15,519,949"), compressedSize: bytes("13.9 MB", "14,575,616"), modifiedDate: "2025/5/20 10:44", path: "Design Assets/Launch_Notes_Sample_Visual_Asset_v12.heic")
         ]
         model.metadataByEntryID = Dictionary(uniqueKeysWithValues: model.entries.compactMap { entry in
             details[entry.displayPath].map { (entry.id, $0) }
@@ -2693,23 +2758,48 @@ final class AppModel {
         model.encryptedEntryIDs = []
         model.hasDocument = true
         model.usesFixturePreview = true
-        model.documentTitle = "品牌素材与文档.zip"
+        model.documentTitle = "Design Assets.zip"
         model.documentItemCount = 84
         model.archiveFormatName = "ZIP"
         model.canAdd = true
         model.canExtract = true
         model.canTestIntegrity = false
         model.viewMode = .media
-        model.currentDirectory = "图片素材"
+        model.currentDirectory = "Design Assets"
         model.folderSummaries = [
-            ArchiveFolderSummary(name: "图片素材", itemCount: 48),
-            ArchiveFolderSummary(name: "品牌规范", itemCount: 12),
-            ArchiveFolderSummary(name: "演示文稿", itemCount: 15),
-            ArchiveFolderSummary(name: "合同文档", itemCount: 9),
+            ArchiveFolderSummary(name: "Design Assets", itemCount: 48),
+            ArchiveFolderSummary(name: "Product Guide", itemCount: 12),
+            ArchiveFolderSummary(name: "Launch Notes", itemCount: 15),
+            ArchiveFolderSummary(name: "示例图片", itemCount: 9),
         ]
         model.selectedEntryID = model.entries.first?.id
         model.scrollAnchor = model.entries.first?.id
         return model
+    }
+
+    /// Copies document/browse fixture fields onto an already-hosted model.
+    func copyFixtureDocument(into target: AppModel) {
+        target.entries = entries
+        target.metadataByEntryID = metadataByEntryID
+        target.encryptedEntryIDs = encryptedEntryIDs
+        target.hasDocument = hasDocument
+        target.usesFixturePreview = usesFixturePreview
+        target.documentTitle = documentTitle
+        target.documentItemCount = documentItemCount
+        target.archiveFormatName = archiveFormatName
+        target.canAdd = canAdd
+        target.canExtract = canExtract
+        target.canTestIntegrity = canTestIntegrity
+        target.viewMode = viewMode
+        target.currentDirectory = currentDirectory
+        target.folderSummaries = folderSummaries
+        target.selectedEntryID = selectedEntryID
+        target.scrollAnchor = scrollAnchor
+        target.sidebarVisible = true
+        // Leave inspector off by default — enabling it while a 900-wide
+        // NavigationSplitView is still materializing trips Auto Layout aborts.
+        // Callers that want the inspector (wide visual captures) turn it on after layout.
+        target.inspectorVisible = false
     }
 
     // MARK: - Debounced Search
@@ -2839,6 +2929,13 @@ final class AppModel {
     }
 
     private func apply(_ snapshot: ArchiveDocumentSnapshot) {
+        documentGeneration &+= 1
+        openArchiveIdentityPath = snapshot.sourceURL.resolvingSymlinksInPath().path
+        nonExtractableEntryIDs = Set(
+            snapshot.entries
+                .filter { !$0.isDirectory && !$0.isExtractable }
+                .map(\.entry.id)
+        )
         releaseHeldAddSourceScopes()
         usesFixturePreview = false
         entries = snapshot.entries.map(\.entry)
@@ -2939,6 +3036,9 @@ final class AppModel {
         releaseHeldAddSourceScopes()
         sessionStack.removeAll()
         currentArchivePassword = nil
+        documentGeneration &+= 1
+        openArchiveIdentityPath = nil
+        nonExtractableEntryIDs = []
         for url in nestedMaterializedURLs {
             try? FileManager.default.removeItem(at: url)
         }
@@ -3051,6 +3151,22 @@ final class AppModel {
                 return localization.string("缺少原始压缩包，无法保存修改。")
             case .io:
                 return localization.string("文件写入失败，请确认磁盘空间充足且目标位置可写。")
+            }
+        }
+        if let tarError = error as? TARProviderError {
+            switch tarError {
+            case .symlinkRejected(let path):
+                return localization.format("无法提取符号链接“%@”。", path)
+            case .hardlinkRejected(let path):
+                return localization.format("无法提取硬链接“%@”。", path)
+            case .specialFileRejected(let path):
+                return localization.format("无法提取特殊文件“%@”。", path)
+            case .notTAR:
+                return localization.string("这是压缩文件但不是 TAR 归档，当前版本不支持直接打开。")
+            case .openFailed, .libarchiveFailed:
+                return localization.string("无法打开这个 TAR 压缩包。文件可能已损坏或不是受支持的 TAR 格式。")
+            case .createFailed:
+                return localization.string("创建 TAR 压缩包失败，请确认磁盘空间充足且目标位置可写。")
             }
         }
         guard let archiveError = error as? ArchiveError else {

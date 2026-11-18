@@ -66,7 +66,7 @@ let package = Package(
         .testTarget(name: "CMinizipBridgeTests", dependencies: ["CMinizipBridge"]),
         .testTarget(
             name: "ArchiveProvidersTests",
-            dependencies: ["ArchiveProviders", "ArchiveDomain"]
+            dependencies: ["ArchiveProviders", "ArchiveDomain", "ArchiveSecurity"]
         ),
     ]
 )

@@ -30,14 +30,16 @@ private let AE_IFLNK: mode_t = 0o120000
 public enum TARProviderError: Error, Equatable, Sendable {
     /// libarchive reported an unrecoverable error during the operation.
     case libarchiveFailed(code: Int32, message: String)
-    /// The archive contains a symbolic link entry, which is rejected for security.
+    /// Extraction of a symbolic link was requested; listing may still succeed.
     case symlinkRejected(path: String)
-    /// The archive contains a hard link entry, which is rejected for security.
+    /// Extraction of a hard link was requested; listing may still succeed.
     case hardlinkRejected(path: String)
-    /// The archive contains a special file (device, socket, fifo), rejected.
+    /// Extraction of a special file (device, socket, fifo) was requested.
     case specialFileRejected(path: String)
     /// The archive could not be opened or is not a recognized TAR format.
     case openFailed(message: String)
+    /// Payload is gzip/bzip2/xz/zstd but not a TAR stream.
+    case notTAR(message: String)
     /// A write operation failed during archive creation.
     case createFailed(message: String)
 }
@@ -90,6 +92,8 @@ public struct TARExtractionResult: Equatable, Sendable {
 public actor TARArchiveProvider: ArchiveProvider {
     private var archiveURL: URL?
     private var entriesByID: [ArchiveEntryID: ArchiveEntrySnapshot] = [:]
+    private var ordinalsByID: [ArchiveEntryID: Int] = [:]
+    private var openedIdentity: ArchiveFileIdentity?
     private let listingEntryLimit: Int
 
     /// Capabilities: list, read, preview, create.
@@ -97,6 +101,45 @@ public actor TARArchiveProvider: ArchiveProvider {
 
     public init(listingEntryLimit: Int = 1_000_000) {
         self.listingEntryLimit = listingEntryLimit
+    }
+
+    private struct ArchiveFileIdentity: Equatable, Sendable {
+        let path: String
+        let fileSize: UInt64
+        let modificationTime: TimeInterval
+        let device: UInt64
+        let inode: UInt64
+
+        static func capture(url: URL) throws -> ArchiveFileIdentity {
+            let values = try url.resourceValues(forKeys: [
+                .fileSizeKey,
+                .contentModificationDateKey
+            ])
+            let resolved = url.resolvingSymlinksInPath()
+            var status = stat()
+            let statResult = resolved.withUnsafeFileSystemRepresentation { path -> Int32 in
+                guard let path else { return -1 }
+                return stat(path, &status)
+            }
+            guard statResult == 0 else {
+                throw TARProviderError.openFailed(message: "stat failed for archive identity")
+            }
+            return ArchiveFileIdentity(
+                path: resolved.path,
+                fileSize: UInt64(values.fileSize ?? 0),
+                modificationTime: values.contentModificationDate?.timeIntervalSinceReferenceDate ?? 0,
+                device: UInt64(status.st_dev),
+                inode: UInt64(status.st_ino)
+            )
+        }
+    }
+
+    private enum MemberKind: Equatable, Sendable {
+        case directory
+        case regular
+        case symlink
+        case hardlink
+        case special
     }
 
     /// Returns the libarchive version string for diagnostics.
@@ -109,30 +152,39 @@ public actor TARArchiveProvider: ArchiveProvider {
     public func open(url: URL) throws -> ArchiveDocumentSnapshot {
         archiveURL = nil
         entriesByID = [:]
+        ordinalsByID = [:]
+        openedIdentity = nil
 
+        let identity = try ArchiveFileIdentity.capture(url: url)
         let snapshots = try listEntries(url: url)
         archiveURL = url
+        openedIdentity = identity
         entriesByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.entry.id, $0) })
+        ordinalsByID = Dictionary(uniqueKeysWithValues: snapshots.enumerated().map {
+            ($0.element.entry.id, $0.offset)
+        })
 
         let format = Self.formatForURL(url)
         return ArchiveDocumentSnapshot(sourceURL: url, format: format, entries: snapshots)
     }
 
     public func readEntry(id: ArchiveEntryID, maximumBytes: UInt64) throws -> Data {
-        guard let snapshot = entriesByID[id], let archiveURL else {
-            throw ArchiveError.helperFailed
-        }
-        guard !snapshot.isDirectory else { throw ArchiveError.unsafePath }
+        let snapshot = try resolvedSnapshot(id: id)
+        try rejectNonExtractable(snapshot)
         guard snapshot.uncompressedSize <= maximumBytes else {
             throw ArchiveError.resourceLimit
         }
-
-        let data = try extractEntryData(
+        guard let ordinal = ordinalsByID[id], let archiveURL else {
+            throw ArchiveError.helperFailed
+        }
+        return try extractEntryData(
             url: archiveURL,
-            targetPath: snapshot.entry.displayPath,
+            ordinal: ordinal,
+            expectedPath: snapshot.entry.displayPath,
+            expectedKind: memberKind(of: snapshot),
+            expectedSize: snapshot.uncompressedSize,
             maximumBytes: maximumBytes
         )
-        return data
     }
 
     // MARK: - Preview / materialize
@@ -143,7 +195,9 @@ public actor TARArchiveProvider: ArchiveProvider {
         budget: ResourceBudget = .previewDefault
     ) throws -> URL {
         try Task.checkCancellation()
-        guard let snapshot = entriesByID[id], let archiveURL else { throw ArchiveError.helperFailed }
+        let snapshot = try resolvedSnapshot(id: id)
+        try rejectNonExtractable(snapshot)
+        guard let ordinal = ordinalsByID[id], let archiveURL else { throw ArchiveError.helperFailed }
         let decision = budget.evaluate(ResourceEstimate(
             compressedBytes: snapshot.compressedSize,
             expandedBytes: snapshot.uncompressedSize,
@@ -152,40 +206,20 @@ public actor TARArchiveProvider: ArchiveProvider {
         ))
         guard decision == .allow else { throw ArchiveError.resourceLimit }
         let targetPath = snapshot.entry.displayPath
+        let expectedKind = memberKind(of: snapshot)
+        let expectedSize = snapshot.uncompressedSize
         let maximumBytes = budget.maxExpandedBytes
         let output = try SecureFileMaterializer(rootURL: rootURL).write(
             relativePath: targetPath
         ) { writer in
-            guard let reader = archive_read_new() else {
-                throw TARProviderError.openFailed(message: "archive_read_new failed")
-            }
-            defer { archive_read_free(reader) }
-            archive_read_support_format_tar(reader)
-            archive_read_support_format_empty(reader)
-            archive_read_support_filter_all(reader)
-            let openResult = archive_read_open_filename(reader, archiveURL.path, 10240)
-            guard openResult == ARCHIVE_OK else {
-                throw TARProviderError.openFailed(message: self.lastError(reader))
-            }
-            var entryPointer: OpaquePointer?
-            var found = false
-            while true {
-                try Task.checkCancellation()
-                let result = archive_read_next_header(reader, &entryPointer)
-                if result == ARCHIVE_EOF { break }
-                guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
-                    throw TARProviderError.libarchiveFailed(code: result, message: self.lastError(reader))
-                }
-                guard let ep = entryPointer else { break }
-                guard let pathCString = archive_entry_pathname(ep) else { continue }
-                var path = String(cString: pathCString)
-                if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
-                if path.hasSuffix("/") { path = String(path.dropLast()) }
-                guard path == targetPath else {
-                    archive_read_data_skip(reader)
-                    continue
-                }
-                found = true
+            try self.withReader(at: archiveURL) { reader in
+                try self.seekToMember(
+                    reader: reader,
+                    ordinal: ordinal,
+                    expectedPath: targetPath,
+                    expectedKind: expectedKind,
+                    expectedSize: expectedSize
+                )
                 var buffer = [UInt8](repeating: 0, count: 1024 * 1024)
                 var written: UInt64 = 0
                 while true {
@@ -199,9 +233,7 @@ public actor TARArchiveProvider: ArchiveProvider {
                     guard written <= maximumBytes else { throw ArchiveError.resourceLimit }
                     try writer.write(Data(buffer[..<bytesRead]))
                 }
-                break
             }
-            guard found else { throw ArchiveError.helperFailed }
         }
         try Task.checkCancellation()
         return output
@@ -215,22 +247,24 @@ public actor TARArchiveProvider: ArchiveProvider {
         progress: @Sendable (SevenZipExtractionProgress) -> Void = { _ in }
     ) throws -> TARExtractionResult {
         try Task.checkCancellation()
+        try ensureArchiveUnchanged()
         guard let archiveURL else { throw ArchiveError.helperFailed }
-        let snapshots = entriesByID.values.sorted {
-            $0.entry.displayPath < $1.entry.displayPath
+
+        let ordered = entriesByID.keys.compactMap { id -> (Int, ArchiveEntrySnapshot)? in
+            guard let ordinal = ordinalsByID[id], let snapshot = entriesByID[id] else { return nil }
+            return (ordinal, snapshot)
+        }.sorted { $0.0 < $1.0 }.map(\.1)
+
+        // Conservative product rule: any non-extractable member aborts before writes.
+        for snapshot in ordered {
+            try rejectNonExtractable(snapshot, allowDirectory: true)
         }
 
-        // Reject symlinks before extraction
-        for snapshot in snapshots where snapshot.isSymbolicLink {
-            throw TARProviderError.symlinkRejected(path: snapshot.entry.displayPath)
-        }
-
-        // Validate paths and compute resource estimate
         var compressedBytes: UInt64 = 0
         var expandedBytes: UInt64 = 0
         var maximumDepth: UInt64 = 0
         var canonicalPaths: Set<String> = []
-        for snapshot in snapshots {
+        for snapshot in ordered {
             let canonical = snapshot.entry.displayPath
                 .decomposedStringWithCanonicalMapping
                 .folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
@@ -252,7 +286,7 @@ public actor TARArchiveProvider: ArchiveProvider {
         guard budget.evaluate(ResourceEstimate(
             compressedBytes: compressedBytes,
             expandedBytes: expandedBytes,
-            entries: UInt64(snapshots.count),
+            entries: UInt64(ordered.count),
             depth: maximumDepth
         )) == .allow else {
             throw ArchiveError.resourceLimit
@@ -260,7 +294,7 @@ public actor TARArchiveProvider: ArchiveProvider {
 
         progress(SevenZipExtractionProgress(
             completedEntries: 0,
-            totalEntries: snapshots.count,
+            totalEntries: ordered.count,
             completedBytes: 0,
             totalBytes: expandedBytes
         ))
@@ -268,85 +302,92 @@ public actor TARArchiveProvider: ArchiveProvider {
         let materializer = SecureFileMaterializer(rootURL: rootURL)
         var completedEntries = 0
         var writtenBytes: UInt64 = 0
+        let expectedByOrdinal = Dictionary(uniqueKeysWithValues: ordered.enumerated().map {
+            ($0.offset, $0.element)
+        })
 
-        // Single-pass streaming extraction: open archive once, write entries as encountered
-        guard let reader = archive_read_new() else {
-            throw TARProviderError.openFailed(message: "archive_read_new failed")
-        }
-        defer { archive_read_free(reader) }
-        archive_read_support_format_tar(reader)
-        archive_read_support_format_empty(reader)
-        archive_read_support_filter_all(reader)
-        guard archive_read_open_filename(reader, archiveURL.path, 10240) == ARCHIVE_OK else {
-            throw TARProviderError.openFailed(message: lastError(reader))
-        }
-
-        let targetPaths = Set(snapshots.map { $0.entry.displayPath })
-        let directoryPaths = Set(snapshots.filter { $0.isDirectory }.map { $0.entry.displayPath })
-        let expectedSizes = Dictionary(uniqueKeysWithValues: snapshots.filter { !$0.isDirectory }.map { ($0.entry.displayPath, $0.uncompressedSize) })
-        var entryPointer: OpaquePointer?
-
-        while true {
-            try Task.checkCancellation()
-            let result = archive_read_next_header(reader, &entryPointer)
-            if result == ARCHIVE_EOF { break }
-            guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
-                throw TARProviderError.libarchiveFailed(code: result, message: lastError(reader))
-            }
-            guard let ep = entryPointer else { break }
-            guard let pathCString = archive_entry_pathname(ep) else { continue }
-            var path = String(cString: pathCString)
-            if path == "." || path == "./" { continue }
-            if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
-            if path.hasSuffix("/") { path = String(path.dropLast()) }
-            if path.isEmpty { continue }
-            guard targetPaths.contains(path) else {
-                archive_read_data_skip(reader)
-                continue
-            }
-
-            if directoryPaths.contains(path) {
-                _ = try materializer.createDirectory(relativePath: path)
-            } else {
-                var fileBytes: UInt64 = 0
-                let bufferSize = 1024 * 1024
-                var buffer = [UInt8](repeating: 0, count: bufferSize)
-                nonisolated(unsafe) let unsafeReader = reader
-                let entryCap = expectedSizes[path] ?? budget.maxExpandedBytes
-                _ = try materializer.write(relativePath: path) { writer in
-                    while true {
-                        try Task.checkCancellation()
-                        let bytesRead = archive_read_data(unsafeReader, &buffer, bufferSize)
-                        if bytesRead == 0 { break }
-                        if bytesRead < 0 {
-                            throw TARProviderError.libarchiveFailed(code: Int32(bytesRead), message: lastError(unsafeReader))
-                        }
-                        fileBytes += UInt64(bytesRead)
-                        guard fileBytes <= entryCap, fileBytes <= budget.maxExpandedBytes else {
-                            throw ArchiveError.resourceLimit
-                        }
-                        guard writtenBytes + fileBytes <= budget.maxExpandedBytes else {
-                            throw ArchiveError.resourceLimit
-                        }
-                        try writer.write(Data(bytes: buffer, count: bytesRead))
-                    }
+        try withReader(at: archiveURL) { reader in
+            var entryPointer: OpaquePointer?
+            var ordinal = 0
+            while true {
+                try Task.checkCancellation()
+                let result = archive_read_next_header(reader, &entryPointer)
+                if result == ARCHIVE_EOF { break }
+                guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
+                    throw TARProviderError.libarchiveFailed(code: result, message: lastError(reader))
                 }
-                writtenBytes += fileBytes
-                if let expected = expectedSizes[path], expected > 0, fileBytes != expected {
+                guard let ep = entryPointer else { break }
+                guard let pathCString = archive_entry_pathname(ep) else { continue }
+                var path = String(cString: pathCString)
+                if path == "." || path == "./" {
+                    archive_read_data_skip(reader)
+                    continue
+                }
+                if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
+                if path.hasSuffix("/") { path = String(path.dropLast()) }
+                if path.isEmpty {
+                    archive_read_data_skip(reader)
+                    continue
+                }
+                guard let expected = expectedByOrdinal[ordinal] else {
                     throw ArchiveError.corruptedArchive
                 }
-            }
-            completedEntries += 1
-            progress(SevenZipExtractionProgress(
-                completedEntries: completedEntries,
-                totalEntries: snapshots.count,
-                completedBytes: writtenBytes,
-                totalBytes: expandedBytes
-            ))
-        }
+                try verifyHeader(
+                    entry: ep,
+                    expectedPath: expected.entry.displayPath,
+                    expectedKind: memberKind(of: expected),
+                    expectedSize: expected.uncompressedSize
+                )
+                ordinal += 1
 
-        guard completedEntries == snapshots.count else {
-            throw ArchiveError.corruptedArchive
+                if expected.isDirectory {
+                    _ = try materializer.createDirectory(relativePath: expected.entry.displayPath)
+                    archive_read_data_skip(reader)
+                } else {
+                    var fileBytes: UInt64 = 0
+                    let bufferSize = 1024 * 1024
+                    var buffer = [UInt8](repeating: 0, count: bufferSize)
+                    nonisolated(unsafe) let unsafeReader = reader
+                    let entryCap = expected.uncompressedSize > 0
+                        ? expected.uncompressedSize
+                        : budget.maxExpandedBytes
+                    _ = try materializer.write(relativePath: expected.entry.displayPath) { writer in
+                        while true {
+                            try Task.checkCancellation()
+                            let bytesRead = archive_read_data(unsafeReader, &buffer, bufferSize)
+                            if bytesRead == 0 { break }
+                            if bytesRead < 0 {
+                                throw TARProviderError.libarchiveFailed(
+                                    code: Int32(bytesRead),
+                                    message: lastError(unsafeReader)
+                                )
+                            }
+                            fileBytes += UInt64(bytesRead)
+                            guard fileBytes <= entryCap, fileBytes <= budget.maxExpandedBytes else {
+                                throw ArchiveError.resourceLimit
+                            }
+                            guard writtenBytes + fileBytes <= budget.maxExpandedBytes else {
+                                throw ArchiveError.resourceLimit
+                            }
+                            try writer.write(Data(bytes: buffer, count: bytesRead))
+                        }
+                    }
+                    writtenBytes += fileBytes
+                    if expected.uncompressedSize > 0, fileBytes != expected.uncompressedSize {
+                        throw ArchiveError.corruptedArchive
+                    }
+                }
+                completedEntries += 1
+                progress(SevenZipExtractionProgress(
+                    completedEntries: completedEntries,
+                    totalEntries: ordered.count,
+                    completedBytes: writtenBytes,
+                    totalBytes: expandedBytes
+                ))
+            }
+            guard completedEntries == ordered.count else {
+                throw ArchiveError.corruptedArchive
+            }
         }
 
         return TARExtractionResult(
@@ -362,6 +403,18 @@ public actor TARArchiveProvider: ArchiveProvider {
     public func createArchive(
         at outputURL: URL,
         inputs: [URL],
+        compression: TARCompression? = nil
+    ) throws {
+        try createArchive(
+            at: outputURL,
+            inputs: inputs.map { ArchiveCreationInput(sourceURL: $0) },
+            compression: compression
+        )
+    }
+
+    public func createArchive(
+        at outputURL: URL,
+        inputs: [ArchiveCreationInput],
         compression: TARCompression? = nil
     ) throws {
         try Task.checkCancellation()
@@ -409,9 +462,13 @@ public actor TARArchiveProvider: ArchiveProvider {
             )
         }
 
-        for inputURL in inputs {
+        for input in inputs {
             try Task.checkCancellation()
-            try addFileToArchive(writer: writer, fileURL: inputURL)
+            try addFileToArchive(
+                writer: writer,
+                fileURL: input.sourceURL,
+                archiveRootName: input.archiveRootName
+            )
         }
 
         guard archive_write_close(writer) == ARCHIVE_OK else {
@@ -428,104 +485,79 @@ public actor TARArchiveProvider: ArchiveProvider {
     // MARK: - Private: listing
 
     private func listEntries(url: URL) throws -> [ArchiveEntrySnapshot] {
-        guard let reader = archive_read_new() else {
-            throw TARProviderError.openFailed(message: "archive_read_new failed")
-        }
-        defer { archive_read_free(reader) }
-
-        archive_read_support_format_tar(reader)
-        archive_read_support_format_empty(reader)
-        archive_read_support_filter_all(reader)
-
-        let openResult = archive_read_open_filename(reader, url.path, 10240)
-        guard openResult == ARCHIVE_OK else {
-            throw TARProviderError.openFailed(message: lastError(reader))
-        }
-
         var snapshots: [ArchiveEntrySnapshot] = []
-        var entryPointer: OpaquePointer?
+        try withReader(at: url, mapFailures: true) { reader in
+            var entryPointer: OpaquePointer?
+            while true {
+                try Task.checkCancellation()
+                let result = archive_read_next_header(reader, &entryPointer)
+                if result == ARCHIVE_EOF { break }
+                guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
+                    if snapshots.isEmpty {
+                        throw Self.mapOpenFailure(url: url, message: lastError(reader))
+                    }
+                    throw TARProviderError.libarchiveFailed(
+                        code: result,
+                        message: lastError(reader)
+                    )
+                }
+                guard let ep = entryPointer else { break }
+                guard snapshots.count < listingEntryLimit else {
+                    throw ArchiveError.resourceLimit
+                }
+                guard let pathCString = archive_entry_pathname(ep) else { continue }
+                var path = String(cString: pathCString)
+                if path == "." || path == "./" {
+                    archive_read_data_skip(reader)
+                    continue
+                }
+                if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
+                if path.isEmpty {
+                    archive_read_data_skip(reader)
+                    continue
+                }
 
-        while true {
-            try Task.checkCancellation()
-            let result = archive_read_next_header(reader, &entryPointer)
-            if result == ARCHIVE_EOF { break }
-            guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
-                throw TARProviderError.libarchiveFailed(
-                    code: result,
-                    message: lastError(reader)
+                let kind = Self.memberKind(fromHeader: ep)
+                let displayPath: String
+                if kind == .directory && path.hasSuffix("/") {
+                    displayPath = String(path.dropLast())
+                } else {
+                    displayPath = path
+                }
+                do {
+                    try ArchivePathPolicy().validate(displayPath)
+                } catch {
+                    throw ArchiveError.unsafePath
+                }
+
+                let rawSize = archive_entry_size(ep)
+                let size: UInt64 = (kind == .symlink || kind == .hardlink || kind == .special)
+                    ? 0
+                    : (rawSize > 0 ? UInt64(rawSize) : 0)
+                let mtime = archive_entry_mtime(ep)
+                let modifiedAt = mtime > 0 ? Date(timeIntervalSince1970: TimeInterval(mtime)) : nil
+                let entry = ArchiveEntry(
+                    id: ArchiveEntryID(),
+                    rawPath: ArchivePathBytes(Array(path.utf8)),
+                    displayPath: displayPath
                 )
+                snapshots.append(ArchiveEntrySnapshot(
+                    entry: entry,
+                    compressedSize: size,
+                    uncompressedSize: size,
+                    modifiedAt: modifiedAt,
+                    isDirectory: kind == .directory,
+                    isSymbolicLink: kind == .symlink,
+                    isEncrypted: false,
+                    usesUTF8FileName: true,
+                    isHardLink: kind == .hardlink,
+                    isExtractable: kind == .regular
+                ))
+                if kind != .regular {
+                    archive_read_data_skip(reader)
+                }
             }
-            guard let ep = entryPointer else { break }
-
-            guard snapshots.count < listingEntryLimit else {
-                throw ArchiveError.resourceLimit
-            }
-
-            // Get pathname
-            guard let pathCString = archive_entry_pathname(ep) else { continue }
-            var path = String(cString: pathCString)
-
-            // Normalize: strip leading ./ and skip root entries
-            if path == "." || path == "./" { continue }
-            if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
-            if path.isEmpty { continue }
-
-            // Determine entry type using masked equality (not bitwise AND)
-            let fileType = archive_entry_filetype(ep)
-            let maskedType = fileType & AE_IFMT
-            let isDirectory = maskedType == AE_IFDIR
-            let isSymlink = maskedType == AE_IFLNK
-            let isRegularFile = maskedType == AE_IFREG
-
-            // Security: reject symlinks, hardlinks, and special files
-            if isSymlink {
-                throw TARProviderError.symlinkRejected(path: path)
-            }
-            if !isDirectory && !isRegularFile && maskedType != 0 {
-                throw TARProviderError.specialFileRejected(path: path)
-            }
-            // Check for hardlink
-            if archive_entry_hardlink(ep) != nil {
-                throw TARProviderError.hardlinkRejected(path: path)
-            }
-
-            // Strip trailing slash for directories
-            let displayPath: String
-            if isDirectory && path.hasSuffix("/") {
-                displayPath = String(path.dropLast())
-            } else {
-                displayPath = path
-            }
-
-            // Validate path security
-            do {
-                try ArchivePathPolicy().validate(displayPath)
-            } catch {
-                throw ArchiveError.unsafePath
-            }
-
-            let rawSize = archive_entry_size(ep)
-            let size: UInt64 = rawSize > 0 ? UInt64(rawSize) : 0
-            let mtime = archive_entry_mtime(ep)
-            let modifiedAt = mtime > 0 ? Date(timeIntervalSince1970: TimeInterval(mtime)) : nil
-
-            let entry = ArchiveEntry(
-                id: ArchiveEntryID(),
-                rawPath: ArchivePathBytes(Array(path.utf8)),
-                displayPath: displayPath
-            )
-            snapshots.append(ArchiveEntrySnapshot(
-                entry: entry,
-                compressedSize: size,
-                uncompressedSize: size,
-                modifiedAt: modifiedAt,
-                isDirectory: isDirectory,
-                isSymbolicLink: false,
-                isEncrypted: false,
-                usesUTF8FileName: true
-            ))
         }
-
         return snapshots
     }
 
@@ -533,48 +565,21 @@ public actor TARArchiveProvider: ArchiveProvider {
 
     private func extractEntryData(
         url: URL,
-        targetPath: String,
+        ordinal: Int,
+        expectedPath: String,
+        expectedKind: MemberKind,
+        expectedSize: UInt64,
         maximumBytes: UInt64
     ) throws -> Data {
-        guard let reader = archive_read_new() else {
-            throw TARProviderError.openFailed(message: "archive_read_new failed")
-        }
-        defer { archive_read_free(reader) }
-
-        archive_read_support_format_tar(reader)
-        archive_read_support_format_empty(reader)
-        archive_read_support_filter_all(reader)
-
-        let openResult = archive_read_open_filename(reader, url.path, 10240)
-        guard openResult == ARCHIVE_OK else {
-            throw TARProviderError.openFailed(message: lastError(reader))
-        }
-
-        var entryPointer: OpaquePointer?
-        while true {
-            try Task.checkCancellation()
-            let result = archive_read_next_header(reader, &entryPointer)
-            if result == ARCHIVE_EOF { break }
-            guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
-                throw TARProviderError.libarchiveFailed(
-                    code: result,
-                    message: lastError(reader)
-                )
-            }
-            guard let ep = entryPointer else { break }
-
-            guard let pathCString = archive_entry_pathname(ep) else { continue }
-            var path = String(cString: pathCString)
-            if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
-            if path.hasSuffix("/") { path = String(path.dropLast()) }
-
-            guard path == targetPath else {
-                archive_read_data_skip(reader)
-                continue
-            }
-
-            // Found the target entry; read its data
-            var data = Data()
+        var data = Data()
+        try withReader(at: url) { reader in
+            try seekToMember(
+                reader: reader,
+                ordinal: ordinal,
+                expectedPath: expectedPath,
+                expectedKind: expectedKind,
+                expectedSize: expectedSize
+            )
             let bufferSize = 1024 * 1024
             var buffer = [UInt8](repeating: 0, count: bufferSize)
             while true {
@@ -592,15 +597,155 @@ public actor TARArchiveProvider: ArchiveProvider {
                 }
                 data.append(contentsOf: buffer[0..<bytesRead])
             }
-            return data
         }
+        return data
+    }
 
+    private func resolvedSnapshot(id: ArchiveEntryID) throws -> ArchiveEntrySnapshot {
+        try ensureArchiveUnchanged()
+        guard let snapshot = entriesByID[id] else { throw ArchiveError.helperFailed }
+        return snapshot
+    }
+
+    private func ensureArchiveUnchanged() throws {
+        guard let archiveURL, let openedIdentity else { throw ArchiveError.helperFailed }
+        let current = try ArchiveFileIdentity.capture(url: archiveURL)
+        guard current == openedIdentity else { throw ArchiveError.corruptedArchive }
+    }
+
+    private func rejectNonExtractable(
+        _ snapshot: ArchiveEntrySnapshot,
+        allowDirectory: Bool = false
+    ) throws {
+        if snapshot.isDirectory {
+            if allowDirectory { return }
+            throw ArchiveError.unsafePath
+        }
+        if snapshot.isSymbolicLink {
+            throw TARProviderError.symlinkRejected(path: snapshot.entry.displayPath)
+        }
+        if snapshot.isHardLink {
+            throw TARProviderError.hardlinkRejected(path: snapshot.entry.displayPath)
+        }
+        if !snapshot.isExtractable {
+            throw TARProviderError.specialFileRejected(path: snapshot.entry.displayPath)
+        }
+    }
+
+    private func memberKind(of snapshot: ArchiveEntrySnapshot) -> MemberKind {
+        if snapshot.isDirectory { return .directory }
+        if snapshot.isSymbolicLink { return .symlink }
+        if snapshot.isHardLink { return .hardlink }
+        if snapshot.isExtractable { return .regular }
+        return .special
+    }
+
+    private static func memberKind(fromHeader entry: OpaquePointer) -> MemberKind {
+        let fileType = archive_entry_filetype(entry)
+        let maskedType = fileType & AE_IFMT
+        if maskedType == AE_IFDIR { return .directory }
+        if maskedType == AE_IFLNK { return .symlink }
+        if archive_entry_hardlink(entry) != nil { return .hardlink }
+        if maskedType == AE_IFREG { return .regular }
+        return .special
+    }
+
+    private func withReader(
+        at url: URL,
+        mapFailures: Bool = false,
+        body: (OpaquePointer) throws -> Void
+    ) throws {
+        guard let reader = archive_read_new() else {
+            throw TARProviderError.openFailed(message: "archive_read_new failed")
+        }
+        defer { archive_read_free(reader) }
+        // Do not enable format_empty: empty gzip would otherwise look like an empty TAR.
+        archive_read_support_format_tar(reader)
+        archive_read_support_filter_all(reader)
+        let openResult = archive_read_open_filename(reader, url.path, 10240)
+        guard openResult == ARCHIVE_OK else {
+            let message = lastError(reader)
+            throw mapFailures ? Self.mapOpenFailure(url: url, message: message)
+                : TARProviderError.openFailed(message: message)
+        }
+        try body(reader)
+    }
+
+    private func seekToMember(
+        reader: OpaquePointer,
+        ordinal: Int,
+        expectedPath: String,
+        expectedKind: MemberKind,
+        expectedSize: UInt64
+    ) throws {
+        var entryPointer: OpaquePointer?
+        var index = 0
+        while true {
+            try Task.checkCancellation()
+            let result = archive_read_next_header(reader, &entryPointer)
+            if result == ARCHIVE_EOF { break }
+            guard result == ARCHIVE_OK || result == ARCHIVE_WARN else {
+                throw TARProviderError.libarchiveFailed(code: result, message: lastError(reader))
+            }
+            guard let ep = entryPointer else { break }
+            guard let pathCString = archive_entry_pathname(ep) else { continue }
+            var path = String(cString: pathCString)
+            if path == "." || path == "./" {
+                archive_read_data_skip(reader)
+                continue
+            }
+            if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
+            if path.hasSuffix("/") { path = String(path.dropLast()) }
+            if path.isEmpty {
+                archive_read_data_skip(reader)
+                continue
+            }
+            if index == ordinal {
+                try verifyHeader(
+                    entry: ep,
+                    expectedPath: expectedPath,
+                    expectedKind: expectedKind,
+                    expectedSize: expectedSize
+                )
+                return
+            }
+            index += 1
+            archive_read_data_skip(reader)
+        }
         throw ArchiveError.helperFailed
+    }
+
+    private func verifyHeader(
+        entry: OpaquePointer,
+        expectedPath: String,
+        expectedKind: MemberKind,
+        expectedSize: UInt64
+    ) throws {
+        guard let pathCString = archive_entry_pathname(entry) else {
+            throw ArchiveError.corruptedArchive
+        }
+        var path = String(cString: pathCString)
+        if path.hasPrefix("./") { path = String(path.dropFirst(2)) }
+        if path.hasSuffix("/") { path = String(path.dropLast()) }
+        guard path == expectedPath else { throw ArchiveError.corruptedArchive }
+        let kind = Self.memberKind(fromHeader: entry)
+        guard kind == expectedKind else { throw ArchiveError.corruptedArchive }
+        if expectedKind == .regular {
+            let rawSize = archive_entry_size(entry)
+            let size: UInt64 = rawSize > 0 ? UInt64(rawSize) : 0
+            if expectedSize > 0, size != expectedSize {
+                throw ArchiveError.corruptedArchive
+            }
+        }
     }
 
     // MARK: - Private: creation helpers
 
-    private func addFileToArchive(writer: OpaquePointer, fileURL: URL) throws {
+    private func addFileToArchive(
+        writer: OpaquePointer,
+        fileURL: URL,
+        archiveRootName: String
+    ) throws {
         let fm = FileManager.default
         let resourceValues = try fileURL.resourceValues(forKeys: [.isSymbolicLinkKey])
         guard resourceValues.isSymbolicLink != true else { return }
@@ -609,7 +754,7 @@ public actor TARArchiveProvider: ArchiveProvider {
         let isDirectory = fileType == .typeDirectory
 
         if isDirectory {
-            let baseName = fileURL.lastPathComponent
+            let baseName = archiveRootName
             try addDirectoryEntry(writer: writer, path: baseName, attributes: attributes)
             guard let enumerator = fm.enumerator(
                 at: fileURL,
@@ -634,7 +779,12 @@ public actor TARArchiveProvider: ArchiveProvider {
                 // Skip special files (FIFO/socket/device): opening them can block.
             }
         } else if fileType == .typeRegular {
-            try addRegularFileEntry(writer: writer, fileURL: fileURL, archivePath: fileURL.lastPathComponent, attributes: attributes)
+            try addRegularFileEntry(
+                writer: writer,
+                fileURL: fileURL,
+                archivePath: archiveRootName,
+                attributes: attributes
+            )
         }
         // Skip special files (FIFO/socket/device): opening them can block.
     }
@@ -735,6 +885,37 @@ public actor TARArchiveProvider: ArchiveProvider {
         if name.hasSuffix(".tar.xz") || name.hasSuffix(".txz") { return .xz }
         if name.hasSuffix(".tar.zst") || name.hasSuffix(".tar.zstd") { return .zstandard }
         return .tar
+    }
+
+    /// Pure gzip/bzip2/xz/zstd (non-TAR) must not silently fall back to another engine.
+    /// Damaged `.tar` must stay `openFailed`, never `notTAR`.
+    private static func mapOpenFailure(url: URL, message: String) -> TARProviderError {
+        let name = url.lastPathComponent.lowercased()
+        let looksLikeTARName =
+            name.hasSuffix(".tar")
+            || name.hasSuffix(".tar.gz") || name.hasSuffix(".tgz")
+            || name.hasSuffix(".tar.bz2") || name.hasSuffix(".tbz2")
+            || name.hasSuffix(".tar.xz") || name.hasSuffix(".txz")
+            || name.hasSuffix(".tar.zst") || name.hasSuffix(".tar.zstd")
+        let looksLikeCompressedNonTAR =
+            (name.hasSuffix(".gz") && !name.hasSuffix(".tar.gz") && !name.hasSuffix(".tgz"))
+            || (name.hasSuffix(".bz2") && !name.hasSuffix(".tar.bz2") && !name.hasSuffix(".tbz2"))
+            || (name.hasSuffix(".xz") && !name.hasSuffix(".tar.xz") && !name.hasSuffix(".txz"))
+            || (name.hasSuffix(".zst") && !name.hasSuffix(".tar.zst"))
+            || name.hasSuffix(".zstd")
+        if looksLikeTARName {
+            return .openFailed(message: message)
+        }
+        if looksLikeCompressedNonTAR {
+            return .notTAR(message: message)
+        }
+        let lowerMessage = message.lowercased()
+        if lowerMessage.contains("unrecognized")
+            || lowerMessage.contains("not a tar")
+            || lowerMessage.contains("invalid tar") {
+            return .notTAR(message: message)
+        }
+        return .openFailed(message: message)
     }
 
     // MARK: - Private: durability

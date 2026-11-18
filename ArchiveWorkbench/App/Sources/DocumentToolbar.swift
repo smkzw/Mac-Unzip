@@ -4,8 +4,9 @@ extension Notification.Name {
     static let focusArchiveSearch = Notification.Name("focusArchiveSearch")
 }
 
-/// 自定义扁平顶部头栏（彻底移除原生 Liquid Glass 工具栏）。
-/// 文件名占顶部横向 40%（≥2/5），其余功能按键在剩余 60% 内平均分布。
+/// Custom flat header toolbar. Title flexes; actions use `ViewThatFits` so
+/// compact widths get `iconOnly` (with tooltip / a11y label) and wider widths
+/// get `titleAndIcon` — without a GeometryReader that fights NavigationSplitView.
 struct DocumentToolbar: View {
     @Bindable var model: AppModel
     let onAdd: () -> Void
@@ -47,56 +48,82 @@ struct DocumentToolbar: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            HStack(spacing: 0) {
-                // 文件名区：占顶部横向 40%（≥2/5）
-                HStack(spacing: 8) {
-                    archiveTitle
-                    if model.isNestedSession {
-                        breadcrumbBar
-                    }
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                archiveTitle
+                if model.isNestedSession {
+                    breadcrumbBar
                 }
-                .frame(width: geo.size.width * 0.4, alignment: .leading)
-
-                // 功能按键区：剩余 60%，平均分布
-                HStack(spacing: 0) {
-                    Spacer(minLength: 8)
-                    toolbarButton("保存", symbol: "square.and.arrow.down", help: saveHelp, enabled: model.hasUnsavedChanges && !model.isNestedSession) {
-                        Task { await model.saveArchive() }
-                    }
-                    Spacer()
-                    toolbarButton("添加", symbol: "plus", help: model.canAdd ? "向压缩包添加文件" : "此格式为只读，不支持添加", enabled: model.canAdd) {
-                        onAdd()
-                    }
-                    Spacer()
-                    toolbarButton("解压缩全部", symbol: "arrow.down.to.line", help: extractHelp, enabled: model.canExtract && !model.isExtracting) {
-                        onExtract()
-                    }
-                    Spacer()
-                    viewToggle
-                    Spacer()
-                    operationMenu
-                    Spacer()
-                    ToolbarSearchField(text: $model.searchText, placeholder: "搜索")
-                        .frame(width: 140)
-                    Spacer(minLength: 8)
-                }
-                .frame(width: geo.size.width * 0.6)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
+            .frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            ViewThatFits(in: .horizontal) {
+                actionButtons(compact: false)
+                actionButtons(compact: true)
+            }
+            .layoutPriority(0)
+
+            // One NSSearchField only — ViewThatFits above still sizes both
+            // button rows, so the search field must live outside it or ⌘F
+            // focuses an offscreen duplicate.
+            ToolbarSearchField(text: $model.searchText, placeholder: "搜索")
+                .frame(minWidth: 128, idealWidth: 168, maxWidth: 168)
         }
-        .frame(height: 44)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, UIConstants.space12)
+        .frame(height: UIConstants.toolbarHeight)
+        .background(.bar)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(UIConstants.hairline)
+                .frame(height: 1)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(AppLocalization().string("归档工具栏"))
+        .accessibilityIdentifier("归档工具栏")
+    }
+
+    private func actionButtons(compact: Bool) -> some View {
+        HStack(spacing: compact ? 4 : 8) {
+            toolbarButton(
+                "保存",
+                symbol: "square.and.arrow.down",
+                help: saveHelp,
+                enabled: model.hasUnsavedChanges && !model.isNestedSession,
+                compact: compact
+            ) {
+                Task { await model.saveArchive() }
+            }
+            toolbarButton(
+                "添加",
+                symbol: "plus",
+                help: model.canAdd
+                    ? AppLocalization().string("向压缩包添加文件")
+                    : AppLocalization().string("此格式为只读，不支持添加"),
+                enabled: model.canAdd,
+                compact: compact
+            ) {
+                onAdd()
+            }
+            toolbarButton(
+                "解压缩全部",
+                symbol: "arrow.down.to.line",
+                help: extractHelp,
+                enabled: model.canExtract && !model.isExtracting,
+                compact: compact
+            ) {
+                onExtract()
+            }
+            viewToggle
+            operationMenu
+        }
     }
 
     private var archiveTitle: some View {
         HStack(spacing: 6) {
             Text(model.documentTitle)
                 .font(.headline)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if model.hasUnsavedChanges {
@@ -136,6 +163,7 @@ struct DocumentToolbar: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
             }
             .buttonStyle(.plain)
             .help(AppLocalization().string("返回上一层压缩包"))
@@ -163,6 +191,7 @@ struct DocumentToolbar: View {
                     Text(segment.title)
                         .font(.caption)
                         .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -173,7 +202,7 @@ struct DocumentToolbar: View {
     }
 
     private var viewToggle: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             viewToggleButton(mode: .list, symbol: "list.bullet", label: "列表视图")
             viewToggleButton(mode: .media, symbol: "square.grid.2x2", label: "媒体预览")
         }
@@ -190,7 +219,7 @@ struct DocumentToolbar: View {
             Label(AppLocalization().string(label), systemImage: symbol)
                 .labelStyle(.iconOnly)
                 .font(.callout.weight(isActive ? .semibold : .medium))
-                .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isActive ? Color.accentColor : Color.primary.opacity(0.72))
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(AppLocalization().string(label))
@@ -270,25 +299,46 @@ struct DocumentToolbar: View {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
+                .font(.body.weight(.medium))
+                .foregroundStyle(Color.primary.opacity(0.78))
         }
         .menuStyle(.borderlessButton)
-        .frame(width: 30)
+        .frame(width: 28)
         .help(AppLocalization().string("更多操作"))
         .accessibilityLabel(AppLocalization().string("更多操作"))
+        .accessibilityHint(AppLocalization().string("更多操作"))
         .accessibilityIdentifier("操作")
     }
 
-    private func toolbarButton(_ label: String, symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+    @ViewBuilder
+    private func toolbarButton(
+        _ label: String,
+        symbol: String,
+        help: String,
+        enabled: Bool,
+        compact: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        let localized = AppLocalization().string(label)
+        let localizedHelp = AppLocalization().string(help)
         Button(action: action) {
-            Label(AppLocalization().string(label), systemImage: symbol)
-                .font(.callout.weight(.medium))
+            if compact {
+                Label(localized, systemImage: symbol)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(enabled ? Color.primary.opacity(0.88) : Color.primary.opacity(0.28))
+                    .labelStyle(.iconOnly)
+            } else {
+                Label(localized, systemImage: symbol)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(enabled ? Color.primary.opacity(0.88) : Color.primary.opacity(0.28))
+                    .labelStyle(.titleAndIcon)
+            }
         }
         .buttonStyle(.borderless)
-        .labelStyle(.titleAndIcon)
-        .accessibilityLabel(AppLocalization().string(label))
-        .accessibilityHint(AppLocalization().string(help))
+        .accessibilityLabel(localized)
+        .accessibilityHint(localizedHelp)
         .accessibilityIdentifier(label)
-        .help(AppLocalization().string(help))
+        .help(localizedHelp)
         .disabled(!enabled)
     }
 }
@@ -350,7 +400,10 @@ private struct ToolbarSearchField: NSViewRepresentable {
         }
 
         @MainActor @objc func focusSearch() {
-            guard let field, field.window?.isKeyWindow == true else { return }
+            guard let field else { return }
+            // ⌘F can arrive before the document window is key (UI tests /
+            // multi-window). Promote the hosting window, then focus the field.
+            field.window?.makeKeyAndOrderFront(nil)
             field.window?.makeFirstResponder(field)
         }
     }

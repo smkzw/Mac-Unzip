@@ -11,10 +11,11 @@
 
 - [ ] Apple Developer Program membership (active)
 - [ ] Developer ID Application certificate installed in Keychain
-- [ ] Xcode 26+ with command-line tools
+- [ ] Xcode 26 with the Swift 6.2 toolchain and command-line tools
 - [ ] `xcrun notarytool` configured with App Store Connect API key or Apple ID
 - [ ] MacUnzip builds successfully in Release configuration
 - [ ] All tests pass
+- [ ] Bundled 7zz, embedded dylibs, and release license notices have been verified
 
 ---
 
@@ -76,68 +77,24 @@ codesign -dvvv build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app 2>&1 
 
 ## Step 4: Entitlements
 
-Create `Distribution/MacUnzip.entitlements` if not present:
+Use the main app's checked-in [entitlements](../App/MacUnzip.entitlements), referenced by its target in [project.yml](../project.yml). Inspect the signed app's entitlements and confirm they match the intended release configuration.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <!-- Hardened runtime exceptions -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <false/>
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <false/>
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <false/>
-
-    <!-- App Sandbox (if distributing via direct download, sandbox is optional) -->
-    <!-- Enable if submitting to App Store later -->
-    <!--
-    <key>com.apple.security.app-sandbox</key>
-    <true/>
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-    <key>com.apple.security.files.bookmarks.app-scope</key>
-    <true/>
-    -->
-
-    <!-- Network (not needed for local archive operations) -->
-    <!--
-    <key>com.apple.security.network.client</key>
-    <true/>
-    -->
-</dict>
-</plist>
-```
-
-Apply entitlements during signing:
 ```bash
-codesign --force --options runtime \
-  --entitlements Distribution/MacUnzip.entitlements \
-  --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app
+APP_PATH="build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app"
+codesign -d --entitlements - "$APP_PATH"
 ```
 
 ---
 
 ## Step 5: Sign Nested Code
 
-Sign all nested frameworks/helpers before signing the main app:
+If re-signing an archive, sign each embedded dylib, executable, and plug-in before signing the main app. Preserve any entitlement requirements of each target. Confirm that both the Quick Look and Finder extensions are signed, and check the bundled `7zz` and embedded dylibs.
+
+Sign the main app last with its checked-in entitlements and a secure timestamp.
 
 ```bash
-APP_PATH="build/MacUnzip.xcarchive/Products/Applications/MacUnzip.app"
-
-# Sign Quick Look extension
-codesign --force --options runtime \
-  --entitlements Distribution/MacUnzip.entitlements \
-  --sign "Developer ID Application: Your Name (TEAM_ID)" \
-  "$APP_PATH/PlugIns/MacUnzipQLExtension.appex"
-
-# Sign main app (must be last)
-codesign --force --options runtime \
-  --entitlements Distribution/MacUnzip.entitlements \
+codesign --force --timestamp --options runtime \
+  --entitlements App/MacUnzip.entitlements \
   --sign "Developer ID Application: Your Name (TEAM_ID)" \
   "$APP_PATH"
 ```
@@ -149,21 +106,16 @@ codesign --force --options runtime \
 ```bash
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 # Expected: valid on disk, satisfies its Designated Requirement
-
-spctl --assess --type execute --verbose "$APP_PATH"
-# Expected: accepted, source=Developer ID
 ```
 
 ---
 
-## Step 7: Create DMG (before notarization)
+## Step 7: Create DMG
+
+Use the staging layout in [the packaging script](../Scripts/package_release.sh), including the MIT license, third-party notices, and Applications link. In the remaining examples, set `DMG` to the versioned release artifact.
 
 ```bash
-# See Scripts/package_release.sh for full DMG creation
-hdiutil create -volname "MacUnzip" \
-  -srcfolder "$APP_PATH" \
-  -ov -format UDZO \
-  build/MacUnzip-1.0.0.dmg
+DMG="build/MacUnzip-VERSION.dmg"
 ```
 
 ---
@@ -172,12 +124,12 @@ hdiutil create -volname "MacUnzip" \
 
 ```bash
 # Submit for notarization (DO NOT RUN without explicit authorization)
-xcrun notarytool submit build/MacUnzip-1.0.0.dmg \
+xcrun notarytool submit "$DMG" \
   --keychain-profile "AC_NOTARY_PROFILE" \
   --wait
 
 # Alternative: using App Store Connect API key
-xcrun notarytool submit build/MacUnzip-1.0.0.dmg \
+xcrun notarytool submit "$DMG" \
   --key ~/private_keys/AuthKey_KEYID.p8 \
   --key-id KEYID \
   --issuer ISSUER_ID \
@@ -214,10 +166,10 @@ xcrun notarytool log SUBMISSION_ID \
 After notarization succeeds:
 
 ```bash
-xcrun stapler staple build/MacUnzip-1.0.0.dmg
+xcrun stapler staple "$DMG"
 
 # Verify stapling
-xcrun stapler validate build/MacUnzip-1.0.0.dmg
+xcrun stapler validate "$DMG"
 # Expected: The validate action worked!
 ```
 
@@ -226,15 +178,18 @@ xcrun stapler validate build/MacUnzip-1.0.0.dmg
 ## Step 10: Final Verification
 
 ```bash
-# Verify the DMG opens and app launches
-hdiutil attach build/MacUnzip-1.0.0.dmg
-open /Volumes/MacUnzip/MacUnzip.app
+# Verify and mount the DMG
+spctl --assess --type open --context context:primary-signature --verbose "$DMG"
+shasum -a 256 "$DMG"
 
-# Verify Gatekeeper acceptance
-spctl --assess --type open --context context:primary-signature \
-  --verbose /Volumes/MacUnzip/MacUnzip.app
-
-hdiutil detach /Volumes/MacUnzip
+# Use the volume path printed by hdiutil to check the enclosed app.
+hdiutil attach "$DMG" -readonly
+# Set VOLUME to the mount path reported above.
+VOLUME="/Volumes/MacUnzip VERSION"
+spctl --assess --type execute --verbose "$VOLUME/MacUnzip.app"
+open "$VOLUME/MacUnzip.app"
+# Quit the app before detaching.
+hdiutil detach "$VOLUME"
 ```
 
 ---
@@ -243,7 +198,7 @@ hdiutil detach /Volumes/MacUnzip
 
 | Issue | Solution |
 |-------|----------|
-| "The signature does not include a secure timestamp" | Ensure `--options runtime` is used |
+| "The signature does not include a secure timestamp" | Use `--timestamp` for Developer ID signing |
 | "The binary is not signed" | Check CODE_SIGN_IDENTITY in build settings |
 | Notarization fails: "The signature of the binary is invalid" | Re-sign with hardened runtime |
 | Notarization fails: unsigned nested code | Sign all .appex/.framework before main app |
@@ -256,8 +211,3 @@ hdiutil detach /Volumes/MacUnzip
 - [Apple: Notarizing macOS Software](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution)
 - [Apple: Hardened Runtime](https://developer.apple.com/documentation/security/hardened_runtime)
 - [Apple: Developer ID](https://developer.apple.com/developer-id/)
-
----
-
-*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*
-*This document is a runbook only. No signing or notarization has been performed.*

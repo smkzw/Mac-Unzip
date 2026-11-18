@@ -1,5 +1,7 @@
 # Mac解霸 (MacUnzip) v1.2.0
 
+> 历史版本记录。当前版本见 [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases)。
+
 ## 本次更新
 - **RAR 解压 fallback**：当 7zz 引擎不支持某种 RAR 压缩方法（如 RAR 7.23 method m1）时，自动改用 RARLAB `rar` 工具解压
 - **7zz 引擎升级** 26.02 → 26.03
@@ -25,5 +27,4 @@ xattr -dr com.apple.quarantine /Applications/MacUnzip.app
 SHA-256 见随附文件 `MacUnzip-1.2.0.dmg.sha256`。
 
 ## 开源
-源码：https://github.com/smkzw/Mac-Unzip  
-官网：https://gerymk.qd.je/
+源码：https://github.com/smkzw/Mac-Unzip

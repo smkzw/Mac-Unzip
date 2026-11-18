@@ -41,10 +41,18 @@ echo "--- 1. 产物存在性 ---"
 [[ -f "$NOTES" ]] || { echo "  缺 ${NOTES}（先写 release notes）"; exit 1; }
 echo "  OK: dmg / sha256 / notes 齐全"
 
-echo "--- 2. DMG 校验和一致 ---"
+echo "--- 2. DMG 校验和一致（.sha256 仅允许公开相对文件名）---"
 expect=$(awk '{print $1}' "$SHA"); actual=$(shasum -a 256 "$DMG" | awk '{print $1}')
 [[ "$expect" == "$actual" ]] || { echo "  校验和不一致 expect=$expect actual=$actual"; exit 1; }
-echo "  OK: ${actual}"
+sha_name=$(awk '{print $2}' "$SHA")
+[[ "$sha_name" == "$(basename "$DMG")" ]] || {
+  echo "  .sha256 文件名字段必须是相对公开名 $(basename "$DMG")，实际: ${sha_name}"
+  exit 1
+}
+if grep -E '(^| )/|Users/|/Volumes/' "$SHA" >/dev/null 2>&1; then
+  echo "  .sha256 含本机绝对路径，拒绝发布"; cat "$SHA"; exit 1
+fi
+echo "  OK: ${actual}  ${sha_name}"
 
 echo "--- 3. 工作区无未提交修改（未跟踪文件不影响 push，不检查）---"
 if ! git diff --quiet || ! git diff --cached --quiet; then

@@ -1,28 +1,14 @@
 # Third-Party Notices
 
-MacUnzip incorporates the following third-party components.
-Each component is listed with its name, version, license, copyright notice, and full license text.
+MacUnzip's own code is covered by the [MIT License](LICENSE.md). Third-party components retain their upstream terms. This document and the repository’s SPDX inventory describe the source tree and the build configuration. Binary distribution requires the notices and supply-chain records for the exact files included in that release.
 
----
+## minizip-ng
 
-## 1. minizip-ng
+Version 4.2.1 at commit `26b4619120f714cb76c0c52cdd48223bee944d73` is vendored for ZIP support. Copyright (C) Nathan Moinvaziri. [Upstream repository](https://github.com/zlib-ng/minizip-ng)
 
-| Field       | Value |
-|-------------|-------|
-| Name        | minizip-ng |
-| Version     | 4.2.1 |
-| License     | Zlib License |
-| Repository  | https://github.com/zlib-ng/minizip-ng |
-| Commit      | 26b4619120f714cb76c0c52cdd48223bee944d73 |
-| Usage       | Vendored source compiled into CMinizipBridge; provides ZIP read/write/create |
+```text
+Condition of use and distribution are the same as zlib:
 
-### Copyright
-
-Copyright (C) Nathan Moinvaziri
-
-### License Text (Zlib License)
-
-```
 This software is provided 'as-is', without any express or implied
 warranty.  In no event will the authors be held liable for any damages
 arising from the use of this software.
@@ -40,19 +26,9 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
----
+## libarchive
 
-## 2. libarchive
-
-| Field       | Value |
-|-------------|-------|
-| Name        | libarchive |
-| Version     | 3.8.8 |
-| License     | BSD-2-Clause |
-| Repository  | https://github.com/libarchive/libarchive |
-| Usage       | System library linked via Homebrew; provides TAR/ISO/DMG read support through CLibArchiveBridge |
-
-### Copyright
+The app links Homebrew's libarchive for TAR support. The build embeds its dylib and copies liblzma (XZ Utils), libzstd, liblz4, and libb2 from the build host. Record the versions and include the applicable notices for all embedded dylibs when preparing a release. [libarchive upstream notices](https://github.com/libarchive/libarchive/blob/master/COPYING)
 
 Copyright (c) 2003-2020 Tim Kientzle and contributors
 
@@ -80,23 +56,23 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
----
+## 7zz (7-Zip)
 
-## 3. 7zz (7-Zip)
+The v1.3.0 Release build bundles the arm64 slice of the dynamic `7zz` executable from the official 7-Zip 26.03 macOS archive. The packaging process verifies the two SHA-256 digests separately.
 
-| Field       | Value |
-|-------------|-------|
-| Name        | 7zz |
-| Version     | 26.02 |
-| License     | LGPL-2.1-or-later |
-| Website     | https://www.7-zip.org |
-| Usage       | **External dependency - NOT bundled.** Invoked via Process() only if user has installed it. Provides 7z format read/write. |
+| Item | Verified release pin |
+| --- | --- |
+| Version and architecture | 26.03, arm64 |
+| Upstream macOS archive | [7z2603-mac.tar.xz](https://github.com/ip7z/7zip/releases/download/26.03/7z2603-mac.tar.xz) |
+| Archive SHA-256 | `5ca87677072c59f5602e5c49baa27d4694bacd2259b4e507f0094249d4281480` |
+| Bundled `7zz` SHA-256 | `3bdfeac2b07b2057cbc2fa3d86aef455739f253cd57733eea3d490065081163e` |
+| Corresponding upstream source | [7z2603-src.tar.xz](https://github.com/ip7z/7zip/releases/download/26.03/7z2603-src.tar.xz) |
 
-### Copyright
+7-Zip Copyright (C) 1999-2026 Igor Pavlov. The upstream notice identifies LGPL 2.1 or later, the unRAR restriction on specified code, and BSD 2- and 3-clause terms for other portions. These upstream terms govern the bundled 7-Zip executable.
 
-Copyright (C) 1999-2026 Igor Pavlov
+The app inside the DMG carries `7zz-License.txt`, `7zz-readme.txt`, and `7zz-SOURCE.txt` alongside the executable in `MacUnzip.app/Contents/Resources/Binaries/`. The license and readme come from the official archive. The source record documents the download, digests, and upstream source. [Official 7-Zip 26.03 release](https://github.com/ip7z/7zip/releases/tag/26.03)
 
-### License Text (LGPL-2.1-or-later)
+### GNU LGPL 2.1 reference text
 
 ```
 GNU LESSER GENERAL PUBLIC LICENSE
@@ -526,39 +502,247 @@ POSSIBILITY OF SUCH DAMAGES.
 END OF TERMS AND CONDITIONS
 ```
 
-### Note on 7zz Usage
+## RARLAB rar
 
-7zz is an **external, optional dependency**. It is NOT bundled with or
-distributed as part of MacUnzip. The application invokes the `7zz`
-binary via `Process()` only if the user has independently installed it
-(e.g., via Homebrew: `brew install p7zip`). Because 7zz is not linked,
-bundled, or distributed, the LGPL obligations for combined works do not
-apply to MacUnzip itself.
+RARLAB's official `rar` is a separately obtained tool used for RAR creation and as a fallback for certain RAR extraction methods. Its upstream terms apply. [RARLAB downloads](https://www.rarlab.com/download.htm)
 
----
+## Apple Compression
 
-## 4. Apple libcompression
+Apple's `libcompression` is a system library used by the ZIP bridge. Copyright (c) Apple Inc. The applicable Apple platform terms apply. [Compression documentation](https://developer.apple.com/documentation/compression) · [Apple license agreements](https://www.apple.com/legal/sla/)
 
-| Field       | Value |
-|-------------|-------|
-| Name        | libcompression (compression.framework) |
-| Version     | macOS SDK 26 |
-| License     | Apple SDK License (proprietary) |
-| Provider    | Apple Inc. |
-| Usage       | Linked via `-lcompression`; provides hardware-accelerated deflate, lzma, lz4, zstd |
+## Swift package notices
 
-### Copyright
+The Markdown preview uses MarkdownUI. NetworkImage and swift-cmark appear in the app's checked-in SwiftPM resolution. The notices below are from the pinned revisions.
 
-Copyright (c) Apple Inc. All rights reserved.
+### MarkdownUI 2.4.1
 
-### License
+[Upstream notice](https://github.com/gonzalezreal/swift-markdown-ui/blob/5f613358148239d0292c0cef674a3c2314737f9e/LICENSE)
 
-Use governed by the Apple Software License Agreement.
-See: https://www.apple.com/legal/sla/
+```text
+The MIT License (MIT)
 
-This component is part of macOS and may only be used on Apple-branded hardware.
-No separate distribution is required or permitted.
+Copyright (c) 2020 Guillermo Gonzalez
 
----
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-*Generated: 2026-07-27 | MacUnzip Distribution Preparation (Phase G)*
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### NetworkImage 6.0.1
+
+[Upstream notice](https://github.com/gonzalezreal/NetworkImage/blob/2849f5323265386e200484b0d0f896e73c3411b9/LICENSE)
+
+```text
+MIT License
+
+Copyright (c) 2020 Guille Gonzalez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### swift-cmark 0.8.0
+
+[Upstream notice](https://github.com/swiftlang/swift-cmark/blob/924936d0427cb25a61169739a7660230bffa6ea6/COPYING)
+
+```text
+Copyright (c) 2014, John MacFarlane
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-----
+
+houdini.h, houdini_href_e.c, houdini_html_e.c, houdini_html_u.c
+
+derive from https://github.com/vmg/houdini (with some modifications)
+
+Copyright (C) 2012 Vicent Martí
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-----
+
+buffer.h, buffer.c, chunk.h
+
+are derived from code (C) 2012 Github, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-----
+
+utf8.c and utf8.c
+
+are derived from utf8proc
+(<http://www.public-software-group.org/utf8proc>),
+(C) 2009 Public Software Group e. V., Berlin, Germany.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+-----
+
+The normalization code in normalize.py was derived from the
+markdowntest project, Copyright 2013 Karl Dubost:
+
+The MIT License (MIT)
+
+Copyright (c) 2013 Karl Dubost
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-----
+
+The CommonMark spec (test/spec.txt) is
+
+Copyright (C) 2014-15 John MacFarlane
+
+Released under the Creative Commons CC-BY-SA 4.0 license:
+<http://creativecommons.org/licenses/by-sa/4.0/>.
+
+-----
+
+The test software in test/ is
+
+Copyright (c) 2014, John MacFarlane
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```

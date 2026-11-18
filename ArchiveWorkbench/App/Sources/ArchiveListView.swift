@@ -12,6 +12,8 @@ private struct EntryDragInfo: Sendable {
     let name: String
     let isDirectory: Bool
     let fullPath: String
+    let documentGeneration: UInt64
+    let archiveIdentityPath: String?
 }
 
 /// Wraps the non-Sendable promise completion handler so it can be captured by
@@ -177,6 +179,10 @@ struct ArchiveListView: NSViewRepresentable {
     var onIsSupportedArchive: ((URL) -> Bool)? = nil
     /// Materializes an entire folder subtree for drag-out (folder path → stagingDir → folder URL).
     var onMaterializeFolder: ((_ folderPath: String, _ stagingDir: URL) async throws -> URL)? = nil
+    var documentGeneration: UInt64 = 0
+    var archiveIdentityPath: String? = nil
+    var onDragCopyFailed: ((Error) -> Void)? = nil
+    var isDragCallbackCurrent: ((_ generation: UInt64, _ archiveIdentityPath: String?) -> Bool)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -1023,7 +1029,9 @@ struct ArchiveListView: NSViewRepresentable {
                 id: node.entry?.id,
                 name: node.name,
                 isDirectory: node.isDirectory,
-                fullPath: node.fullPath
+                fullPath: node.fullPath,
+                documentGeneration: parent.documentGeneration,
+                archiveIdentityPath: parent.archiveIdentityPath
             )
             return provider
         }
@@ -1084,14 +1092,23 @@ struct ArchiveListView: NSViewRepresentable {
                 forClasses: [NSURL.self],
                 options: [.urlReadingFileURLsOnly: true]
             ) as? [URL], !urls.isEmpty else { return false }
-            // 拖入的是压缩包 → 打开它，而不是作为文件添加进当前归档。
-            // 投递 openArchiveURL（RootWindowView 监听并打开），与 Finder
-            // 双击/拖入欢迎页行为一致。
-            if let firstArchive = urls.first(where: { parent.onIsSupportedArchive?($0) ?? false }) {
-                NotificationCenter.default.post(name: .openArchiveURL, object: firstArchive)
-                return true
+            let isArchive: (URL) -> Bool = { [parent] in parent.onIsSupportedArchive?($0) ?? false }
+            guard let decision = DropRouting.decide(
+                urls: urls,
+                context: .openDocument,
+                isSupportedArchive: isArchive
+            ) else { return false }
+            switch decision {
+            case .openFirstArchive(let first, _):
+                NotificationCenter.default.post(name: .openArchiveURL, object: first)
+            case .addToOpenDocument(let batch):
+                self.parent.onAddFiles?(batch, destinationFolder)
+            case .createArchiveInputs(let batch):
+                self.parent.onAddFiles?(batch, destinationFolder)
+            case .askMixed(let archives, let others):
+                // Default for outline drops: add everything; opening archives is explicit via welcome/mixed alert.
+                self.parent.onAddFiles?(archives + others, destinationFolder)
             }
-            parent.onAddFiles?(urls, destinationFolder)
             return true
         }
 
@@ -1140,9 +1157,30 @@ struct ArchiveListView: NSViewRepresentable {
             }
             let completion = PromiseCompletion(completionHandler)
             let fileName = info.name
+            // SDK: writePromiseToURL — Always use the supplied URL.
+            // Finder may pass either a directory or a same-name file URL.
+            let destination = FilePromisePublishing.resolveDestination(
+                suppliedURL: destinationDirectoryURL,
+                promisedFileName: fileName
+            )
+            let exactDestination = destination.exactURL
             Task { @MainActor [weak self] in
+                guard let self else {
+                    completion.call(NSError(domain: "MacUnzip", code: 3))
+                    return
+                }
+                let stillCurrent = self.parent.isDragCallbackCurrent?(
+                    info.documentGeneration,
+                    info.archiveIdentityPath
+                ) ?? true
+                guard stillCurrent else {
+                    completion.call(NSError(domain: "MacUnzip", code: 4, userInfo: [
+                        NSLocalizedDescriptionKey: "Archive changed before drag completed"
+                    ]))
+                    return
+                }
                 if info.isDirectory {
-                    guard let materializeFolder = self?.parent.onMaterializeFolder else {
+                    guard let materializeFolder = self.parent.onMaterializeFolder else {
                         completion.call(NSError(domain: "MacUnzip", code: 2))
                         return
                     }
@@ -1155,29 +1193,30 @@ struct ArchiveListView: NSViewRepresentable {
                             attributes: [.posixPermissions: 0o700]
                         )
                         let folderURL = try await materializeFolder(info.fullPath, stagingDir)
-                        // destinationDirectoryURL 可能已是文件夹同名路径，去重
-                        var destDir = destinationDirectoryURL
-                        if destDir.lastPathComponent == folderURL.lastPathComponent {
-                            destDir = destDir.deletingLastPathComponent()
-                        }
-                        let target = destDir.appendingPathComponent(folderURL.lastPathComponent)
                         Task.detached(priority: .userInitiated) {
                             do {
-                                try FileManager.default.copyItem(at: folderURL, to: target)
+                                _ = try FilePromisePublishing.exclusivelyPublishItem(
+                                    at: folderURL,
+                                    toExactDestination: exactDestination
+                                )
                                 try? FileManager.default.removeItem(at: stagingDir)
                                 completion.call(nil)
                             } catch {
                                 try? FileManager.default.removeItem(at: stagingDir)
+                                await MainActor.run {
+                                    self.parent.onDragCopyFailed?(error)
+                                }
                                 completion.call(error)
                             }
                         }
                     } catch {
                         try? FileManager.default.removeItem(at: stagingDir)
+                        self.parent.onDragCopyFailed?(error)
                         completion.call(error)
                     }
                     return
                 }
-                guard let materialize = self?.parent.onMaterializeEntry,
+                guard let materialize = self.parent.onMaterializeEntry,
                       let entryID = info.id else {
                     completion.call(NSError(domain: "MacUnzip", code: 2))
                     return
@@ -1187,43 +1226,19 @@ struct ArchiveListView: NSViewRepresentable {
                     case .success(let materialized):
                         let materializedURL = materialized.file
                         let stagingRoot = materialized.stagingRoot
-                        // The copy can be multi-GB; run it off the main thread so
-                        // the UI stays responsive during the drag-out write.
                         Task.detached(priority: .userInitiated) {
-                            // destinationDirectoryURL 可能已是 fileName 同名路径
-                            // （Finder 把 promise 目标解析为同名文件/目录时），
-                            // 此时不再拼 fileName，直接作为目标目录。
-                            var destDir = destinationDirectoryURL
-                            if destDir.lastPathComponent == fileName {
-                                destDir = destDir.deletingLastPathComponent()
-                            }
-                            var destination = destDir.appendingPathComponent(fileName)
                             do {
-                                var counter = 2
-                                while FileManager.default.fileExists(atPath: destination.path) {
-                                    let base = (fileName as NSString).deletingPathExtension
-                                    let ext = (fileName as NSString).pathExtension
-                                    let newName = ext.isEmpty ? "\(base) \(counter)" : "\(base) \(counter).\(ext)"
-                                    destination = destinationDirectoryURL.appendingPathComponent(newName)
-                                    counter += 1
-                                }
-                                try FileManager.default.copyItem(at: materializedURL, to: destination)
+                                _ = try FilePromisePublishing.exclusivelyPublishItem(
+                                    at: materializedURL,
+                                    toExactDestination: exactDestination
+                                )
                                 try? FileManager.default.removeItem(at: stagingRoot)
                                 completion.call(nil)
                             } catch {
-                                // A failed mid-copy (e.g. disk full) can leave a
-                                // corrupt partial file we created; remove it. But
-                                // if the copy failed because `destination` already
-                                // exists, another process created it in the gap
-                                // between our fileExists check and the copy — that
-                                // file is not ours, so leave it untouched.
-                                let nsError = error as NSError
-                                let destinationAlreadyExists = nsError.domain == NSCocoaErrorDomain
-                                    && nsError.code == NSFileWriteFileExistsError
-                                if !destinationAlreadyExists {
-                                    try? FileManager.default.removeItem(at: destination)
-                                }
                                 try? FileManager.default.removeItem(at: stagingRoot)
+                                await MainActor.run {
+                                    self.parent.onDragCopyFailed?(error)
+                                }
                                 completion.call(error)
                             }
                         }

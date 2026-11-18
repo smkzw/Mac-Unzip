@@ -1,5 +1,7 @@
 # Mac解霸 (MacUnzip) v1.1.8
 
+> 历史版本记录。当前版本见 [GitHub Releases](https://github.com/smkzw/Mac-Unzip/releases)。
+
 ## 本次更新
 - **创建压缩包默认保存到源文件所在目录**，无需再手选路径：
   - 单个文件/文件夹 → 同目录下同名压缩包（如 `报告.pdf` → `报告.zip`）
@@ -21,5 +23,4 @@ xattr -dr com.apple.quarantine /Applications/MacUnzip.app
 SHA-256 见随附文件 `MacUnzip-1.1.8.dmg.sha256`。
 
 ## 开源
-源码：https://github.com/smkzw/Mac-Unzip  
-官网：https://gerymk.qd.je/
+源码：https://github.com/smkzw/Mac-Unzip

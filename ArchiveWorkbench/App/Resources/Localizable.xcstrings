@@ -3204,7 +3204,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "File name: %@"
+            "value": "Filename: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件名：%@"
           }
         }
       }
@@ -3304,17 +3310,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "None"
-          }
-        }
-      }
-    },
-    "无效许可证，请检查密钥格式或重新购买。": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Invalid license. Check the key format or purchase again."
           }
         }
       }
@@ -4731,17 +4726,6 @@
         }
       }
     },
-    "终身授权 · 一次购买 · 免费更新": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lifetime license · One-time purchase · Free updates"
-          }
-        }
-      }
-    },
     "继续": {
       "extractionState": "manual",
       "localizations": {
@@ -5050,17 +5034,6 @@
         }
       }
     },
-    "许可证密钥": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "License Key"
-          }
-        }
-      }
-    },
     "设为默认": {
       "extractionState": "manual",
       "localizations": {
@@ -5118,17 +5091,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add files to compress first"
-          }
-        }
-      }
-    },
-    "请先输入授权码": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your license key first"
           }
         }
       }
@@ -6052,6 +6014,344 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open ZIP, 7z, RAR, TAR, DMG, ISO archives to browse files safely.\nYou can also drag and drop archive files onto this window."
+          }
+        }
+      }
+    },
+    "将文件或文件夹拖到此处": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop files or folders here"
+          }
+        }
+      }
+    },
+    "支持同时拖入多个文件与不同层级的目录；压缩包也作为输入加入。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop multiple files and nested folders at once; archives are added as inputs."
+          }
+        }
+      }
+    },
+    "从访达选择…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose from Finder…"
+          }
+        }
+      }
+    },
+    "追加…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add…"
+          }
+        }
+      }
+    },
+    "移除所选": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Selected"
+          }
+        }
+      }
+    },
+    "清空": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "尚未添加文件": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No files added yet"
+          }
+        }
+      }
+    },
+    "文件名冲突": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filename Conflict"
+          }
+        }
+      }
+    },
+    "自动改名并保留两项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename and Keep Both"
+          }
+        }
+      }
+    },
+    "以下文件在归档根目录同名：%@。请选择自动改名保留两项、替换或取消。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These files share the same name at the archive root: %@. Choose rename and keep both, replace, or cancel."
+          }
+        }
+      }
+    },
+    "已跳过 %ld 个重复项": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skipped %ld duplicate item(s)"
+          }
+        }
+      }
+    },
+    "松开以打开或新建压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop to open or create an archive"
+          }
+        }
+      }
+    },
+    "混合拖入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mixed Drop"
+          }
+        }
+      }
+    },
+    "打开其中的压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Archive"
+          }
+        }
+      }
+    },
+    "全部加入当前压缩包": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add All to Current Archive"
+          }
+        }
+      }
+    },
+    "全部作为新建输入": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use All as New Archive Inputs"
+          }
+        }
+      }
+    },
+    "这次拖入同时包含 %ld 个压缩包和 %ld 个其他项目。请选择打开压缩包，或全部作为文件处理。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This drop includes %ld archive(s) and %ld other item(s). Choose to open an archive or treat everything as files."
+          }
+        }
+      }
+    },
+    "无法提取符号链接“%@”。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot extract symbolic link “%@”."
+          }
+        }
+      }
+    },
+    "无法提取硬链接“%@”。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot extract hard link “%@”."
+          }
+        }
+      }
+    },
+    "无法提取特殊文件“%@”。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot extract special file “%@”."
+          }
+        }
+      }
+    },
+    "这是压缩文件但不是 TAR 归档，当前版本不支持直接打开。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a compressed file but not a TAR archive. Opening it directly is not supported."
+          }
+        }
+      }
+    },
+    "无法打开这个 TAR 压缩包。文件可能已损坏或不是受支持的 TAR 格式。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to open this TAR archive. The file may be damaged or not a supported TAR format."
+          }
+        }
+      }
+    },
+    "创建 TAR 压缩包失败，请确认磁盘空间充足且目标位置可写。": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to create TAR archive. Check disk space and that the destination is writable."
+          }
+        }
+      }
+    },
+    "Mac解霸": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac Unzip"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac解霸"
+          }
+        }
+      }
+    },
+    "请先解决文件名冲突": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先解决文件名冲突"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resolve filename conflicts first"
+          }
+        }
+      }
+    },
+    "将压缩包拖放到此处": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将压缩包拖放到此处"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop an archive here"
+          }
+        }
+      }
+    },
+    "拖放区域": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖放区域"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop zone"
+          }
+        }
+      }
+    },
+    "清除最近打开": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除最近打开"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear Recents"
           }
         }
       }

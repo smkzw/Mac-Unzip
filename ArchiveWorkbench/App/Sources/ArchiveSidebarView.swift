@@ -43,9 +43,13 @@ struct ArchiveSidebarView: View {
             infoRow("项目数", value: "\(model.documentItemCount)")
             infoRow("文件名", value: model.documentTitle)
         } header: {
-            Label("压缩包信息", systemImage: "info.circle")
+            Label(AppLocalization().string("压缩包信息"), systemImage: "info.circle")
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel(AppLocalization().string("压缩包信息"))
+                .accessibilityIdentifier("压缩包信息")
         }
     }
 
@@ -70,7 +74,7 @@ struct ArchiveSidebarView: View {
             Button {
                 onCreate?()
             } label: {
-                Label(AppLocalization().string("新建压缩包"), systemImage: "externaldrive.badge.plus")
+                Label(AppLocalization().string("新建压缩包"), systemImage: "plus.rectangle.on.folder")
             }
             .help(AppLocalization().string("新建一个压缩包"))
 
@@ -90,9 +94,13 @@ struct ArchiveSidebarView: View {
             .disabled(!model.canExtract || model.isExtracting)
             .help(extractHelp)
         } header: {
-            Label("快捷操作", systemImage: "bolt")
+            Label(AppLocalization().string("快捷操作"), systemImage: "bolt")
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel(AppLocalization().string("快捷操作"))
+                .accessibilityIdentifier("快捷操作")
         }
     }
 
@@ -103,9 +111,10 @@ struct ArchiveSidebarView: View {
         if maxCount > 0 {
             Section {
                 if recent.isEmpty {
-                    Text("暂无最近打开的压缩包")
+                    Text(AppLocalization().string("暂无最近打开的压缩包"))
                         .font(.body)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.primary.opacity(0.72))
+                        .accessibilityIdentifier("侧栏最近打开空状态")
                 } else {
                     ForEach(recent.prefix(maxCount), id: \.self) { url in
                         Button {
@@ -125,9 +134,13 @@ struct ArchiveSidebarView: View {
                     }
                 }
             } header: {
-                Label("最近打开", systemImage: "clock")
+                Label(AppLocalization().string("最近打开"), systemImage: "clock")
                     .font(.body)
                     .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityLabel(AppLocalization().string("最近打开"))
+                    .accessibilityIdentifier("最近打开")
             }
         }
     }
@@ -136,12 +149,16 @@ struct ArchiveSidebarView: View {
         HStack {
             Text(AppLocalization().string(label))
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.primary.opacity(0.72))
             Spacer()
             Text(value)
                 .font(.body)
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(AppLocalization().string(label))
+        .accessibilityValue(value)
     }
 }

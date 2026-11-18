@@ -328,7 +328,7 @@ public actor ISOArchiveProvider: ArchiveProvider {
                 throw CancellationError()
             case .timedOut:
                 throw SevenZipProviderError.helperTimedOut
-            case .spawnFailed, .drainFailure:
+            case .spawnFailed, .drainFailure, .privateInputTooLarge, .privateInputWriteFailed:
                 throw ArchiveError.helperFailed
             }
         }

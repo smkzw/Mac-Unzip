@@ -524,7 +524,7 @@ public actor RARCreateProvider {
                 throw RARCreateProviderError.cancelled
             case .timedOut:
                 throw RARCreateProviderError.helperTimedOut
-            case .spawnFailed, .drainFailure:
+            case .spawnFailed, .drainFailure, .privateInputTooLarge, .privateInputWriteFailed:
                 throw RARCreateProviderError.helperProtocolFailure
             }
         }
