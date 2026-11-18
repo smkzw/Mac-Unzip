@@ -113,9 +113,7 @@ jobs:
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
           brew list libarchive >/dev/null 2>&1 || brew install libarchive xz zstd lz4 libb2
-          xcodegen --version
 
       - name: Prepare pinned 7zz
         working-directory: ArchiveWorkbench
@@ -124,18 +122,6 @@ jobs:
           test -x App/Binaries/7zz
           echo "MACUNZIP_PINNED_7ZZ=$PWD/App/Binaries/7zz" >> "$GITHUB_ENV"
           echo "MACUNZIP_REQUIRE_PINNED_7ZZ=1" >> "$GITHUB_ENV"
-
-      - name: Generate Xcode project
-        working-directory: ArchiveWorkbench
-        run: xcodegen generate
-
-      - name: Verify project.yml / pbxproj stay in sync
-        working-directory: ArchiveWorkbench
-        run: |
-          if ! git diff --exit-code MacUnzip.xcodeproj/project.pbxproj; then
-            echo "::error::project.yml and MacUnzip.xcodeproj are out of sync. Commit the regenerated pbxproj."
-            exit 1
-          fi
 
       - name: Build MacUnzip
         working-directory: ArchiveWorkbench
